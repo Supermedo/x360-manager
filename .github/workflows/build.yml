@@ -1,0 +1,76 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Build application
+      run: npm run build
+      
+    - name: Package application
+      run: npx electron-packager . "X360 Manager" --platform=win32 --arch=x64 --out=dist --overwrite
+      
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: x360-manager-win32-x64
+        path: dist/X360 Manager-win32-x64/
+        
+  release:
+    needs: build
+    runs-on: windows-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Build application
+      run: npm run build
+      
+    - name: Package application
+      run: npx electron-packager . "X360 Manager" --platform=win32 --arch=x64 --out=dist --overwrite
+      
+    - name: Create ZIP archive
+      run: |
+        cd dist
+        Compress-Archive -Path "X360 Manager-win32-x64" -DestinationPath "X360-Manager-${{ github.ref_name }}-win32-x64.zip"
+        
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: dist/X360-Manager-${{ github.ref_name }}-win32-x64.zip
+        generate_release_notes: true
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>App Debug - Cover Fetching</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #fff;
+        }
+        .debug-section {
+            background: #2a2a2a;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            border: 1px solid #444;
+        }
+        .log {
+            background: #000;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        button {
+            background: #007acc;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #005a9e;
+        }
+        .cover-result {
+            margin: 10px 0;
+        }
+        .cover-result img {
+            max-width: 200px;
+            max-height: 300px;
+            border: 2px solid #444;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 App Debug - Cover Fetching Analysis</h1>
+    
+    <div class="debug-section">
+        <h2>📋 localStorage Check</h2>
+        <button onclick="checkLocalStorage()">Check localStorage Values</button>
+        <div id="localStorage-log" class="log"></div>
+    </div>
+    
+    <div class="debug-section">
+        <h2>🎮 Test Cover Fetching (Same as Main App)</h2>
+        <button onclick="testMainAppLogic()">Test Main App Cover Logic</button>
+        <div id="main-app-log" class="log"></div>
+        <div id="main-app-result" class="cover-result"></div>
+    </div>
+    
+    <div class="debug-section">
+        <h2>🔧 Manual API Test</h2>
+        <button onclick="testManualAPI()">Test Manual API Call</button>
+        <div id="manual-log" class="log"></div>
+        <div id="manual-result" class="cover-result"></div>
+    </div>
+
+    <script>
+        function log(message, elementId = 'localStorage-log') {
+            const logElement = document.getElementById(elementId);
+            const timestamp = new Date().toLocaleTimeString();
+            logElement.textContent += `[${timestamp}] ${message}\n`;
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+
+        function checkLocalStorage() {
+            const logElement = document.getElementById('localStorage-log');
+            logElement.textContent = '';
+            
+            log('🔍 Checking localStorage values...');
+            
+            const rawgApiKey = localStorage.getItem('rawgApiKey');
+            const igdbClientId = localStorage.getItem('igdbApiKey');
+            const igdbAccessToken = localStorage.getItem('igdbAccessToken');
+            
+            log(`📝 rawgApiKey: ${rawgApiKey ? rawgApiKey.substring(0, 10) + '...' : 'NOT SET'}`);
+            log(`📝 igdbApiKey: ${igdbClientId ? igdbClientId.substring(0, 10) + '...' : 'NOT SET'}`);
+            log(`📝 igdbAccessToken: ${igdbAccessToken ? igdbAccessToken.substring(0, 10) + '...' : 'NOT SET'}`);
+            
+            // Set default if missing
+            if (!rawgApiKey) {
+                localStorage.setItem('rawgApiKey', 'e0dbb76130754c98a1e7648bbe45103d');
+                log('✅ Set default RAWG API key');
+            }
+        }
+
+        // Exact same logic as main app
+        async function fetchGameCover(gameName) {
+            try {
+                log(`🎯 Starting cover fetch for: ${gameName}`, 'main-app-log');
+                
+                // Clean the game name (same as main app)
+                const cleanGameName = (name) => {
+                    let cleanName = name
+                        .replace(/[\u00ae\u2122\u00a9]/g, '') // Remove ®, ™, ©
+                        .replace(/\s*\([^)]*\)/g, '') // Remove parentheses and content
+                        .replace(/\s*\[[^\]]*\]/g, '') // Remove brackets and content
+                        .replace(/[^a-zA-Z0-9\s]/g, ' ') // Replace special chars with space
+                        .replace(/\s+/g, ' '); // Replace multiple spaces with single space
+                    return cleanName.trim();
+                };
+                
+                const cleanedName = cleanGameName(gameName);
+                log(`🧹 Cleaned name: "${cleanedName}"`, 'main-app-log');
+                
+                const searchTerms = [
+                    cleanedName,
+                    cleanedName.split(' ')[0],
+                    gameName
+                ];
+                
+                log(`🔍 Search terms: ${JSON.stringify(searchTerms)}`, 'main-app-log');
+                
+                // RAWG API (same as main app)
+                const rawgApiKey = localStorage.getItem('rawgApiKey') || 'e0dbb76130754c98a1e7648bbe45103d';
+                
+                for (const searchTerm of searchTerms) {
+                    log(`🎮 Trying search term: "${searchTerm}"`, 'main-app-log');
+                    
+                    try {
+                        const apiUrl = `https://api.rawg.io/api/games?key=${rawgApiKey}&search=${encodeURIComponent(searchTerm)}&page_size=1`;
+                        log(`📡 API URL: ${apiUrl}`, 'main-app-log');
+                        
+                        const response = await fetch(apiUrl);
+                        log(`📊 Response: ${response.status} ${response.statusText}`, 'main-app-log');
+                        
+                        if (!response.ok) {
+                            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                        }
+                        
+                        const data = await response.json();
+                        log(`📦 Response data: ${JSON.stringify(data, null, 2)}`, 'main-app-log');
+                        
+                        if (data.results && data.results.length > 0) {
+                            const game = data.results[0];
+                            const coverUrl = game.background_image;
+                            
+                            if (coverUrl) {
+                                log(`✅ Found cover: ${coverUrl}`, 'main-app-log');
+                                return coverUrl;
+                            }
+                        }
+                    } catch (error) {
+                        log(`❌ Error for "${searchTerm}": ${error.message}`, 'main-app-log');
+                    }
+                }
+                
+                log('❌ No cover found from any source', 'main-app-log');
+                return null;
+                
+            } catch (error) {
+                log(`💥 Fatal error: ${error.message}`, 'main-app-log');
+                return null;
+            }
+        }
+
+        async function testMainAppLogic() {
+            const logElement = document.getElementById('main-app-log');
+            const resultElement = document.getElementById('main-app-result');
+            logElement.textContent = '';
+            resultElement.innerHTML = '';
+            
+            const gameName = 'Gears of War';
+            
+            try {
+                const coverUrl = await fetchGameCover(gameName);
+                
+                if (coverUrl) {
+                    resultElement.innerHTML = `
+                        <h3>✅ Success!</h3>
+                        <p>Cover URL: <a href="${coverUrl}" target="_blank">${coverUrl}</a></p>
+                        <img src="${coverUrl}" alt="${gameName}" onload="log('🖼️ Image loaded successfully', 'main-app-log')" onerror="log('❌ Image failed to load', 'main-app-log')">
+                    `;
+                } else {
+                    resultElement.innerHTML = '<h3>❌ No cover found</h3>';
+                }
+            } catch (error) {
+                log(`💥 Test failed: ${error.message}`, 'main-app-log');
+                resultElement.innerHTML = `<h3>❌ Test failed: ${error.message}</h3>`;
+            }
+        }
+
+        async function testManualAPI() {
+            const logElement = document.getElementById('manual-log');
+            const resultElement = document.getElementById('manual-result');
+            logElement.textContent = '';
+            resultElement.innerHTML = '';
+            
+            try {
+                const apiKey = 'e0dbb76130754c98a1e7648bbe45103d';
+                const url = `https://api.rawg.io/api/games?key=${apiKey}&search=Gears%20of%20War&page_size=1`;
+                
+                log(`📡 Testing direct API call: ${url}`, 'manual-log');
+                
+                const response = await fetch(url);
+                log(`📊 Status: ${response.status} ${response.statusText}`, 'manual-log');
+                log(`📋 Headers: ${JSON.stringify([...response.headers.entries()])}`, 'manual-log');
+                
+                const data = await response.json();
+                log(`📦 Data: ${JSON.stringify(data, null, 2)}`, 'manual-log');
+                
+                if (data.results && data.results.length > 0 && data.results[0].background_image) {
+                    const coverUrl = data.results[0].background_image;
+                    resultElement.innerHTML = `
+                        <h3>✅ Manual test success!</h3>
+                        <p>Cover: <a href="${coverUrl}" target="_blank">${coverUrl}</a></p>
+                        <img src="${coverUrl}" alt="Gears of War">
+                    `;
+                } else {
+                    resultElement.innerHTML = '<h3>❌ No cover in manual test</h3>';
+                }
+                
+            } catch (error) {
+                log(`❌ Manual test error: ${error.message}`, 'manual-log');
+                resultElement.innerHTML = `<h3>❌ Manual test failed: ${error.message}</h3>`;
+            }
+        }
+
+        // Auto-check localStorage on load
+        window.onload = function() {
+            checkLocalStorage();
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192">
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0f7b0f;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#107c10;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="centerGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#e0e0e0;stop-opacity:1" />
+    </linearGradient>
+    <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="2" dy="2" stdDeviation="3" flood-color="#000000" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+  
+  <!-- Background circle -->
+  <circle cx="96" cy="96" r="90" fill="url(#bgGradient)" stroke="#0a5d0a" stroke-width="4" filter="url(#shadow)"/>
+  
+  <!-- Xbox 360 ring design -->
+  <circle cx="96" cy="96" r="65" fill="none" stroke="#ffffff" stroke-width="5" opacity="0.8"/>
+  
+  <!-- Four quadrant arcs representing Xbox 360 ring of light -->
+  <path d="M 96 31 A 65 65 0 0 1 161 96" fill="none" stroke="#ffffff" stroke-width="8" stroke-linecap="round"/>
+  <path d="M 161 96 A 65 65 0 0 1 96 161" fill="none" stroke="#ffffff" stroke-width="8" stroke-linecap="round"/>
+  <path d="M 96 161 A 65 65 0 0 1 31 96" fill="none" stroke="#ffffff" stroke-width="8" stroke-linecap="round"/>
+  <path d="M 31 96 A 65 65 0 0 1 96 31" fill="none" stroke="#ffffff" stroke-width="8" stroke-linecap="round"/>
+  
+  <!-- Center Xbox logo inspired design -->
+  <circle cx="96" cy="96" r="22" fill="url(#centerGradient)" filter="url(#shadow)"/>
+  
+  <!-- X design in center -->
+  <path d="M 80 80 L 112 112 M 112 80 L 80 112" stroke="#107c10" stroke-width="6" stroke-linecap="round"/>
+  
+  <!-- Small decorative elements -->
+  <circle cx="96" cy="46" r="4" fill="#ffffff" opacity="0.9"/>
+  <circle cx="146" cy="96" r="4" fill="#ffffff" opacity="0.9"/>
+  <circle cx="96" cy="146" r="4" fill="#ffffff" opacity="0.9"/>
+  <circle cx="46" cy="96" r="4" fill="#ffffff" opacity="0.9"/>
+  
+  <!-- Additional ring details -->
+  <circle cx="96" cy="96" r="75" fill="none" stroke="#ffffff" stroke-width="2" opacity="0.4"/>
+  <circle cx="96" cy="96" r="55" fill="none" stroke="#ffffff" stroke-width="2" opacity="0.4"/>
+</svg>

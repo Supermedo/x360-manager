@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0f7b0f;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#107c10;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="centerGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#e0e0e0;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="ringGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#e0e0e0;stop-opacity:0.9" />
+      <stop offset="100%" style="stop-color:#ffffff;stop-opacity:1" />
+    </linearGradient>
+    <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="4" dy="4" stdDeviation="8" flood-color="#000000" flood-opacity="0.4"/>
+    </filter>
+    <filter id="innerShadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="2" dy="2" stdDeviation="4" flood-color="#000000" flood-opacity="0.2"/>
+    </filter>
+  </defs>
+  
+  <!-- Background circle -->
+  <circle cx="256" cy="256" r="240" fill="url(#bgGradient)" stroke="#0a5d0a" stroke-width="8" filter="url(#shadow)"/>
+  
+  <!-- Outer ring -->
+  <circle cx="256" cy="256" r="200" fill="none" stroke="url(#ringGradient)" stroke-width="6" opacity="0.6"/>
+  
+  <!-- Xbox 360 main ring design -->
+  <circle cx="256" cy="256" r="175" fill="none" stroke="#ffffff" stroke-width="12" opacity="0.9"/>
+  
+  <!-- Four quadrant arcs representing Xbox 360 ring of light -->
+  <path d="M 256 81 A 175 175 0 0 1 431 256" fill="none" stroke="#ffffff" stroke-width="20" stroke-linecap="round"/>
+  <path d="M 431 256 A 175 175 0 0 1 256 431" fill="none" stroke="#ffffff" stroke-width="20" stroke-linecap="round"/>
+  <path d="M 256 431 A 175 175 0 0 1 81 256" fill="none" stroke="#ffffff" stroke-width="20" stroke-linecap="round"/>
+  <path d="M 81 256 A 175 175 0 0 1 256 81" fill="none" stroke="#ffffff" stroke-width="20" stroke-linecap="round"/>
+  
+  <!-- Inner ring -->
+  <circle cx="256" cy="256" r="150" fill="none" stroke="#ffffff" stroke-width="4" opacity="0.5"/>
+  
+  <!-- Center Xbox logo inspired design -->
+  <circle cx="256" cy="256" r="60" fill="url(#centerGradient)" filter="url(#innerShadow)"/>
+  
+  <!-- X design in center -->
+  <path d="M 220 220 L 292 292 M 292 220 L 220 292" stroke="#107c10" stroke-width="16" stroke-linecap="round"/>
+  
+  <!-- Small decorative elements -->
+  <circle cx="256" cy="116" r="8" fill="#ffffff" opacity="0.9"/>
+  <circle cx="396" cy="256" r="8" fill="#ffffff" opacity="0.9"/>
+  <circle cx="256" cy="396" r="8" fill="#ffffff" opacity="0.9"/>
+  <circle cx="116" cy="256" r="8" fill="#ffffff" opacity="0.9"/>
+  
+  <!-- Additional ring details -->
+  <circle cx="256" cy="256" r="220" fill="none" stroke="#ffffff" stroke-width="3" opacity="0.3"/>
+  <circle cx="256" cy="256" r="130" fill="none" stroke="#ffffff" stroke-width="3" opacity="0.3"/>
+  
+  <!-- Corner accent dots -->
+  <circle cx="181" cy="181" r="6" fill="#ffffff" opacity="0.7"/>
+  <circle cx="331" cy="181" r="6" fill="#ffffff" opacity="0.7"/>
+  <circle cx="331" cy="331" r="6" fill="#ffffff" opacity="0.7"/>
+  <circle cx="181" cy="331" r="6" fill="#ffffff" opacity="0.7"/>
+</svg>

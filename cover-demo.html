@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cover API Demo - Gears of War</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #1a1a2e;
+            color: #e2e8f0;
+        }
+        .container {
+            background: #16213e;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .cover-img {
+            max-width: 300px;
+            height: auto;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+        .error {
+            color: #ff6b6b;
+            background: rgba(255, 107, 107, 0.1);
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .success {
+            color: #51cf66;
+            background: rgba(81, 207, 102, 0.1);
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .log {
+            background: #0f0f23;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+            margin: 10px 0;
+        }
+        button {
+            background: #8b5cf6;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #7c3aed;
+        }
+        .api-info {
+            background: rgba(139, 92, 246, 0.1);
+            border: 1px solid rgba(139, 92, 246, 0.3);
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎮 Cover API Demo - Gears of War</h1>
+    
+    <div class="container">
+        <h2>API Configuration</h2>
+        <div class="api-info">
+            <strong>RAWG API Key:</strong> e0dbb76130754c98a1e7648bbe45103d<br>
+            <strong>Test Game:</strong> Gears of War<br>
+            <strong>Purpose:</strong> Test cover fetching and identify blocking issues
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>Test Controls</h2>
+        <button onclick="testRAWGAPI()">Test RAWG API</button>
+        <button onclick="testOpenCriticAPI()">Test OpenCritic API</button>
+        <button onclick="testCORSProxy()">Test with CORS Proxy</button>
+        <button onclick="clearLog()">Clear Log</button>
+    </div>
+
+    <div class="container">
+        <h2>Results</h2>
+        <div id="results"></div>
+        <div id="cover-display"></div>
+    </div>
+
+    <div class="container">
+        <h2>Debug Log</h2>
+        <div id="log" class="log"></div>
+    </div>
+
+    <script>
+        const API_KEY = 'e0dbb76130754c98a1e7648bbe45103d';
+        const GAME_NAME = 'Gears of War';
+        
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.textContent += `[${timestamp}] ${message}\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(message);
+        }
+        
+        function showResult(message, isError = false) {
+            const resultsDiv = document.getElementById('results');
+            const className = isError ? 'error' : 'success';
+            resultsDiv.innerHTML += `<div class="${className}">${message}</div>`;
+        }
+        
+        function showCover(url, source) {
+            const coverDiv = document.getElementById('cover-display');
+            const img = document.createElement('img');
+            img.src = url;
+            img.className = 'cover-img';
+            img.alt = `${GAME_NAME} cover from ${source}`;
+            img.onload = () => {
+                log(`✅ Cover image loaded successfully from ${source}`);
+                showResult(`Cover loaded from ${source}: ${url}`);
+            };
+            img.onerror = () => {
+                log(`❌ Failed to load cover image from ${source}`);
+                showResult(`Failed to load cover from ${source}`, true);
+            };
+            
+            const container = document.createElement('div');
+            container.innerHTML = `<h3>${source} Cover:</h3>`;
+            container.appendChild(img);
+            coverDiv.appendChild(container);
+        }
+        
+        async function testRAWGAPI() {
+            log('🔍 Testing RAWG API...');
+            
+            try {
+                const url = `https://api.rawg.io/api/games?key=${API_KEY}&search=${encodeURIComponent(GAME_NAME)}&page_size=1`;
+                log(`📡 Fetching: ${url}`);
+                
+                const response = await fetch(url);
+                log(`📊 Response status: ${response.status} ${response.statusText}`);
+                log(`📋 Response headers: ${JSON.stringify([...response.headers.entries()])}`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                log(`📦 Response data: ${JSON.stringify(data, null, 2)}`);
+                
+                if (data.results && data.results.length > 0) {
+                    const game = data.results[0];
+                    const coverUrl = game.background_image;
+                    
+                    if (coverUrl) {
+                        log(`🎯 Found cover URL: ${coverUrl}`);
+                        showCover(coverUrl, 'RAWG API');
+                    } else {
+                        log('⚠️ No cover URL in response');
+                        showResult('No cover URL found in RAWG response', true);
+                    }
+                } else {
+                    log('⚠️ No games found in response');
+                    showResult('No games found for search term', true);
+                }
+                
+            } catch (error) {
+                log(`❌ RAWG API Error: ${error.message}`);
+                log(`🔍 Error details: ${error.stack}`);
+                showResult(`RAWG API Error: ${error.message}`, true);
+                
+                // Check for specific CORS error
+                if (error.message.includes('CORS') || error.message.includes('fetch')) {
+                    showResult('🚫 CORS Error Detected - This is expected in browser environment', true);
+                    log('💡 CORS errors are normal in browsers but should work in Electron app');
+                }
+            }
+        }
+        
+        async function testOpenCriticAPI() {
+            log('🔍 Testing OpenCritic API...');
+            
+            try {
+                const cleanSearchTerm = GAME_NAME.replace(/[^a-zA-Z0-9\s]/g, '').trim();
+                const url = `https://api.opencritic.com/api/game/search?criteria=${encodeURIComponent(cleanSearchTerm)}`;
+                log(`📡 Fetching: ${url}`);
+                
+                const response = await fetch(url);
+                log(`📊 Response status: ${response.status} ${response.statusText}`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                log(`📦 Response data: ${JSON.stringify(data, null, 2)}`);
+                
+                if (data && data.length > 0 && data[0].images && data[0].images.banner) {
+                    const coverUrl = data[0].images.banner.og;
+                    log(`🎯 Found cover URL: ${coverUrl}`);
+                    showCover(coverUrl, 'OpenCritic API');
+                } else {
+                    log('⚠️ No cover found in OpenCritic response');
+                    showResult('No cover found in OpenCritic response', true);
+                }
+                
+            } catch (error) {
+                log(`❌ OpenCritic API Error: ${error.message}`);
+                showResult(`OpenCritic API Error: ${error.message}`, true);
+            }
+        }
+        
+        async function testCORSProxy() {
+            log('🔍 Testing with CORS Proxy...');
+            
+            try {
+                const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
+                const targetUrl = `https://api.rawg.io/api/games?key=${API_KEY}&search=${encodeURIComponent(GAME_NAME)}&page_size=1`;
+                const url = proxyUrl + targetUrl;
+                
+                log(`📡 Fetching via proxy: ${url}`);
+                
+                const response = await fetch(url);
+                log(`📊 Response status: ${response.status} ${response.statusText}`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                log(`📦 Response data: ${JSON.stringify(data, null, 2)}`);
+                
+                if (data.results && data.results.length > 0) {
+                    const game = data.results[0];
+                    const coverUrl = game.background_image;
+                    
+                    if (coverUrl) {
+                        log(`🎯 Found cover URL via proxy: ${coverUrl}`);
+                        showCover(coverUrl, 'RAWG API (via CORS proxy)');
+                    }
+                }
+                
+            } catch (error) {
+                log(`❌ CORS Proxy Error: ${error.message}`);
+                showResult(`CORS Proxy Error: ${error.message}`, true);
+                log('💡 Note: cors-anywhere.herokuapp.com requires activation');
+            }
+        }
+        
+        function clearLog() {
+            document.getElementById('log').textContent = '';
+            document.getElementById('results').innerHTML = '';
+            document.getElementById('cover-display').innerHTML = '';
+            log('🧹 Log cleared');
+        }
+        
+        // Auto-run tests on page load
+        window.onload = function() {
+            log('🚀 Cover API Demo loaded');
+            log('🔧 Browser: ' + navigator.userAgent);
+            log('🌐 Origin: ' + window.location.origin);
+            log('📍 URL: ' + window.location.href);
+            
+            // Check if running in Electron
+            if (window.electronAPI) {
+                log('⚡ Running in Electron environment');
+                showResult('Running in Electron - CORS should not be an issue');
+            } else {
+                log('🌐 Running in browser environment');
+                showResult('Running in browser - CORS errors are expected', true);
+            }
+        };
+    </script>
+</body>
+</html>

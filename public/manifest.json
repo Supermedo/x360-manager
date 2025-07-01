@@ -1,0 +1,30 @@
+{
+  "short_name": "X360 Manager",
+  "name": "X360 Manager",
+  "description": "A modern frontend for managing and launching Xbox 360 emulator games",
+  "icons": [
+    {
+      "src": "favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    },
+    {
+      "src": "logo192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "logo512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#8b5cf6",
+  "background_color": "#0f0f23",
+  "orientation": "landscape",
+  "categories": ["games", "utilities"],
+  "lang": "en",
+  "scope": "/"
+}
