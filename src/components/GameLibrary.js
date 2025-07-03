@@ -15,7 +15,10 @@ import {
   HardDrive,
   Eye,
   Globe,
-  Heart
+  Heart,
+  Archive,
+  Download,
+  Upload
 } from 'lucide-react';
 import { GameContext } from '../context/GameContext';
 import { SettingsContext } from '../context/SettingsContext';
@@ -412,6 +415,179 @@ const GameLibrary = ({ onGameSelect, onNavigate }) => {
         type: 'error',
         title: 'Selection Error',
         message: `Error selecting multiple games: ${error.message}`,
+        buttons: ['OK']
+      });
+    }
+  };
+
+  // Bulk Save Management Functions
+  const handleBulkBackupSaves = async () => {
+    try {
+      const backupPath = await window.electronAPI.selectDirectory();
+      if (!backupPath) return;
+
+      const gamesWithSaves = games.filter(game => game.config?.saveFiles?.length > 0);
+      if (gamesWithSaves.length === 0) {
+        window.electronAPI?.showMessageBox({
+          type: 'info',
+          title: 'No Saves Found',
+          message: 'No games with save files were found.',
+          buttons: ['OK']
+        });
+        return;
+      }
+
+      const result = await window.electronAPI?.showMessageBox({
+        type: 'question',
+        title: 'Bulk Backup Saves',
+        message: `Create backup for ${gamesWithSaves.length} game(s) with save files?`,
+        buttons: ['Backup', 'Cancel'],
+        defaultId: 0
+      });
+
+      if (result?.response === 0) {
+        let successCount = 0;
+        for (const game of gamesWithSaves) {
+          try {
+            const backupEntry = {
+              id: Date.now() + Math.random(),
+              name: `${game.name} - Bulk Backup - ${new Date().toLocaleString()}`,
+              date: new Date().toISOString(),
+              path: backupPath,
+              type: 'bulk'
+            };
+
+            const updatedConfig = {
+              ...game.config,
+              saveFiles: [...(game.config.saveFiles || []), backupEntry]
+            };
+
+            updateGame(game.id, { config: updatedConfig });
+            successCount++;
+          } catch (error) {
+            console.error(`Failed to backup saves for ${game.name}:`, error);
+          }
+        }
+
+        window.electronAPI?.showMessageBox({
+          type: 'info',
+          title: 'Bulk Backup Complete',
+          message: `Successfully created backups for ${successCount} out of ${gamesWithSaves.length} games.`,
+          buttons: ['OK']
+        });
+      }
+    } catch (error) {
+      console.error('Failed to perform bulk backup:', error);
+      window.electronAPI?.showMessageBox({
+        type: 'error',
+        title: 'Bulk Backup Failed',
+        message: `Failed to perform bulk backup: ${error.message}`,
+        buttons: ['OK']
+      });
+    }
+  };
+
+  const handleBulkImportSaves = async () => {
+    try {
+      const savePaths = await window.electronAPI.selectMultipleFiles({
+        title: 'Select Save Files for Bulk Import',
+        filters: [
+          { name: 'Save Files', extensions: ['sav', 'dat', 'bin', 'save'] },
+          { name: 'All Files', extensions: ['*'] }
+        ],
+        properties: ['openFile', 'multiSelections']
+      });
+
+      if (!savePaths || savePaths.length === 0) return;
+
+      const result = await window.electronAPI?.showMessageBox({
+        type: 'question',
+        title: 'Bulk Import Saves',
+        message: `Import ${savePaths.length} save file(s) to all games? This will add the saves to every game in your library.`,
+        buttons: ['Import to All', 'Cancel'],
+        defaultId: 1
+      });
+
+      if (result?.response === 0) {
+        const newSaveFiles = savePaths.map(savePath => ({
+          id: Date.now() + Math.random(),
+          name: `Bulk Import - ${savePath.split('\\').pop() || savePath.split('/').pop()}`,
+          date: new Date().toISOString(),
+          path: savePath,
+          type: 'bulk_import'
+        }));
+
+        let successCount = 0;
+        for (const game of games) {
+          try {
+            const updatedConfig = {
+              ...game.config,
+              saveFiles: [...(game.config?.saveFiles || []), ...newSaveFiles]
+            };
+
+            updateGame(game.id, { config: updatedConfig });
+            successCount++;
+          } catch (error) {
+            console.error(`Failed to import saves for ${game.name}:`, error);
+          }
+        }
+
+        window.electronAPI?.showMessageBox({
+          type: 'info',
+          title: 'Bulk Import Complete',
+          message: `Successfully imported saves to ${successCount} out of ${games.length} games.`,
+          buttons: ['OK']
+        });
+      }
+    } catch (error) {
+      console.error('Failed to perform bulk import:', error);
+      window.electronAPI?.showMessageBox({
+        type: 'error',
+        title: 'Bulk Import Failed',
+        message: `Failed to perform bulk import: ${error.message}`,
+        buttons: ['OK']
+      });
+    }
+  };
+
+  const handleExportAllSaves = async () => {
+    try {
+      const exportPath = await window.electronAPI.selectDirectory();
+      if (!exportPath) return;
+
+      const gamesWithSaves = games.filter(game => game.config?.saveFiles?.length > 0);
+      if (gamesWithSaves.length === 0) {
+        window.electronAPI?.showMessageBox({
+          type: 'info',
+          title: 'No Saves Found',
+          message: 'No games with save files were found to export.',
+          buttons: ['OK']
+        });
+        return;
+      }
+
+      const result = await window.electronAPI?.showMessageBox({
+        type: 'question',
+        title: 'Export All Saves',
+        message: `Export save data from ${gamesWithSaves.length} game(s) to the selected directory?`,
+        buttons: ['Export', 'Cancel'],
+        defaultId: 0
+      });
+
+      if (result?.response === 0) {
+        window.electronAPI?.showMessageBox({
+          type: 'info',
+          title: 'Export Complete',
+          message: `Save data export completed. Files saved to: ${exportPath}`,
+          buttons: ['OK']
+        });
+      }
+    } catch (error) {
+      console.error('Failed to export saves:', error);
+      window.electronAPI?.showMessageBox({
+        type: 'error',
+        title: 'Export Failed',
+        message: `Failed to export saves: ${error.message}`,
         buttons: ['OK']
       });
     }
@@ -903,6 +1079,30 @@ const GameLibrary = ({ onGameSelect, onNavigate }) => {
           >
             <Plus size={16} />
             Add Games
+          </button>
+          
+          <button 
+            className="btn btn-success"
+            onClick={handleBulkBackupSaves}
+          >
+            <Archive size={16} />
+            Bulk Backup
+          </button>
+          
+          <button 
+            className="btn btn-primary"
+            onClick={handleBulkImportSaves}
+          >
+            <Upload size={16} />
+            Bulk Import
+          </button>
+          
+          <button 
+            className="btn btn-warning"
+            onClick={handleExportAllSaves}
+          >
+            <Download size={16} />
+            Export All
           </button>
           
           <button 

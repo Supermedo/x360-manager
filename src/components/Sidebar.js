@@ -58,7 +58,7 @@ const Sidebar = ({ activeView, onNavigate }) => {
           textAlign: 'center'
         }}>
           <div style={{ fontSize: '12px', color: '#94a3b8', marginBottom: '4px' }}>
-            Version 1.0.0
+            Version 1.1.0
           </div>
           <div style={{ fontSize: '10px', color: '#64748b', marginBottom: '8px' }}>
             X360 Manager

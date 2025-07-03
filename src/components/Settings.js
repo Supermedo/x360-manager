@@ -16,7 +16,10 @@ import {
   Zap,
   Globe,
   Info,
-  ExternalLink
+  ExternalLink,
+  Package,
+  Trash2,
+  AlertTriangle
 } from 'lucide-react';
 import { SettingsContext } from '../context/SettingsContext';
 import { GameContext } from '../context/GameContext';
@@ -30,6 +33,8 @@ const Settings = () => {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [activeTab, setActiveTab] = useState('general');
   const [isScanning, setIsScanning] = useState(false);
+  const [isCheckingUpdates, setIsCheckingUpdates] = useState(false);
+  const [updateStatus, setUpdateStatus] = useState(null);
 
   const handleSettingChange = (key, value) => {
     setLocalSettings(prev => ({ ...prev, [key]: value }));
@@ -70,6 +75,68 @@ const Settings = () => {
           language: 'en'
         });
         setHasUnsavedChanges(true);
+      }
+    });
+  };
+
+  const handleFactoryReset = () => {
+    window.electronAPI?.showMessageBox({
+      type: 'warning',
+      title: 'Factory Reset - Fresh Start',
+      message: 'This will permanently delete ALL data including:\n\n• All games in your library\n• All settings and configurations\n• All API keys and preferences\n• All save game backups\n• All custom emulator settings\n\nThis action cannot be undone. Are you absolutely sure?',
+      buttons: ['Cancel', 'Yes, Reset Everything'],
+      defaultId: 0
+    }).then((result) => {
+      if (result.response === 1) {
+        // Show final confirmation
+        window.electronAPI?.showMessageBox({
+          type: 'error',
+          title: 'Final Confirmation',
+          message: 'Last chance! This will erase EVERYTHING and restart the app as if it was just installed.\n\nProceed with factory reset?',
+          buttons: ['Cancel', 'Yes, Erase Everything'],
+          defaultId: 0
+        }).then((finalResult) => {
+          if (finalResult.response === 1) {
+            // Clear all localStorage data
+            localStorage.clear();
+            
+            // Clear all API keys
+            setRawgApiKey('');
+            setIgdbApiKey('');
+            setIgdbAccessToken('');
+            
+            // Reset all settings to defaults
+            resetSettings();
+            setLocalSettings({
+              emulatorPath: '',
+              gamesDirectory: '',
+              defaultResolution: 'auto',
+              defaultRenderer: 'auto',
+              defaultAudioDriver: 'auto',
+              defaultFullscreen: false,
+              autoSaveStates: true,
+              checkUpdates: true,
+              theme: 'dark',
+              language: 'en'
+            });
+            
+            // Clear games from context (if available)
+            if (window.electronAPI?.clearAllData) {
+              window.electronAPI.clearAllData();
+            }
+            
+            // Show success message and reload
+            window.electronAPI?.showMessageBox({
+              type: 'info',
+              title: 'Factory Reset Complete',
+              message: 'All data has been cleared. The application will now restart with fresh settings.',
+              buttons: ['OK']
+            }).then(() => {
+              // Reload the application
+              window.location.reload();
+            });
+          }
+        });
       }
     });
   };
@@ -135,6 +202,70 @@ const Settings = () => {
       });
     } finally {
       setIsScanning(false);
+    }
+  };
+
+  const handleCheckForUpdates = async () => {
+    setIsCheckingUpdates(true);
+    setUpdateStatus(null);
+    
+    try {
+      // Check GitHub API for latest release with proper headers
+      const response = await fetch('https://api.github.com/repos/mohammedalbarthouthi/X360-Manager/releases/latest', {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/vnd.github.v3+json',
+          'User-Agent': 'X360-Manager-App'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`GitHub API returned ${response.status}: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      
+      if (!data.tag_name) {
+        throw new Error('Invalid response from GitHub API');
+      }
+      
+      const currentVersion = '1.1.0';
+      const latestVersion = data.tag_name.replace(/^v/, '');
+      
+      if (latestVersion !== currentVersion) {
+        setUpdateStatus({
+          type: 'warning',
+          message: `New version ${latestVersion} is available! Current version: ${currentVersion}. Click "View Releases" to download.`
+        });
+      } else {
+        setUpdateStatus({
+          type: 'success',
+          message: 'You are running the latest version!'
+        });
+      }
+    } catch (error) {
+      console.error('Error checking for updates:', error);
+      
+      let errorMessage = 'Unable to check for updates. ';
+      
+      if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+        errorMessage += 'Please check your internet connection and try again.';
+      } else if (error.message.includes('CORS')) {
+        errorMessage += 'Browser security restrictions prevent automatic update checking. Please visit the GitHub releases page manually.';
+      } else if (error.message.includes('403')) {
+        errorMessage += 'GitHub API rate limit reached. Please try again later.';
+      } else if (error.message.includes('404')) {
+        errorMessage += 'Repository not found. Please check the GitHub repository manually.';
+      } else {
+        errorMessage += 'An unexpected error occurred. Please visit the GitHub releases page manually.';
+      }
+      
+      setUpdateStatus({
+        type: 'error',
+        message: errorMessage
+      });
+    } finally {
+      setIsCheckingUpdates(false);
     }
   };
 
@@ -228,6 +359,64 @@ const Settings = () => {
       
       <div className="card">
         <div className="card-header">
+          <h3 className="card-title" style={{ color: '#ef4444' }}>
+            <AlertTriangle size={24} />
+            Danger Zone
+          </h3>
+          <div className="card-subtitle" style={{ color: '#fca5a5' }}>
+            Irreversible actions that will permanently delete your data
+          </div>
+        </div>
+        
+        <div style={{ 
+          padding: '20px', 
+          background: 'rgba(239, 68, 68, 0.1)', 
+          border: '1px solid rgba(239, 68, 68, 0.3)',
+          borderRadius: '8px',
+          marginBottom: '16px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+            <Trash2 size={20} color="#ef4444" />
+            <h4 style={{ color: '#ef4444', margin: 0, fontSize: '16px' }}>Factory Reset (Fresh Start)</h4>
+          </div>
+          
+          <p style={{ color: '#fca5a5', fontSize: '14px', marginBottom: '16px', lineHeight: '1.5' }}>
+            This will completely reset X360 Manager to its initial state, as if you just installed it for the first time. 
+            All your games, settings, configurations, and data will be permanently deleted.
+          </p>
+          
+          <div style={{ marginBottom: '16px' }}>
+            <p style={{ color: '#fca5a5', fontSize: '13px', fontWeight: 'bold', marginBottom: '8px' }}>What will be deleted:</p>
+            <ul style={{ color: '#fca5a5', fontSize: '12px', marginLeft: '16px', lineHeight: '1.4' }}>
+              <li>All games in your library</li>
+              <li>All emulator settings and configurations</li>
+              <li>All API keys and service settings</li>
+              <li>All custom preferences and themes</li>
+              <li>All save game backups and data</li>
+              <li>All file paths and directory settings</li>
+            </ul>
+          </div>
+          
+          <button 
+            className="btn"
+            onClick={handleFactoryReset}
+            style={{
+              background: 'rgba(239, 68, 68, 0.2)',
+              border: '1px solid #ef4444',
+              color: '#ef4444',
+              padding: '12px 20px',
+              fontSize: '14px',
+              fontWeight: 'bold'
+            }}
+          >
+            <Trash2 size={16} />
+            Factory Reset - Delete Everything
+          </button>
+        </div>
+      </div>
+      
+      <div className="card">
+        <div className="card-header">
           <h3 className="card-title">
             <Download size={24} />
             Updates & Maintenance
@@ -257,6 +446,66 @@ const Settings = () => {
             Auto-save game states
           </label>
         </div>
+        
+        <div style={{ 
+          padding: '16px', 
+          background: 'rgba(59, 130, 246, 0.1)', 
+          border: '1px solid rgba(59, 130, 246, 0.3)',
+          borderRadius: '8px',
+          marginTop: '16px'
+        }}>
+          <h4 style={{ color: '#3b82f6', marginBottom: '12px', fontSize: '16px' }}>Application Updates</h4>
+          <p style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '16px' }}>
+            Current Version: <strong>1.1.0</strong>
+          </p>
+          
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+            <button 
+               className="btn btn-primary"
+               onClick={handleCheckForUpdates}
+               disabled={isCheckingUpdates}
+             >
+               <Download size={16} />
+               {isCheckingUpdates ? 'Checking...' : 'Check for Updates'}
+             </button>
+             
+             <button 
+               className="btn btn-secondary"
+               onClick={() => {
+                 window.electronAPI?.openExternal('https://github.com/mohammedalbarthouthi/X360-Manager/releases');
+                 setUpdateStatus({
+                   type: 'success',
+                   message: 'Opened releases page in your browser. Download the latest version if available.'
+                 });
+               }}
+             >
+               <ExternalLink size={16} />
+               View Releases
+             </button>
+             
+             <button 
+               className="btn btn-secondary"
+               onClick={() => window.electronAPI?.openExternal('https://github.com/mohammedalbarthouthi/X360-Manager')}
+             >
+               <ExternalLink size={16} />
+               GitHub Repository
+             </button>
+          </div>
+          
+          {updateStatus && (
+            <div style={{ 
+              marginTop: '12px', 
+              padding: '12px', 
+              background: updateStatus.type === 'success' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)',
+              border: `1px solid ${updateStatus.type === 'success' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(245, 158, 11, 0.3)'}`,
+              borderRadius: '6px',
+              color: updateStatus.type === 'success' ? '#10b981' : '#f59e0b',
+              fontSize: '14px'
+            }}>
+              {updateStatus.message}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -268,7 +517,7 @@ const Settings = () => {
         <div className="card-header">
           <h3 className="card-title">
             <Monitor size={24} />
-            Display Settings
+            Xenia Display Settings
           </h3>
           <div className="card-subtitle">
             Default display configuration for new games
@@ -277,18 +526,29 @@ const Settings = () => {
         
         <div className="grid grid-2">
           <div className="form-group">
-            <label className="form-label">Frame Rate Limit</label>
+            <label className="form-label">Resolution Scale</label>
             <select 
               className="form-select"
-              value={localSettings.defaultFrameLimit || 'auto'}
-              onChange={(e) => handleSettingChange('defaultFrameLimit', e.target.value)}
+              value={localSettings.defaultResolutionScale || '1x'}
+              onChange={(e) => handleSettingChange('defaultResolutionScale', e.target.value)}
+            >
+              <option value="1x">1x (Native)</option>
+              <option value="2x">2x (Double)</option>
+              <option value="3x">3x (Triple)</option>
+              <option value="auto">Auto</option>
+            </select>
+          </div>
+          
+          <div className="form-group">
+            <label className="form-label">GPU Backend</label>
+            <select 
+              className="form-select"
+              value={localSettings.defaultGpuBackend || 'auto'}
+              onChange={(e) => handleSettingChange('defaultGpuBackend', e.target.value)}
             >
               <option value="auto">Auto</option>
-              <option value="30">30 FPS</option>
-              <option value="60">60 FPS</option>
-              <option value="120">120 FPS</option>
-              <option value="144">144 FPS</option>
-              <option value="unlimited">Unlimited</option>
+              <option value="vulkan">Vulkan</option>
+              <option value="d3d12">Direct3D 12</option>
             </select>
           </div>
           
@@ -317,219 +577,42 @@ const Settings = () => {
         
         <div className="grid grid-2">
           <div className="form-group">
-            <label className="form-label">CPU Threads</label>
+            <label className="form-label">Language</label>
             <select 
               className="form-select"
-              value={localSettings.defaultCpuThreads || 'auto'}
-              onChange={(e) => handleSettingChange('defaultCpuThreads', e.target.value)}
+              value={localSettings.defaultLanguage || 'en'}
+              onChange={(e) => handleSettingChange('defaultLanguage', e.target.value)}
             >
-              <option value="auto">Auto</option>
-              <option value="1">1 Thread</option>
-              <option value="2">2 Threads</option>
-              <option value="4">4 Threads</option>
-              <option value="6">6 Threads</option>
-              <option value="8">8 Threads</option>
+              <option value="en">English</option>
+              <option value="ja">Japanese</option>
+              <option value="de">German</option>
+              <option value="fr">French</option>
+              <option value="es">Spanish</option>
+              <option value="it">Italian</option>
             </select>
           </div>
           
           <div className="form-group">
-            <label className="form-label">Memory Limit</label>
-            <select 
-              className="form-select"
-              value={localSettings.defaultMemoryLimit || 'auto'}
-              onChange={(e) => handleSettingChange('defaultMemoryLimit', e.target.value)}
-            >
-              <option value="auto">Auto</option>
-              <option value="2gb">2 GB</option>
-              <option value="4gb">4 GB</option>
-              <option value="6gb">6 GB</option>
-              <option value="8gb">8 GB</option>
-              <option value="12gb">12 GB</option>
-            </select>
-          </div>
-          
-          <div className="form-group">
-            <label className="form-label">
-              <input 
-                type="checkbox" 
-                checked={localSettings.defaultGpuAcceleration || true}
-                onChange={(e) => handleSettingChange('defaultGpuAcceleration', e.target.checked)}
-                style={{ marginRight: '8px' }}
-              />
-              Enable GPU acceleration
-            </label>
-          </div>
-          
-          <div className="form-group">
-            <label className="form-label">
-              <input 
-                type="checkbox" 
-                checked={localSettings.defaultAsyncShaderCompilation || true}
-                onChange={(e) => handleSettingChange('defaultAsyncShaderCompilation', e.target.checked)}
-                style={{ marginRight: '8px' }}
-              />
-              Async shader compilation
-            </label>
-          </div>
-          
-          <div className="form-group">
-            <label className="form-label">
-              <input 
-                type="checkbox" 
-                checked={localSettings.defaultTextureCache || true}
-                onChange={(e) => handleSettingChange('defaultTextureCache', e.target.checked)}
-                style={{ marginRight: '8px' }}
-              />
-              Enable texture cache
-            </label>
-          </div>
-        </div>
-      </div>
-
-      {/* Compatibility Settings */}
-      <div className="card">
-        <div className="card-header">
-          <h3 className="card-title">
-            <Shield size={24} />
-            Compatibility Settings
-          </h3>
-        </div>
-        
-        <div className="grid grid-2">
-          <div className="form-group">
-            <label className="form-label">Compatibility Mode</label>
-            <select 
-              className="form-select"
-              value={localSettings.defaultCompatibilityMode || 'auto'}
-              onChange={(e) => handleSettingChange('defaultCompatibilityMode', e.target.value)}
-            >
-              <option value="auto">Auto</option>
-              <option value="strict">Strict</option>
-              <option value="relaxed">Relaxed</option>
-              <option value="legacy">Legacy</option>
-            </select>
-          </div>
-          
-          <div className="form-group">
-            <label className="form-label">Kernel Version</label>
-            <select 
-              className="form-select"
-              value={localSettings.defaultKernelVersion || 'auto'}
-              onChange={(e) => handleSettingChange('defaultKernelVersion', e.target.value)}
-            >
-              <option value="auto">Auto</option>
-              <option value="2.0.17150.0">2.0.17150.0</option>
-              <option value="2.0.17349.0">2.0.17349.0</option>
-              <option value="2.0.17559.0">2.0.17559.0</option>
-            </select>
-          </div>
-          
-          <div className="form-group">
-            <label className="form-label">Region Lock</label>
-            <select 
-              className="form-select"
-              value={localSettings.defaultRegionLock || 'auto'}
-              onChange={(e) => handleSettingChange('defaultRegionLock', e.target.value)}
-            >
-              <option value="auto">Auto</option>
-              <option value="ntsc">NTSC</option>
-              <option value="pal">PAL</option>
-              <option value="japan">Japan</option>
-            </select>
-          </div>
-          
-          <div className="form-group">
-            <label className="form-label">Language Override</label>
-            <select 
-              className="form-select"
-              value={localSettings.defaultLanguageOverride || 'auto'}
-              onChange={(e) => handleSettingChange('defaultLanguageOverride', e.target.value)}
-            >
-              <option value="auto">Auto</option>
-              <option value="english">English</option>
-              <option value="japanese">Japanese</option>
-              <option value="german">German</option>
-              <option value="french">French</option>
-              <option value="spanish">Spanish</option>
-              <option value="italian">Italian</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      {/* Input Settings */}
-      <div className="card">
-        <div className="card-header">
-          <h3 className="card-title">
-            <Gamepad2 size={24} />
-            Input Settings
-          </h3>
-        </div>
-        
-        <div className="grid grid-2">
-          <div className="form-group">
-            <label className="form-label">Controller Profile</label>
-            <select 
-              className="form-select"
-              value={localSettings.defaultControllerProfile || 'default'}
-              onChange={(e) => handleSettingChange('defaultControllerProfile', e.target.value)}
-            >
-              <option value="default">Default</option>
-              <option value="xbox360">Xbox 360</option>
-              <option value="xboxone">Xbox One</option>
-              <option value="ps4">PlayStation 4</option>
-              <option value="ps5">PlayStation 5</option>
-              <option value="custom">Custom</option>
-            </select>
-          </div>
-          
-          <div className="form-group">
-            <label className="form-label">Analog Deadzone</label>
+            <label className="form-label">License Mask</label>
             <input 
-              type="range" 
-              min="0" 
-              max="100" 
-              value={localSettings.defaultDeadzone || 10}
-              onChange={(e) => handleSettingChange('defaultDeadzone', parseInt(e.target.value))}
+              type="text" 
               className="form-input"
+              value={localSettings.defaultLicenseMask || '0xFFFFFFFF'}
+              onChange={(e) => handleSettingChange('defaultLicenseMask', e.target.value)}
+              placeholder="0xFFFFFFFF"
             />
-            <div style={{ textAlign: 'center', color: '#94a3b8', fontSize: '14px', marginTop: '4px' }}>
-              {localSettings.defaultDeadzone || 10}%
-            </div>
           </div>
           
-          <div className="form-group">
-            <label className="form-label">
-              <input 
-                type="checkbox" 
-                checked={localSettings.defaultVibration || true}
-                onChange={(e) => handleSettingChange('defaultVibration', e.target.checked)}
-                style={{ marginRight: '8px' }}
-              />
-              Enable controller vibration
-            </label>
-          </div>
-          
-          <div className="form-group">
-            <label className="form-label">
-              <input 
-                type="checkbox" 
-                checked={localSettings.defaultKeyboardMouseSupport || false}
-                onChange={(e) => handleSettingChange('defaultKeyboardMouseSupport', e.target.checked)}
-                style={{ marginRight: '8px' }}
-              />
-              Keyboard & mouse support
-            </label>
-          </div>
+
         </div>
       </div>
 
-      {/* Audio Enhancement Settings */}
+      {/* Audio Settings */}
       <div className="card">
         <div className="card-header">
           <h3 className="card-title">
             <Volume2 size={24} />
-            Audio Enhancement
+            Audio Settings
           </h3>
         </div>
         
@@ -538,13 +621,12 @@ const Settings = () => {
             <label className="form-label">Audio Channels</label>
             <select 
               className="form-select"
-              value={localSettings.defaultAudioChannels || 'auto'}
+              value={localSettings.defaultAudioChannels || '2'}
               onChange={(e) => handleSettingChange('defaultAudioChannels', e.target.value)}
             >
-              <option value="auto">Auto</option>
-              <option value="stereo">Stereo (2.0)</option>
-              <option value="surround">Surround (5.1)</option>
-              <option value="surround71">Surround (7.1)</option>
+              <option value="2">Stereo (2.0)</option>
+              <option value="6">5.1 Surround</option>
+              <option value="8">7.1 Surround</option>
             </select>
           </div>
           
@@ -552,95 +634,89 @@ const Settings = () => {
             <label className="form-label">Sample Rate</label>
             <select 
               className="form-select"
-              value={localSettings.defaultSampleRate || 'auto'}
+              value={localSettings.defaultSampleRate || '48000'}
               onChange={(e) => handleSettingChange('defaultSampleRate', e.target.value)}
             >
-              <option value="auto">Auto</option>
               <option value="44100">44.1 kHz</option>
               <option value="48000">48 kHz</option>
               <option value="96000">96 kHz</option>
             </select>
           </div>
-          
-          <div className="form-group">
-            <label className="form-label">Game Volume</label>
-            <input 
-              type="range" 
-              min="0" 
-              max="100" 
-              value={localSettings.defaultGameVolume || 100}
-              onChange={(e) => handleSettingChange('defaultGameVolume', parseInt(e.target.value))}
-              className="form-input"
-            />
-            <div style={{ textAlign: 'center', color: '#94a3b8', fontSize: '14px', marginTop: '4px' }}>
-              {localSettings.defaultGameVolume || 100}%
-            </div>
-          </div>
         </div>
       </div>
 
-      {/* Debug Settings */}
+      {/* DLC and Update Management */}
       <div className="card">
         <div className="card-header">
           <h3 className="card-title">
-            <Info size={24} />
-            Debug Settings
+            <Package size={24} />
+            DLC and Update Management
           </h3>
         </div>
         
         <div className="grid grid-2">
           <div className="form-group">
+            <label className="form-label">DLC Directory</label>
+            <input 
+              type="text" 
+              className="form-input"
+              value={localSettings.defaultDlcDirectory || ''}
+              onChange={(e) => handleSettingChange('defaultDlcDirectory', e.target.value)}
+              placeholder="Path to DLC folder"
+            />
+          </div>
+          
+          <div className="form-group">
+            <label className="form-label">Update Directory</label>
+            <input 
+              type="text" 
+              className="form-input"
+              value={localSettings.defaultUpdateDirectory || ''}
+              onChange={(e) => handleSettingChange('defaultUpdateDirectory', e.target.value)}
+              placeholder="Path to updates folder"
+            />
+          </div>
+          
+          <div className="form-group">
             <label className="form-label">
               <input 
                 type="checkbox" 
-                checked={localSettings.defaultDebugMode || false}
-                onChange={(e) => handleSettingChange('defaultDebugMode', e.target.checked)}
+                checked={localSettings.defaultAutoDetectDlc || true}
+                onChange={(e) => handleSettingChange('defaultAutoDetectDlc', e.target.checked)}
                 style={{ marginRight: '8px' }}
               />
-              Enable debug mode
+              Auto-detect DLC
             </label>
           </div>
           
           <div className="form-group">
-            <label className="form-label">Log Level</label>
+            <label className="form-label">
+              <input 
+                type="checkbox" 
+                checked={localSettings.defaultAutoInstallUpdates || false}
+                onChange={(e) => handleSettingChange('defaultAutoInstallUpdates', e.target.checked)}
+                style={{ marginRight: '8px' }}
+              />
+              Auto-install updates
+            </label>
+          </div>
+          
+          <div className="form-group">
+            <label className="form-label">Install Mode</label>
             <select 
               className="form-select"
-              value={localSettings.defaultLogLevel || 'info'}
-              onChange={(e) => handleSettingChange('defaultLogLevel', e.target.value)}
+              value={localSettings.defaultInstallMode || 'prompt'}
+              onChange={(e) => handleSettingChange('defaultInstallMode', e.target.value)}
             >
-              <option value="error">Error</option>
-              <option value="warning">Warning</option>
-              <option value="info">Info</option>
-              <option value="debug">Debug</option>
-              <option value="verbose">Verbose</option>
+              <option value="prompt">Prompt before install</option>
+              <option value="auto">Auto install</option>
+              <option value="manual">Manual only</option>
             </select>
-          </div>
-          
-          <div className="form-group">
-            <label className="form-label">
-              <input 
-                type="checkbox" 
-                checked={localSettings.defaultShowFps || false}
-                onChange={(e) => handleSettingChange('defaultShowFps', e.target.checked)}
-                style={{ marginRight: '8px' }}
-              />
-              Show FPS counter
-            </label>
-          </div>
-          
-          <div className="form-group">
-            <label className="form-label">
-              <input 
-                type="checkbox" 
-                checked={localSettings.defaultShowStats || false}
-                onChange={(e) => handleSettingChange('defaultShowStats', e.target.checked)}
-                style={{ marginRight: '8px' }}
-              />
-              Show performance stats
-            </label>
           </div>
         </div>
       </div>
+
+
     </div>
   );
 
@@ -975,7 +1051,7 @@ const Settings = () => {
           </div>
           
           <h3 style={{ color: '#e2e8f0', marginBottom: '8px' }}>X360 Manager</h3>
-          <p style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '16px' }}>Version 1.0.0</p>
+          <p style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '16px' }}>Version 1.1.0</p>
           
           <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
             <button 

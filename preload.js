@@ -5,6 +5,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   selectEmulatorPath: () => ipcRenderer.invoke('select-emulator-path'),
   selectGameFile: () => ipcRenderer.invoke('select-game-file'),
   selectMultipleGameFiles: () => ipcRenderer.invoke('select-multiple-game-files'),
+  selectDlcFiles: () => ipcRenderer.invoke('select-dlc-files'),
   selectDirectory: () => ipcRenderer.invoke('select-directory'),
   scanDirectory: (directoryPath) => ipcRenderer.invoke('scan-directory', directoryPath),
   

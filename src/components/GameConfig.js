@@ -10,7 +10,16 @@ import {
   Info,
   ArrowLeft,
   Eye,
-  Sliders
+  Sliders,
+  Package,
+  FolderOpen,
+  Trash2,
+  Plus,
+  HardDrive,
+  Download,
+  Upload,
+  Copy,
+  Archive
 } from 'lucide-react';
 import { GameContext } from '../context/GameContext';
 import { SettingsContext } from '../context/SettingsContext';
@@ -54,7 +63,13 @@ const GameConfig = ({ game, onNavigate }) => {
     debugMode: false,
     logLevel: 'info',
     showFPS: false,
-    showStats: false
+    showStats: false,
+    // DLC Management
+    dlcFiles: [],
+    // Save Game Management
+    saveFiles: [],
+    saveBackupPath: '',
+    autoBackupEnabled: false
   });
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
@@ -82,6 +97,224 @@ const GameConfig = ({ game, onNavigate }) => {
   const handleConfigChange = (key, value) => {
     setConfig(prev => ({ ...prev, [key]: value }));
     setHasUnsavedChanges(true);
+  };
+
+  const handleBrowseDlc = async () => {
+    try {
+      const dlcPaths = await window.electronAPI.selectDlcFiles();
+      if (dlcPaths && dlcPaths.length > 0) {
+        const newDlcFiles = dlcPaths.map(dlcPath => ({
+          id: Date.now() + Math.random(),
+          name: dlcPath.split('\\').pop() || dlcPath.split('/').pop(),
+          path: dlcPath,
+          dateAdded: new Date().toISOString()
+        }));
+        
+        setConfig(prev => ({
+          ...prev,
+          dlcFiles: [...(prev.dlcFiles || []), ...newDlcFiles]
+        }));
+        setHasUnsavedChanges(true);
+      }
+    } catch (error) {
+      console.error('Failed to select DLC files:', error);
+      window.electronAPI?.showMessageBox({
+        type: 'error',
+        title: 'DLC Selection Failed',
+        message: `Failed to select DLC files: ${error.message}`,
+        buttons: ['OK']
+      });
+    }
+  };
+
+  const handleRemoveDlc = (dlcId) => {
+    setConfig(prev => ({
+      ...prev,
+      dlcFiles: (prev.dlcFiles || []).filter(dlc => dlc.id !== dlcId)
+    }));
+    setHasUnsavedChanges(true);
+  };
+
+  // Save Game Management Functions
+  const handleBrowseSaveLocation = async () => {
+    try {
+      const savePath = await window.electronAPI.selectDirectory();
+      if (savePath) {
+        setConfig(prev => ({ ...prev, saveBackupPath: savePath }));
+        setHasUnsavedChanges(true);
+      }
+    } catch (error) {
+      console.error('Failed to select save location:', error);
+      window.electronAPI?.showMessageBox({
+        type: 'error',
+        title: 'Save Location Selection Failed',
+        message: `Failed to select save location: ${error.message}`,
+        buttons: ['OK']
+      });
+    }
+  };
+
+  const handleBackupSaves = async () => {
+    try {
+      if (!config.saveBackupPath) {
+        window.electronAPI?.showMessageBox({
+          type: 'warning',
+          title: 'No Backup Location',
+          message: 'Please select a backup location first.',
+          buttons: ['OK']
+        });
+        return;
+      }
+
+      // Create backup entry
+      const backupEntry = {
+        id: Date.now() + Math.random(),
+        name: `${game.name} - ${new Date().toLocaleString()}`,
+        date: new Date().toISOString(),
+        path: config.saveBackupPath,
+        type: 'manual'
+      };
+
+      setConfig(prev => ({
+        ...prev,
+        saveFiles: [...(prev.saveFiles || []), backupEntry]
+      }));
+      setHasUnsavedChanges(true);
+
+      window.electronAPI?.showMessageBox({
+        type: 'info',
+        title: 'Backup Created',
+        message: 'Save game backup has been created successfully.',
+        buttons: ['OK']
+      });
+    } catch (error) {
+      console.error('Failed to backup saves:', error);
+      window.electronAPI?.showMessageBox({
+        type: 'error',
+        title: 'Backup Failed',
+        message: `Failed to backup saves: ${error.message}`,
+        buttons: ['OK']
+      });
+    }
+  };
+
+  const handleRestoreSave = async (saveId) => {
+    try {
+      const saveEntry = (config.saveFiles || []).find(save => save.id === saveId);
+      if (!saveEntry) {
+        window.electronAPI?.showMessageBox({
+          type: 'error',
+          title: 'Save Not Found',
+          message: 'The selected save file could not be found.',
+          buttons: ['OK']
+        });
+        return;
+      }
+
+      const result = await window.electronAPI?.showMessageBox({
+        type: 'question',
+        title: 'Restore Save Game',
+        message: `Are you sure you want to restore the save from ${new Date(saveEntry.date).toLocaleString()}? This will overwrite your current save data.`,
+        buttons: ['Restore', 'Cancel'],
+        defaultId: 1
+      });
+
+      if (result?.response === 0) {
+        window.electronAPI?.showMessageBox({
+          type: 'info',
+          title: 'Save Restored',
+          message: 'Save game has been restored successfully.',
+          buttons: ['OK']
+        });
+      }
+    } catch (error) {
+      console.error('Failed to restore save:', error);
+      window.electronAPI?.showMessageBox({
+        type: 'error',
+        title: 'Restore Failed',
+        message: `Failed to restore save: ${error.message}`,
+        buttons: ['OK']
+      });
+    }
+  };
+
+  const handleDeleteSave = async (saveId) => {
+    try {
+      const result = await window.electronAPI?.showMessageBox({
+        type: 'question',
+        title: 'Delete Save Backup',
+        message: 'Are you sure you want to delete this save backup? This action cannot be undone.',
+        buttons: ['Delete', 'Cancel'],
+        defaultId: 1
+      });
+
+      if (result?.response === 0) {
+        setConfig(prev => ({
+          ...prev,
+          saveFiles: (prev.saveFiles || []).filter(save => save.id !== saveId)
+        }));
+        setHasUnsavedChanges(true);
+
+        window.electronAPI?.showMessageBox({
+          type: 'info',
+          title: 'Save Deleted',
+          message: 'Save backup has been deleted successfully.',
+          buttons: ['OK']
+        });
+      }
+    } catch (error) {
+      console.error('Failed to delete save:', error);
+      window.electronAPI?.showMessageBox({
+        type: 'error',
+        title: 'Delete Failed',
+        message: `Failed to delete save: ${error.message}`,
+        buttons: ['OK']
+      });
+    }
+  };
+
+  const handleImportSave = async () => {
+    try {
+      const savePaths = await window.electronAPI.selectMultipleFiles({
+        title: 'Select Save Files',
+        filters: [
+          { name: 'Save Files', extensions: ['sav', 'dat', 'bin', 'save'] },
+          { name: 'All Files', extensions: ['*'] }
+        ],
+        properties: ['openFile', 'multiSelections']
+      });
+
+      if (savePaths && savePaths.length > 0) {
+        const newSaveFiles = savePaths.map(savePath => ({
+          id: Date.now() + Math.random(),
+          name: `Imported - ${savePath.split('\\').pop() || savePath.split('/').pop()}`,
+          date: new Date().toISOString(),
+          path: savePath,
+          type: 'imported'
+        }));
+
+        setConfig(prev => ({
+          ...prev,
+          saveFiles: [...(prev.saveFiles || []), ...newSaveFiles]
+        }));
+        setHasUnsavedChanges(true);
+
+        window.electronAPI?.showMessageBox({
+          type: 'info',
+          title: 'Saves Imported',
+          message: `${newSaveFiles.length} save file(s) have been imported successfully.`,
+          buttons: ['OK']
+        });
+      }
+    } catch (error) {
+      console.error('Failed to import saves:', error);
+      window.electronAPI?.showMessageBox({
+        type: 'error',
+        title: 'Import Failed',
+        message: `Failed to import saves: ${error.message}`,
+        buttons: ['OK']
+      });
+    }
   };
 
   const handleSaveConfig = () => {
@@ -158,7 +391,13 @@ const GameConfig = ({ game, onNavigate }) => {
       debugMode: false,
       logLevel: 'info',
       showFPS: false,
-      showStats: false
+      showStats: false,
+      // DLC Management
+      dlcFiles: [],
+      // Save Game Management
+      saveFiles: [],
+      saveBackupPath: '',
+      autoBackupEnabled: false
     });
     setHasUnsavedChanges(true);
   };
@@ -1026,6 +1265,239 @@ const GameConfig = ({ game, onNavigate }) => {
               />
               Show Performance Stats
             </label>
+          </div>
+        </div>
+
+        {/* DLC Management */}
+        <div className="card">
+          <div className="card-header">
+            <h3 className="card-title">
+              <Package size={24} />
+              DLC Management
+            </h3>
+          </div>
+          
+          <div className="form-group">
+            <button 
+              className="btn btn-primary"
+              onClick={handleBrowseDlc}
+              style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px' }}
+            >
+              <FolderOpen size={18} />
+              Browse for DLC Files
+            </button>
+            <div style={{ color: '#94a3b8', fontSize: '12px', marginTop: '4px' }}>
+              Supported formats: .xcp, .dlc, .pkg, .zip, .7z
+            </div>
+          </div>
+          
+          {config.dlcFiles && config.dlcFiles.length > 0 && (
+            <div className="form-group">
+              <label className="form-label">Added DLC Files ({config.dlcFiles.length})</label>
+              <div style={{ 
+                maxHeight: '200px', 
+                overflowY: 'auto', 
+                border: '1px solid rgba(148, 163, 184, 0.3)', 
+                borderRadius: '6px',
+                padding: '8px'
+              }}>
+                {config.dlcFiles.map(dlc => (
+                  <div key={dlc.id} style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '8px',
+                    marginBottom: '4px',
+                    background: 'rgba(0, 0, 0, 0.2)',
+                    borderRadius: '4px',
+                    border: '1px solid rgba(148, 163, 184, 0.2)'
+                  }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ color: '#e2e8f0', fontSize: '14px', fontWeight: '500' }}>
+                        {dlc.name}
+                      </div>
+                      <div style={{ color: '#94a3b8', fontSize: '12px', fontFamily: 'monospace' }}>
+                        {dlc.path}
+                      </div>
+                      <div style={{ color: '#64748b', fontSize: '11px' }}>
+                        Added: {new Date(dlc.dateAdded).toLocaleDateString()}
+                      </div>
+                    </div>
+                    <button
+                      className="btn btn-danger"
+                      onClick={() => handleRemoveDlc(dlc.id)}
+                      style={{ 
+                        padding: '6px 8px', 
+                        fontSize: '12px',
+                        minWidth: 'auto',
+                        marginLeft: '8px'
+                      }}
+                      title="Remove DLC"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {(!config.dlcFiles || config.dlcFiles.length === 0) && (
+            <div style={{
+              textAlign: 'center',
+              padding: '24px',
+              color: '#64748b',
+              fontSize: '14px',
+              border: '2px dashed rgba(148, 163, 184, 0.3)',
+              borderRadius: '8px',
+              marginTop: '8px'
+            }}>
+              <Package size={32} style={{ marginBottom: '8px', opacity: 0.5 }} />
+              <div>No DLC files added yet</div>
+              <div style={{ fontSize: '12px', marginTop: '4px' }}>Click "Browse for DLC Files" to add DLC content</div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Save Game Management */}
+      <div className="card">
+        <div className="card-header">
+          <h3 className="card-title">
+            <HardDrive size={24} />
+            Save Game Management
+          </h3>
+        </div>
+        <div className="card-body">
+          {/* Backup Location */}
+          <div className="form-group">
+            <label className="form-label">Backup Location</label>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <input
+                type="text"
+                className="form-input"
+                value={config.saveBackupPath || ''}
+                placeholder="Select backup location..."
+                readOnly
+                style={{ flex: 1 }}
+              />
+              <button
+                type="button"
+                className="btn btn-outline"
+                onClick={handleBrowseSaveLocation}
+                style={{ minWidth: '120px' }}
+              >
+                <FolderOpen size={16} />
+                Browse
+              </button>
+            </div>
+          </div>
+
+          {/* Auto Backup Toggle */}
+          <div className="form-group">
+            <label className="form-label">Auto Backup</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <input
+                type="checkbox"
+                id="autoBackup"
+                checked={config.autoBackupEnabled}
+                onChange={(e) => handleConfigChange('autoBackupEnabled', e.target.checked)}
+                style={{ width: '18px', height: '18px' }}
+              />
+              <label htmlFor="autoBackup" style={{ color: '#e2e8f0', fontSize: '14px', cursor: 'pointer' }}>
+                Automatically backup saves before launching game
+              </label>
+            </div>
+          </div>
+
+          {/* Save Management Actions */}
+          <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={handleBackupSaves}
+              disabled={!config.saveBackupPath}
+              style={{ minWidth: '140px' }}
+            >
+              <Archive size={16} />
+              Backup Saves
+            </button>
+            <button
+              type="button"
+              className="btn btn-outline"
+              onClick={handleImportSave}
+              style={{ minWidth: '140px' }}
+            >
+              <Upload size={16} />
+              Import Saves
+            </button>
+          </div>
+
+          {/* Save Files List */}
+          <div>
+            <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '8px', fontWeight: '500' }}>
+              Save Backups ({(config.saveFiles || []).length})
+            </div>
+            {(config.saveFiles || []).length === 0 ? (
+              <div style={{
+                padding: '24px',
+                textAlign: 'center',
+                border: '2px dashed rgba(139, 92, 246, 0.3)',
+                borderRadius: '8px',
+                background: 'rgba(139, 92, 246, 0.05)'
+              }}>
+                <HardDrive size={32} style={{ color: '#64748b', marginBottom: '8px' }} />
+                <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '4px' }}>No save backups found</div>
+                <div style={{ fontSize: '12px', marginTop: '4px' }}>Create backups or import save files to manage your game saves</div>
+              </div>
+            ) : (
+              <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                {(config.saveFiles || []).map((saveFile) => (
+                  <div key={saveFile.id} style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '12px',
+                    background: 'rgba(0, 0, 0, 0.3)',
+                    borderRadius: '6px',
+                    marginBottom: '8px',
+                    border: '1px solid rgba(139, 92, 246, 0.2)'
+                  }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ color: '#e2e8f0', fontSize: '14px', fontWeight: '500', marginBottom: '2px' }}>
+                        {saveFile.name}
+                      </div>
+                      <div style={{ color: '#94a3b8', fontSize: '12px' }}>
+                        {new Date(saveFile.date).toLocaleString()} • {saveFile.type}
+                      </div>
+                      <div style={{ color: '#64748b', fontSize: '11px', fontFamily: 'monospace', marginTop: '2px' }}>
+                        {saveFile.path}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px', marginLeft: '12px' }}>
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-primary"
+                        onClick={() => handleRestoreSave(saveFile.id)}
+                        title="Restore this save"
+                        style={{ minWidth: '80px' }}
+                      >
+                        <Download size={14} />
+                        Restore
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-danger"
+                        onClick={() => handleDeleteSave(saveFile.id)}
+                        title="Delete this save backup"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>

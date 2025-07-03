@@ -94,6 +94,19 @@ ipcMain.handle('select-multiple-game-files', async () => {
   return result.canceled ? null : result.filePaths;
 });
 
+ipcMain.handle('select-dlc-files', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: 'Select DLC Files',
+    filters: [
+      { name: 'DLC Files', extensions: ['xcp', 'dlc', 'pkg', 'zip', '7z'] },
+      { name: 'All Files', extensions: ['*'] }
+    ],
+    properties: ['openFile', 'multiSelections']
+  });
+  
+  return result.canceled ? null : result.filePaths;
+});
+
 ipcMain.handle('select-directory', async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
     properties: ['openDirectory']

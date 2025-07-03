@@ -1,5 +1,5 @@
 import React from 'react';
-import { Book, ExternalLink, Mail, Github, Coffee } from 'lucide-react';
+import { Book, ExternalLink, Mail, Github, Coffee, MessageCircle } from 'lucide-react';
 import { useTranslation } from '../hooks/useTranslation';
 
 const Help = () => {
@@ -116,7 +116,7 @@ const Help = () => {
             <h3>About X360 Manager</h3>
             <div className="about-content">
               <div className="about-info">
-                <p><strong>Version:</strong> 1.0.0</p>
+                <p><strong>Version:</strong> 1.1.0</p>
                 <p><strong>Developer:</strong> Mohammed Albarghouthi</p>
                 <p><strong>License:</strong> MIT</p>
               </div>
@@ -139,6 +139,10 @@ const Help = () => {
                 <a href="https://github.com/mohammedalbarthouthi" target="_blank" rel="noopener noreferrer" className="contact-link">
                   <Github size={16} />
                   <span>GitHub Profile</span>
+                </a>
+                <a href="https://discord.gg/XWNVcxATb3" target="_blank" rel="noopener noreferrer" className="contact-link">
+                  <MessageCircle size={16} />
+                  <span>Discord Community</span>
                 </a>
                 </div>
               </div>
