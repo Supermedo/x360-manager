@@ -136,7 +136,7 @@ const Help = () => {
                   <Mail size={16} />
                   <span>Email Support</span>
                 </a>
-                <a href="https://github.com/mohammedalbarthouthi" target="_blank" rel="noopener noreferrer" className="contact-link">
+                <a href="https://github.com/Supermedo" target="_blank" rel="noopener noreferrer" className="contact-link">
                   <Github size={16} />
                   <span>GitHub Profile</span>
                 </a>

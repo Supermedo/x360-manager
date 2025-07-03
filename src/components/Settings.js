@@ -211,7 +211,7 @@ const Settings = () => {
     
     try {
       // Check GitHub API for latest release with proper headers
-      const response = await fetch('https://api.github.com/repos/mohammedalbarthouthi/X360-Manager/releases/latest', {
+      const response = await fetch('https://api.github.com/repos/Supermedo/x360-manager/releases/latest', {
         method: 'GET',
         headers: {
           'Accept': 'application/vnd.github.v3+json',
@@ -472,7 +472,7 @@ const Settings = () => {
              <button 
                className="btn btn-secondary"
                onClick={() => {
-                 window.electronAPI?.openExternal('https://github.com/mohammedalbarthouthi/X360-Manager/releases');
+                 window.electronAPI?.openExternal('https://github.com/Supermedo/x360-manager/releases');
                  setUpdateStatus({
                    type: 'success',
                    message: 'Opened releases page in your browser. Download the latest version if available.'
@@ -485,7 +485,7 @@ const Settings = () => {
              
              <button 
                className="btn btn-secondary"
-               onClick={() => window.electronAPI?.openExternal('https://github.com/mohammedalbarthouthi/X360-Manager')}
+               onClick={() => window.electronAPI?.openExternal('https://github.com/Supermedo/x360-manager')}
              >
                <ExternalLink size={16} />
                GitHub Repository
