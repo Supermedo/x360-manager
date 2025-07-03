@@ -29,7 +29,32 @@ const GameConfig = ({ game, onNavigate }) => {
     frameLimit: 'auto',
     audioLatency: 'auto',
     controllerProfile: 'default',
-    customArgs: ''
+    customArgs: '',
+    // Performance Settings
+    cpuThreads: 'auto',
+    memoryLimit: 'auto',
+    gpuAcceleration: true,
+    asyncShaderCompilation: true,
+    textureCache: true,
+    // Compatibility Settings
+    compatibilityMode: 'auto',
+    kernelVersion: 'auto',
+    regionLock: 'auto',
+    languageOverride: 'auto',
+    // Input Settings
+    inputDeadzone: '0.2',
+    vibrationEnabled: true,
+    keyboardSupport: false,
+    mouseSupport: false,
+    // Audio Enhancement
+    audioChannels: 'auto',
+    audioSampleRate: 'auto',
+    audioVolume: '100',
+    // Debug Settings
+    debugMode: false,
+    logLevel: 'info',
+    showFPS: false,
+    showStats: false
   });
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
@@ -108,7 +133,32 @@ const GameConfig = ({ game, onNavigate }) => {
       frameLimit: 'auto',
       audioLatency: 'auto',
       controllerProfile: 'default',
-      customArgs: ''
+      customArgs: '',
+      // Performance Settings
+      cpuThreads: 'auto',
+      memoryLimit: 'auto',
+      gpuAcceleration: true,
+      asyncShaderCompilation: true,
+      textureCache: true,
+      // Compatibility Settings
+      compatibilityMode: 'auto',
+      kernelVersion: 'auto',
+      regionLock: 'auto',
+      languageOverride: 'auto',
+      // Input Settings
+      inputDeadzone: '0.2',
+      vibrationEnabled: true,
+      keyboardSupport: false,
+      mouseSupport: false,
+      // Audio Enhancement
+      audioChannels: 'auto',
+      audioSampleRate: 'auto',
+      audioVolume: '100',
+      // Debug Settings
+      debugMode: false,
+      logLevel: 'info',
+      showFPS: false,
+      showStats: false
     });
     setHasUnsavedChanges(true);
   };
@@ -242,6 +292,97 @@ const GameConfig = ({ game, onNavigate }) => {
     { value: 'low', label: 'Low (32ms)' },
     { value: 'medium', label: 'Medium (64ms)' },
     { value: 'high', label: 'High (128ms)' }
+  ];
+
+  // Performance Options
+  const cpuThreadsOptions = [
+    { value: 'auto', label: 'Auto' },
+    { value: '1', label: '1 Thread' },
+    { value: '2', label: '2 Threads' },
+    { value: '4', label: '4 Threads' },
+    { value: '6', label: '6 Threads' },
+    { value: '8', label: '8 Threads' },
+    { value: '12', label: '12 Threads' },
+    { value: '16', label: '16 Threads' }
+  ];
+
+  const memoryLimitOptions = [
+    { value: 'auto', label: 'Auto' },
+    { value: '2gb', label: '2 GB' },
+    { value: '4gb', label: '4 GB' },
+    { value: '6gb', label: '6 GB' },
+    { value: '8gb', label: '8 GB' },
+    { value: '12gb', label: '12 GB' },
+    { value: '16gb', label: '16 GB' }
+  ];
+
+  // Compatibility Options
+  const compatibilityModeOptions = [
+    { value: 'auto', label: 'Auto' },
+    { value: 'strict', label: 'Strict' },
+    { value: 'relaxed', label: 'Relaxed' },
+    { value: 'legacy', label: 'Legacy' }
+  ];
+
+  const kernelVersionOptions = [
+    { value: 'auto', label: 'Auto' },
+    { value: '2.0.17559.0', label: '2.0.17559.0' },
+    { value: '2.0.17150.0', label: '2.0.17150.0' },
+    { value: '2.0.16537.0', label: '2.0.16537.0' }
+  ];
+
+  const regionLockOptions = [
+    { value: 'auto', label: 'Auto' },
+    { value: 'ntsc', label: 'NTSC (US/Japan)' },
+    { value: 'pal', label: 'PAL (Europe)' },
+    { value: 'disabled', label: 'Disabled' }
+  ];
+
+  const languageOptions = [
+    { value: 'auto', label: 'Auto' },
+    { value: 'en', label: 'English' },
+    { value: 'ja', label: 'Japanese' },
+    { value: 'de', label: 'German' },
+    { value: 'fr', label: 'French' },
+    { value: 'es', label: 'Spanish' },
+    { value: 'it', label: 'Italian' },
+    { value: 'ko', label: 'Korean' },
+    { value: 'zh', label: 'Chinese' }
+  ];
+
+  // Audio Enhancement Options
+  const audioChannelsOptions = [
+    { value: 'auto', label: 'Auto' },
+    { value: 'mono', label: 'Mono' },
+    { value: 'stereo', label: 'Stereo' },
+    { value: '5.1', label: '5.1 Surround' },
+    { value: '7.1', label: '7.1 Surround' }
+  ];
+
+  const audioSampleRateOptions = [
+    { value: 'auto', label: 'Auto' },
+    { value: '44100', label: '44.1 kHz' },
+    { value: '48000', label: '48 kHz' },
+    { value: '96000', label: '96 kHz' },
+    { value: '192000', label: '192 kHz' }
+  ];
+
+  // Debug Options
+  const logLevelOptions = [
+    { value: 'error', label: 'Error Only' },
+    { value: 'warning', label: 'Warning' },
+    { value: 'info', label: 'Info' },
+    { value: 'debug', label: 'Debug' },
+    { value: 'verbose', label: 'Verbose' }
+  ];
+
+  const controllerProfileOptions = [
+    { value: 'default', label: 'Default' },
+    { value: 'xbox', label: 'Xbox Controller' },
+    { value: 'xbox_elite', label: 'Xbox Elite Controller' },
+    { value: 'playstation', label: 'PlayStation Controller' },
+    { value: 'nintendo_pro', label: 'Nintendo Pro Controller' },
+    { value: 'custom', label: 'Custom Profile' }
   ];
 
   if (!game) {
@@ -566,10 +707,9 @@ const GameConfig = ({ game, onNavigate }) => {
               value={config.controllerProfile}
               onChange={(e) => handleConfigChange('controllerProfile', e.target.value)}
             >
-              <option value="default">Default</option>
-              <option value="xbox">Xbox Controller</option>
-              <option value="playstation">PlayStation Controller</option>
-              <option value="custom">Custom</option>
+              {controllerProfileOptions.map(option => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
             </select>
           </div>
           
@@ -585,6 +725,307 @@ const GameConfig = ({ game, onNavigate }) => {
             <div style={{ color: '#94a3b8', fontSize: '12px', marginTop: '4px' }}>
               Advanced users only. These arguments will be passed directly to the emulator.
             </div>
+          </div>
+        </div>
+
+        {/* Performance Settings */}
+        <div className="card">
+          <div className="card-header">
+            <h3 className="card-title">
+              <Monitor size={24} />
+              Performance Settings
+            </h3>
+          </div>
+          
+          <div className="form-group">
+            <label className="form-label">CPU Threads</label>
+            <select 
+              className="form-select"
+              value={config.cpuThreads}
+              onChange={(e) => handleConfigChange('cpuThreads', e.target.value)}
+            >
+              {cpuThreadsOptions.map(option => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </div>
+          
+          <div className="form-group">
+            <label className="form-label">Memory Limit</label>
+            <select 
+              className="form-select"
+              value={config.memoryLimit}
+              onChange={(e) => handleConfigChange('memoryLimit', e.target.value)}
+            >
+              {memoryLimitOptions.map(option => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </div>
+          
+          <div className="form-group">
+            <label className="form-label">
+              <input 
+                type="checkbox" 
+                checked={config.gpuAcceleration}
+                onChange={(e) => handleConfigChange('gpuAcceleration', e.target.checked)}
+                style={{ marginRight: '8px' }}
+              />
+              GPU Acceleration
+            </label>
+          </div>
+          
+          <div className="form-group">
+            <label className="form-label">
+              <input 
+                type="checkbox" 
+                checked={config.asyncShaderCompilation}
+                onChange={(e) => handleConfigChange('asyncShaderCompilation', e.target.checked)}
+                style={{ marginRight: '8px' }}
+              />
+              Async Shader Compilation
+            </label>
+          </div>
+          
+          <div className="form-group">
+            <label className="form-label">
+              <input 
+                type="checkbox" 
+                checked={config.textureCache}
+                onChange={(e) => handleConfigChange('textureCache', e.target.checked)}
+                style={{ marginRight: '8px' }}
+              />
+              Texture Cache
+            </label>
+          </div>
+        </div>
+
+        {/* Compatibility Settings */}
+        <div className="card">
+          <div className="card-header">
+            <h3 className="card-title">
+              <Settings size={24} />
+              Compatibility Settings
+            </h3>
+          </div>
+          
+          <div className="form-group">
+            <label className="form-label">Compatibility Mode</label>
+            <select 
+              className="form-select"
+              value={config.compatibilityMode}
+              onChange={(e) => handleConfigChange('compatibilityMode', e.target.value)}
+            >
+              {compatibilityModeOptions.map(option => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </div>
+          
+          <div className="form-group">
+            <label className="form-label">Kernel Version</label>
+            <select 
+              className="form-select"
+              value={config.kernelVersion}
+              onChange={(e) => handleConfigChange('kernelVersion', e.target.value)}
+            >
+              {kernelVersionOptions.map(option => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </div>
+          
+          <div className="form-group">
+            <label className="form-label">Region Lock</label>
+            <select 
+              className="form-select"
+              value={config.regionLock}
+              onChange={(e) => handleConfigChange('regionLock', e.target.value)}
+            >
+              {regionLockOptions.map(option => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </div>
+          
+          <div className="form-group">
+            <label className="form-label">Language Override</label>
+            <select 
+              className="form-select"
+              value={config.languageOverride}
+              onChange={(e) => handleConfigChange('languageOverride', e.target.value)}
+            >
+              {languageOptions.map(option => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Input Settings */}
+        <div className="card">
+          <div className="card-header">
+            <h3 className="card-title">
+              <Gamepad2 size={24} />
+              Input Settings
+            </h3>
+          </div>
+          
+          <div className="form-group">
+            <label className="form-label">Input Deadzone: {config.inputDeadzone}</label>
+            <input 
+              type="range" 
+              className="form-range"
+              min="0"
+              max="1"
+              step="0.1"
+              value={config.inputDeadzone}
+              onChange={(e) => handleConfigChange('inputDeadzone', e.target.value)}
+            />
+          </div>
+          
+          <div className="form-group">
+            <label className="form-label">
+              <input 
+                type="checkbox" 
+                checked={config.vibrationEnabled}
+                onChange={(e) => handleConfigChange('vibrationEnabled', e.target.checked)}
+                style={{ marginRight: '8px' }}
+              />
+              Controller Vibration
+            </label>
+          </div>
+          
+          <div className="form-group">
+            <label className="form-label">
+              <input 
+                type="checkbox" 
+                checked={config.keyboardSupport}
+                onChange={(e) => handleConfigChange('keyboardSupport', e.target.checked)}
+                style={{ marginRight: '8px' }}
+              />
+              Keyboard Support
+            </label>
+          </div>
+          
+          <div className="form-group">
+            <label className="form-label">
+              <input 
+                type="checkbox" 
+                checked={config.mouseSupport}
+                onChange={(e) => handleConfigChange('mouseSupport', e.target.checked)}
+                style={{ marginRight: '8px' }}
+              />
+              Mouse Support
+            </label>
+          </div>
+        </div>
+
+        {/* Audio Enhancement */}
+        <div className="card">
+          <div className="card-header">
+            <h3 className="card-title">
+              <Volume2 size={24} />
+              Audio Enhancement
+            </h3>
+          </div>
+          
+          <div className="form-group">
+            <label className="form-label">Audio Channels</label>
+            <select 
+              className="form-select"
+              value={config.audioChannels}
+              onChange={(e) => handleConfigChange('audioChannels', e.target.value)}
+            >
+              {audioChannelsOptions.map(option => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </div>
+          
+          <div className="form-group">
+            <label className="form-label">Sample Rate</label>
+            <select 
+              className="form-select"
+              value={config.audioSampleRate}
+              onChange={(e) => handleConfigChange('audioSampleRate', e.target.value)}
+            >
+              {audioSampleRateOptions.map(option => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </div>
+          
+          <div className="form-group">
+            <label className="form-label">Audio Volume: {config.audioVolume}%</label>
+            <input 
+              type="range" 
+              className="form-range"
+              min="0"
+              max="200"
+              step="5"
+              value={config.audioVolume}
+              onChange={(e) => handleConfigChange('audioVolume', e.target.value)}
+            />
+          </div>
+        </div>
+
+        {/* Debug Settings */}
+        <div className="card">
+          <div className="card-header">
+            <h3 className="card-title">
+              <Info size={24} />
+              Debug Settings
+            </h3>
+          </div>
+          
+          <div className="form-group">
+            <label className="form-label">
+              <input 
+                type="checkbox" 
+                checked={config.debugMode}
+                onChange={(e) => handleConfigChange('debugMode', e.target.checked)}
+                style={{ marginRight: '8px' }}
+              />
+              Debug Mode
+            </label>
+          </div>
+          
+          <div className="form-group">
+            <label className="form-label">Log Level</label>
+            <select 
+              className="form-select"
+              value={config.logLevel}
+              onChange={(e) => handleConfigChange('logLevel', e.target.value)}
+            >
+              {logLevelOptions.map(option => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </div>
+          
+          <div className="form-group">
+            <label className="form-label">
+              <input 
+                type="checkbox" 
+                checked={config.showFPS}
+                onChange={(e) => handleConfigChange('showFPS', e.target.checked)}
+                style={{ marginRight: '8px' }}
+              />
+              Show FPS Counter
+            </label>
+          </div>
+          
+          <div className="form-group">
+            <label className="form-label">
+              <input 
+                type="checkbox" 
+                checked={config.showStats}
+                onChange={(e) => handleConfigChange('showStats', e.target.checked)}
+                style={{ marginRight: '8px' }}
+              />
+              Show Performance Stats
+            </label>
           </div>
         </div>
       </div>

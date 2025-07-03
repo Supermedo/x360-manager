@@ -30,7 +30,10 @@
     "electron": "electron .",
     "electron-dev": "set ELECTRON_IS_DEV=true && electron .",
     "electron-build": "electron-builder",
-    "dist": "npm run build && electron-builder"
+    "dist": "npm run build && electron-builder",
+    "build-portable": "npm run build && electron-builder --win --dir --publish=never",
+     "build-setup": "npm run build-portable && node scripts/create-setup.js",
+    "build-all": "npm run build && electron-builder --win --mac --linux --publish=never"
   },
   "eslintConfig": {
     "extends": [
@@ -51,29 +54,78 @@
     ]
   },
   "build": {
-    "appId": "com.xeina.emulator-manager",
-    "productName": "Xeina Emulator Manager",
+    "appId": "com.x360manager.app",
+    "productName": "X360 Manager",
     "directories": {
-      "output": "dist",
+      "output": "dist-setup",
       "buildResources": "build"
     },
     "files": [
       "build/**/*",
       "node_modules/**/*",
       "electron.js",
-      "preload.js"
+      "preload.js",
+      "!node_modules/.cache",
+      "!**/*.{iml,o,hprof,orig,pyc,pyo,rbc,swp,csproj,sln,xproj}",
+      "!.editorconfig",
+      "!**/._*",
+      "!**/{.DS_Store,.git,.hg,.svn,CVS,RCS,SCCS,.gitignore,.gitattributes}",
+      "!**/{__pycache__,thumbs.db,.flowconfig,.idea,.vs,.nyc_output}",
+      "!**/{appveyor.yml,.travis.yml,circle.yml}",
+      "!**/{npm-debug.log,yarn.lock,.yarn-integrity,.yarn-metadata.json}"
     ],
     "extraMetadata": {
       "main": "electron.js"
     },
-    "mac": {
-      "category": "public.app-category.games"
+    "compression": "maximum",
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "X360 Manager",
+      "deleteAppDataOnUninstall": false,
+      "runAfterFinish": true,
+      "menuCategory": "Games",
+      "displayLanguageSelector": false,
+      "language": "en",
+      "warningsAsErrors": false
     },
     "win": {
-      "target": "nsis"
+        "target": {
+          "target": "nsis",
+          "arch": ["x64"]
+        },
+        "icon": "public/logo512.svg",
+        "publisherName": "X360 Team",
+        "requestedExecutionLevel": "asInvoker",
+        "artifactName": "X360-Manager-Setup-${version}.${ext}",
+        "sign": null,
+        "verifyUpdateCodeSignature": false
+      },
+    "mac": {
+       "category": "public.app-category.games",
+       "icon": "public/logo512.svg",
+      "target": {
+        "target": "dmg",
+        "arch": ["x64", "arm64"]
+      }
     },
     "linux": {
-      "target": "AppImage"
-    }
+       "target": {
+         "target": "AppImage",
+         "arch": ["x64"]
+       },
+       "icon": "public/logo512.svg",
+      "category": "Game"
+    },
+    "fileAssociations": [
+      {
+        "ext": "iso",
+        "name": "Xbox 360 Game Image",
+        "description": "Xbox 360 Game ISO File",
+        "role": "Editor"
+      }
+    ]
   }
 }

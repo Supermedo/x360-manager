@@ -16,7 +16,35 @@ const defaultSettings = {
   defaultVsync: true,
   defaultAntialiasing: 'auto',
   defaultTextureFiltering: 'auto',
+  defaultFrameLimit: 'auto',
   defaultAudioLatency: 'auto',
+  defaultControllerProfile: 'default',
+  defaultCustomArgs: '',
+  // Performance Settings
+  defaultCpuThreads: 'auto',
+  defaultMemoryLimit: 'auto',
+  defaultGpuAcceleration: true,
+  defaultAsyncShaderCompilation: true,
+  defaultTextureCache: true,
+  // Compatibility Settings
+  defaultCompatibilityMode: 'auto',
+  defaultKernelVersion: 'auto',
+  defaultRegionLock: 'auto',
+  defaultLanguageOverride: 'auto',
+  // Input Settings
+  defaultInputDeadzone: '0.2',
+  defaultVibrationEnabled: true,
+  defaultKeyboardSupport: false,
+  defaultMouseSupport: false,
+  // Audio Enhancement
+  defaultAudioChannels: 'auto',
+  defaultAudioSampleRate: 'auto',
+  defaultAudioVolume: '100',
+  // Debug Settings
+  defaultDebugMode: false,
+  defaultLogLevel: 'info',
+  defaultShowFPSCounter: false,
+  defaultShowStats: false,
   
   // Interface settings
   theme: 'dark',
@@ -141,7 +169,35 @@ export const SettingsProvider = ({ children }) => {
       vsync: settings.defaultVsync,
       antialiasing: settings.defaultAntialiasing,
       textureFiltering: settings.defaultTextureFiltering,
-      audioLatency: settings.defaultAudioLatency
+      frameLimit: settings.defaultFrameLimit,
+      audioLatency: settings.defaultAudioLatency,
+      controllerProfile: settings.defaultControllerProfile,
+      customArgs: settings.defaultCustomArgs,
+      // Performance Settings
+      cpuThreads: settings.defaultCpuThreads,
+      memoryLimit: settings.defaultMemoryLimit,
+      gpuAcceleration: settings.defaultGpuAcceleration,
+      asyncShaderCompilation: settings.defaultAsyncShaderCompilation,
+      textureCache: settings.defaultTextureCache,
+      // Compatibility Settings
+      compatibilityMode: settings.defaultCompatibilityMode,
+      kernelVersion: settings.defaultKernelVersion,
+      regionLock: settings.defaultRegionLock,
+      languageOverride: settings.defaultLanguageOverride,
+      // Input Settings
+      inputDeadzone: settings.defaultInputDeadzone,
+      vibrationEnabled: settings.defaultVibrationEnabled,
+      keyboardSupport: settings.defaultKeyboardSupport,
+      mouseSupport: settings.defaultMouseSupport,
+      // Audio Enhancement
+      audioChannels: settings.defaultAudioChannels,
+      audioSampleRate: settings.defaultAudioSampleRate,
+      audioVolume: settings.defaultAudioVolume,
+      // Debug Settings
+      debugMode: settings.defaultDebugMode,
+      logLevel: settings.defaultLogLevel,
+      showFPS: settings.defaultShowFPSCounter,
+      showStats: settings.defaultShowStats
     };
   };
 

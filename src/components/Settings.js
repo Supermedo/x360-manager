@@ -141,6 +141,7 @@ const Settings = () => {
   const tabs = [
     { id: 'general', label: 'General', icon: SettingsIcon },
     { id: 'emulator', label: 'Emulator', icon: Zap },
+    { id: 'gamedefaults', label: 'Game Defaults', icon: Gamepad2 },
     { id: 'graphics', label: 'Graphics', icon: Monitor },
     { id: 'audio', label: 'Audio', icon: Volume2 },
     { id: 'interface', label: 'Interface', icon: Palette },
@@ -260,15 +261,398 @@ const Settings = () => {
     </div>
   );
 
+  const renderGameDefaultsTab = () => (
+    <div className="grid" style={{ gap: '24px' }}>
+      {/* Display Settings */}
+      <div className="card">
+        <div className="card-header">
+          <h3 className="card-title">
+            <Monitor size={24} />
+            Display Settings
+          </h3>
+          <div className="card-subtitle">
+            Default display configuration for new games
+          </div>
+        </div>
+        
+        <div className="grid grid-2">
+          <div className="form-group">
+            <label className="form-label">Frame Rate Limit</label>
+            <select 
+              className="form-select"
+              value={localSettings.defaultFrameLimit || 'auto'}
+              onChange={(e) => handleSettingChange('defaultFrameLimit', e.target.value)}
+            >
+              <option value="auto">Auto</option>
+              <option value="30">30 FPS</option>
+              <option value="60">60 FPS</option>
+              <option value="120">120 FPS</option>
+              <option value="144">144 FPS</option>
+              <option value="unlimited">Unlimited</option>
+            </select>
+          </div>
+          
+          <div className="form-group">
+            <label className="form-label">
+              <input 
+                type="checkbox" 
+                checked={localSettings.defaultVsync || false}
+                onChange={(e) => handleSettingChange('defaultVsync', e.target.checked)}
+                style={{ marginRight: '8px' }}
+              />
+              Enable VSync by default
+            </label>
+          </div>
+        </div>
+      </div>
+
+      {/* Performance Settings */}
+      <div className="card">
+        <div className="card-header">
+          <h3 className="card-title">
+            <Cpu size={24} />
+            Performance Settings
+          </h3>
+        </div>
+        
+        <div className="grid grid-2">
+          <div className="form-group">
+            <label className="form-label">CPU Threads</label>
+            <select 
+              className="form-select"
+              value={localSettings.defaultCpuThreads || 'auto'}
+              onChange={(e) => handleSettingChange('defaultCpuThreads', e.target.value)}
+            >
+              <option value="auto">Auto</option>
+              <option value="1">1 Thread</option>
+              <option value="2">2 Threads</option>
+              <option value="4">4 Threads</option>
+              <option value="6">6 Threads</option>
+              <option value="8">8 Threads</option>
+            </select>
+          </div>
+          
+          <div className="form-group">
+            <label className="form-label">Memory Limit</label>
+            <select 
+              className="form-select"
+              value={localSettings.defaultMemoryLimit || 'auto'}
+              onChange={(e) => handleSettingChange('defaultMemoryLimit', e.target.value)}
+            >
+              <option value="auto">Auto</option>
+              <option value="2gb">2 GB</option>
+              <option value="4gb">4 GB</option>
+              <option value="6gb">6 GB</option>
+              <option value="8gb">8 GB</option>
+              <option value="12gb">12 GB</option>
+            </select>
+          </div>
+          
+          <div className="form-group">
+            <label className="form-label">
+              <input 
+                type="checkbox" 
+                checked={localSettings.defaultGpuAcceleration || true}
+                onChange={(e) => handleSettingChange('defaultGpuAcceleration', e.target.checked)}
+                style={{ marginRight: '8px' }}
+              />
+              Enable GPU acceleration
+            </label>
+          </div>
+          
+          <div className="form-group">
+            <label className="form-label">
+              <input 
+                type="checkbox" 
+                checked={localSettings.defaultAsyncShaderCompilation || true}
+                onChange={(e) => handleSettingChange('defaultAsyncShaderCompilation', e.target.checked)}
+                style={{ marginRight: '8px' }}
+              />
+              Async shader compilation
+            </label>
+          </div>
+          
+          <div className="form-group">
+            <label className="form-label">
+              <input 
+                type="checkbox" 
+                checked={localSettings.defaultTextureCache || true}
+                onChange={(e) => handleSettingChange('defaultTextureCache', e.target.checked)}
+                style={{ marginRight: '8px' }}
+              />
+              Enable texture cache
+            </label>
+          </div>
+        </div>
+      </div>
+
+      {/* Compatibility Settings */}
+      <div className="card">
+        <div className="card-header">
+          <h3 className="card-title">
+            <Shield size={24} />
+            Compatibility Settings
+          </h3>
+        </div>
+        
+        <div className="grid grid-2">
+          <div className="form-group">
+            <label className="form-label">Compatibility Mode</label>
+            <select 
+              className="form-select"
+              value={localSettings.defaultCompatibilityMode || 'auto'}
+              onChange={(e) => handleSettingChange('defaultCompatibilityMode', e.target.value)}
+            >
+              <option value="auto">Auto</option>
+              <option value="strict">Strict</option>
+              <option value="relaxed">Relaxed</option>
+              <option value="legacy">Legacy</option>
+            </select>
+          </div>
+          
+          <div className="form-group">
+            <label className="form-label">Kernel Version</label>
+            <select 
+              className="form-select"
+              value={localSettings.defaultKernelVersion || 'auto'}
+              onChange={(e) => handleSettingChange('defaultKernelVersion', e.target.value)}
+            >
+              <option value="auto">Auto</option>
+              <option value="2.0.17150.0">2.0.17150.0</option>
+              <option value="2.0.17349.0">2.0.17349.0</option>
+              <option value="2.0.17559.0">2.0.17559.0</option>
+            </select>
+          </div>
+          
+          <div className="form-group">
+            <label className="form-label">Region Lock</label>
+            <select 
+              className="form-select"
+              value={localSettings.defaultRegionLock || 'auto'}
+              onChange={(e) => handleSettingChange('defaultRegionLock', e.target.value)}
+            >
+              <option value="auto">Auto</option>
+              <option value="ntsc">NTSC</option>
+              <option value="pal">PAL</option>
+              <option value="japan">Japan</option>
+            </select>
+          </div>
+          
+          <div className="form-group">
+            <label className="form-label">Language Override</label>
+            <select 
+              className="form-select"
+              value={localSettings.defaultLanguageOverride || 'auto'}
+              onChange={(e) => handleSettingChange('defaultLanguageOverride', e.target.value)}
+            >
+              <option value="auto">Auto</option>
+              <option value="english">English</option>
+              <option value="japanese">Japanese</option>
+              <option value="german">German</option>
+              <option value="french">French</option>
+              <option value="spanish">Spanish</option>
+              <option value="italian">Italian</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Input Settings */}
+      <div className="card">
+        <div className="card-header">
+          <h3 className="card-title">
+            <Gamepad2 size={24} />
+            Input Settings
+          </h3>
+        </div>
+        
+        <div className="grid grid-2">
+          <div className="form-group">
+            <label className="form-label">Controller Profile</label>
+            <select 
+              className="form-select"
+              value={localSettings.defaultControllerProfile || 'default'}
+              onChange={(e) => handleSettingChange('defaultControllerProfile', e.target.value)}
+            >
+              <option value="default">Default</option>
+              <option value="xbox360">Xbox 360</option>
+              <option value="xboxone">Xbox One</option>
+              <option value="ps4">PlayStation 4</option>
+              <option value="ps5">PlayStation 5</option>
+              <option value="custom">Custom</option>
+            </select>
+          </div>
+          
+          <div className="form-group">
+            <label className="form-label">Analog Deadzone</label>
+            <input 
+              type="range" 
+              min="0" 
+              max="100" 
+              value={localSettings.defaultDeadzone || 10}
+              onChange={(e) => handleSettingChange('defaultDeadzone', parseInt(e.target.value))}
+              className="form-input"
+            />
+            <div style={{ textAlign: 'center', color: '#94a3b8', fontSize: '14px', marginTop: '4px' }}>
+              {localSettings.defaultDeadzone || 10}%
+            </div>
+          </div>
+          
+          <div className="form-group">
+            <label className="form-label">
+              <input 
+                type="checkbox" 
+                checked={localSettings.defaultVibration || true}
+                onChange={(e) => handleSettingChange('defaultVibration', e.target.checked)}
+                style={{ marginRight: '8px' }}
+              />
+              Enable controller vibration
+            </label>
+          </div>
+          
+          <div className="form-group">
+            <label className="form-label">
+              <input 
+                type="checkbox" 
+                checked={localSettings.defaultKeyboardMouseSupport || false}
+                onChange={(e) => handleSettingChange('defaultKeyboardMouseSupport', e.target.checked)}
+                style={{ marginRight: '8px' }}
+              />
+              Keyboard & mouse support
+            </label>
+          </div>
+        </div>
+      </div>
+
+      {/* Audio Enhancement Settings */}
+      <div className="card">
+        <div className="card-header">
+          <h3 className="card-title">
+            <Volume2 size={24} />
+            Audio Enhancement
+          </h3>
+        </div>
+        
+        <div className="grid grid-2">
+          <div className="form-group">
+            <label className="form-label">Audio Channels</label>
+            <select 
+              className="form-select"
+              value={localSettings.defaultAudioChannels || 'auto'}
+              onChange={(e) => handleSettingChange('defaultAudioChannels', e.target.value)}
+            >
+              <option value="auto">Auto</option>
+              <option value="stereo">Stereo (2.0)</option>
+              <option value="surround">Surround (5.1)</option>
+              <option value="surround71">Surround (7.1)</option>
+            </select>
+          </div>
+          
+          <div className="form-group">
+            <label className="form-label">Sample Rate</label>
+            <select 
+              className="form-select"
+              value={localSettings.defaultSampleRate || 'auto'}
+              onChange={(e) => handleSettingChange('defaultSampleRate', e.target.value)}
+            >
+              <option value="auto">Auto</option>
+              <option value="44100">44.1 kHz</option>
+              <option value="48000">48 kHz</option>
+              <option value="96000">96 kHz</option>
+            </select>
+          </div>
+          
+          <div className="form-group">
+            <label className="form-label">Game Volume</label>
+            <input 
+              type="range" 
+              min="0" 
+              max="100" 
+              value={localSettings.defaultGameVolume || 100}
+              onChange={(e) => handleSettingChange('defaultGameVolume', parseInt(e.target.value))}
+              className="form-input"
+            />
+            <div style={{ textAlign: 'center', color: '#94a3b8', fontSize: '14px', marginTop: '4px' }}>
+              {localSettings.defaultGameVolume || 100}%
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Debug Settings */}
+      <div className="card">
+        <div className="card-header">
+          <h3 className="card-title">
+            <Info size={24} />
+            Debug Settings
+          </h3>
+        </div>
+        
+        <div className="grid grid-2">
+          <div className="form-group">
+            <label className="form-label">
+              <input 
+                type="checkbox" 
+                checked={localSettings.defaultDebugMode || false}
+                onChange={(e) => handleSettingChange('defaultDebugMode', e.target.checked)}
+                style={{ marginRight: '8px' }}
+              />
+              Enable debug mode
+            </label>
+          </div>
+          
+          <div className="form-group">
+            <label className="form-label">Log Level</label>
+            <select 
+              className="form-select"
+              value={localSettings.defaultLogLevel || 'info'}
+              onChange={(e) => handleSettingChange('defaultLogLevel', e.target.value)}
+            >
+              <option value="error">Error</option>
+              <option value="warning">Warning</option>
+              <option value="info">Info</option>
+              <option value="debug">Debug</option>
+              <option value="verbose">Verbose</option>
+            </select>
+          </div>
+          
+          <div className="form-group">
+            <label className="form-label">
+              <input 
+                type="checkbox" 
+                checked={localSettings.defaultShowFps || false}
+                onChange={(e) => handleSettingChange('defaultShowFps', e.target.checked)}
+                style={{ marginRight: '8px' }}
+              />
+              Show FPS counter
+            </label>
+          </div>
+          
+          <div className="form-group">
+            <label className="form-label">
+              <input 
+                type="checkbox" 
+                checked={localSettings.defaultShowStats || false}
+                onChange={(e) => handleSettingChange('defaultShowStats', e.target.checked)}
+                style={{ marginRight: '8px' }}
+              />
+              Show performance stats
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   const renderEmulatorTab = () => (
     <div className="card">
       <div className="card-header">
         <h3 className="card-title">
           <Zap size={24} />
-          Default Emulator Settings
+          Emulator Configuration
         </h3>
         <div className="card-subtitle">
-          These settings will be used as defaults for new games
+          Basic emulator setup and configuration
         </div>
       </div>
       
@@ -783,6 +1167,7 @@ const Settings = () => {
     switch (activeTab) {
       case 'general': return renderGeneralTab();
       case 'emulator': return renderEmulatorTab();
+      case 'gamedefaults': return renderGameDefaultsTab();
       case 'graphics': return renderGraphicsTab();
       case 'audio': return renderAudioTab();
       case 'interface': return renderInterfaceTab();
