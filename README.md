@@ -245,6 +245,13 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **Important**: This application is for managing legally owned Xbox 360 games with the Xenia emulator. Please ensure you have the legal right to use any emulator and game files.
 
+## Photos 
+![image](https://github.com/user-attachments/assets/e31d7e59-1886-44d2-a60c-76f78508262c)
+![image](https://github.com/user-attachments/assets/5067523e-721b-4b04-97c0-3be5f86042a8)
+![image](https://github.com/user-attachments/assets/350e165d-36ff-4824-94fc-8c0557bdc388)
+![image](https://github.com/user-attachments/assets/8d47ccfb-2998-48c6-8644-aa99576539e8)
+
+
 ## 🤝 Contributing
 
 Contributions are welcome! If you'd like to contribute:
