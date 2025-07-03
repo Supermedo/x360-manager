@@ -51,6 +51,13 @@ X360 Manager is a **comprehensive game management solution** built with modern w
 - **File System Integration** - Native file/folder selection dialogs
 - **Xenia Integration** - Optimized for Xenia emulator with enhanced error handling
 
+## 📸 Screenshots
+
+![Dashboard](https://github.com/user-attachments/assets/e31d7e59-1886-44d2-a60c-76f78508262c)
+![Game Library](https://github.com/user-attachments/assets/5067523e-721b-4b04-97c0-3be5f86042a8)
+![Game Configuration](https://github.com/user-attachments/assets/350e165d-36ff-4824-94fc-8c0557bdc388)
+![Settings](https://github.com/user-attachments/assets/8d47ccfb-2998-48c6-8644-aa99576539e8)
+
 ## 📦 Download & Installation
 
 ### 🎯 Quick Start (Recommended)
@@ -493,6 +500,7 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 ### ⚖️ **Legal Notice**
 > **Important**: X360 Manager is designed for managing **legally owned Xbox 360 games** with the Xenia emulator. Users must ensure they have the legal right to use any emulator and game files. This software does not include, distribute, or facilitate piracy of copyrighted content.
 
+
 ## 🤝 Contributing
 
 We welcome contributions from the community! Here's how you can help:
@@ -563,6 +571,7 @@ Thanks to the Xbox 360 preservation community and all users who help test and im
 
 ---
 
+<<<<<<< HEAD
 <div align="center">
 
 ## 🎮 **Ready to Transform Your Xbox 360 Gaming Experience?**
@@ -574,3 +583,6 @@ Thanks to the Xbox 360 preservation community and all users who help test and im
 *Built with ❤️ for the gaming community*
 
 </div>
+=======
+**Enjoy your Xbox 360 gaming experience with X360 Manager!** 🎮✨
+>>>>>>> 1d88432c0b0ceb92e12b826cc59c69c72441355c
