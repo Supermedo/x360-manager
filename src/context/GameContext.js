@@ -5,6 +5,8 @@ export const GameContext = createContext();
 export const GameProvider = ({ children }) => {
   const [games, setGames] = useState([]);
   const [recentGames, setRecentGames] = useState([]);
+  const [xbox360DB, setXbox360DB] = useState([]);
+  const [isDbLoaded, setIsDbLoaded] = useState(false);
 
   // Load games from localStorage on component mount
   useEffect(() => {
@@ -24,6 +26,27 @@ export const GameProvider = ({ children }) => {
         console.error('Error loading games from localStorage:', error);
       }
     }
+  }, []);
+
+  // Load Xbox 360 Database from shared GitHub resource
+  useEffect(() => {
+    const loadXbox360DB = async () => {
+      try {
+        console.log('Fetching shared Xbox 360 Database...');
+        const response = await fetch('https://xenia-manager.github.io/x360db/games.json');
+        if (response.ok) {
+          const data = await response.json();
+          setXbox360DB(data);
+          setIsDbLoaded(true);
+          console.log(`Xbox 360 DB loaded: ${data.length} games`);
+        } else {
+          console.warn('Failed to fetch Xbox 360 DB:', response.status);
+        }
+      } catch (err) {
+        console.warn('Xbox 360 DB fetch error:', err);
+      }
+    };
+    loadXbox360DB();
   }, []);
 
   // Save games to localStorage whenever games array changes
@@ -238,7 +261,10 @@ export const GameProvider = ({ children }) => {
     scanGamesDirectory,
     toggleFavorite,
     getFavoriteGames,
-    batchUpdateGames
+    getFavoriteGames,
+    batchUpdateGames,
+    xbox360DB,
+    isDbLoaded
   };
 
   return (

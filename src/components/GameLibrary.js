@@ -215,7 +215,7 @@ const GameListItem = React.memo(({ game, onLaunch, onToggleFavorite, onConfigure
   </div>
 ));
 const GameLibrary = ({ onGameSelect, onNavigate }) => {
-  const { games, addGame, batchAddGames, removeGame, updateGame, batchUpdateGames, scanGamesDirectory, toggleFavorite } = useContext(GameContext);
+  const { games, addGame, batchAddGames, removeGame, updateGame, batchUpdateGames, scanGamesDirectory, toggleFavorite, xbox360DB, isDbLoaded } = useContext(GameContext);
   const { settings } = useContext(SettingsContext);
   const [isScanning, setIsScanning] = useState(false);
   const [viewMode, setViewMode] = useState('grid');
@@ -238,31 +238,7 @@ const GameLibrary = ({ onGameSelect, onNavigate }) => {
     cover: ''
   });
 
-  // Xbox 360 Database from Xenia Manager (official Xbox Marketplace covers for every X360 game)
-  const xbox360DB = React.useRef(null);
-  const [dbLoaded, setDbLoaded] = React.useState(false);
-
-  React.useEffect(() => {
-    // Load console-specific Xbox 360 database (from Xenia Manager's open database)
-    const loadXbox360DB = async () => {
-      try {
-        console.log('Loading Xbox 360 Database from Xenia Manager...');
-        const response = await fetch('https://xenia-manager.github.io/x360db/games.json');
-        if (response.ok) {
-          const data = await response.json();
-          xbox360DB.current = data;
-          setDbLoaded(true);
-          console.log(`Xbox 360 Database loaded successfully: ${data.length} games`);
-        } else {
-          console.warn('Failed to load Xbox 360 Database:', response.status);
-        }
-      } catch (err) {
-        console.warn('Xbox 360 Database load error:', err);
-      }
-    };
-    loadXbox360DB();
-
-  }, []);
+  // Database is now handled in GameContext
 
   // Load saved card size from localStorage
   React.useEffect(() => {
@@ -299,25 +275,35 @@ const GameLibrary = ({ onGameSelect, onNavigate }) => {
       }
     });
 
-  const cleanGameName = (fileName) => {
-    // Remove file extension
-    let cleanName = fileName.replace(/\.[^/.]+$/, '');
+  const cleanGameName = (name) => {
+    if (!name) return '';
+    // Preserve common sequels like "2", "3" but remove technical tags
+    return name
+      .replace(/\.[^/.]+$/, '') // Remove extension
+      .replace(/\[.*?\]/g, '') // Remove [Region/tags]
+      .replace(/\(.*?\)/g, '') // Remove (Year/tags)
+      .replace(/[_-]/g, ' ') // Replace underscore/dash
+      .replace(/ (Disc|Disk|DVD) \d+/gi, '') // Remove Disc 1/2
+      .replace(/\s+/g, ' ') // Collapse spaces
+      .trim();
+  };
 
-    // Remove common patterns like [Region], (Version), etc.
-    cleanName = cleanName.replace(/\[.*?\]/g, ''); // Remove [USA], [PAL], etc.
-    cleanName = cleanName.replace(/\(.*?\)/g, ''); // Remove (v1.0), (Disc 1), etc.
-    cleanName = cleanName.replace(/[-_]/g, ' '); // Replace dashes and underscores with spaces
-    cleanName = cleanName.replace(/\s+/g, ' '); // Replace multiple spaces with single space
-    cleanName = cleanName.trim();
+  const getFuzzyMatch = (db, searchTerm) => {
+    if (!db || !searchTerm) return null;
+    const normalizedSearch = searchTerm.toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (!normalizedSearch) return null;
 
-    // Remove common suffixes
-    const suffixes = ['XBLA', 'GOD', 'ISO', 'XEX', 'Arcade'];
-    suffixes.forEach(suffix => {
-      const regex = new RegExp(`\\b${suffix}\\b`, 'gi');
-      cleanName = cleanName.replace(regex, '');
+    // 1. Exact normalized match
+    let match = db.find(g => g.title.toLowerCase().replace(/[^a-z0-9]/g, '') === normalizedSearch);
+    if (match) return match;
+
+    // 2. Starts with / Substring
+    match = db.find(g => {
+      const dbTitle = g.title.toLowerCase().replace(/[^a-z0-9]/g, '');
+      return dbTitle.length > 3 && (dbTitle.includes(normalizedSearch) || normalizedSearch.includes(dbTitle));
     });
 
-    return cleanName.trim();
+    return match;
   };
 
   // Rate limiting for cover fetching
@@ -327,52 +313,69 @@ const GameLibrary = ({ onGameSelect, onNavigate }) => {
   const fetchGameDetails = async (gameName, titleId = null) => {
     try {
       const cleanedName = cleanGameName(gameName);
-      console.log(`Scraping for: "${cleanedName}" (podpod account)`);
+      console.log(`Deep Scraping: "${cleanedName}" (ID: ${titleId || 'None'})`);
 
-      // 1. ScreenScraper.fr (Primary - Now robustly handled in backend)
-      if (window.electronAPI?.scrapeScreenScraper) {
-        const ssData = await window.electronAPI.scrapeScreenScraper({ gameName, titleId });
-        if (ssData && ssData.reponse && ssData.reponse.jeu) {
-          const jeu = ssData.reponse.jeu;
-          const medias = jeu.medias || [];
+      let results = {
+        coverUrl: null,
+        description: `Xbox 360 game: ${cleanedName}`,
+        genre: 'Xbox 360'
+      };
 
-          // Selection logic: Preferred professional 2D covers
-          const boxArt = medias.find(m => m.type === 'box-2D' && m.parent === 'Principale') ||
-            medias.find(m => m.type === 'box-2D') ||
-            medias.find(m => m.type.includes('box')) ||
-            medias[0];
-
-          if (boxArt && boxArt.url) {
-            console.log(`Success! ScreenScraper found: ${jeu.noms?.[0]?.nom || cleanedName}`);
-            return {
-              coverUrl: boxArt.url,
-              description: jeu.synopsis?.find(s => s.langue === 'en')?.texte || jeu.synopsis?.[0]?.texte || `Xbox 360 game: ${cleanedName}`,
-              genre: jeu.genres?.[0]?.nom || 'Xbox 360'
-            };
-          }
-        }
-      }
-
-      // 2. Fallback: Xbox 360 DB Cache
-      if (xbox360DB.current && xbox360DB.current.length > 0) {
+      // 1. PRIMARY: Xbox 360 DB (Best for official art)
+      if (xbox360DB && xbox360DB.length > 0) {
         let match = null;
         if (titleId) {
-          match = xbox360DB.current.find(g => g.id === titleId || (g.alternative_id && g.alternative_id.includes(titleId)));
+          const searchTitleId = titleId.toUpperCase();
+          match = xbox360DB.find(g =>
+            (g.id && g.id.toUpperCase() === searchTitleId) ||
+            (g.alternative_id && g.alternative_id.some(altId => altId.toUpperCase() === searchTitleId))
+          );
         }
+
         if (!match) {
-          const normalizedSearch = cleanedName.toLowerCase().replace(/[^a-z0-9]/g, '');
-          match = xbox360DB.current.find(g => g.title.toLowerCase().replace(/[^a-z0-9]/g, '') === normalizedSearch);
+          match = getFuzzyMatch(xbox360DB, cleanedName);
         }
+
         if (match && match.boxart) {
+          console.log(`Success (Xbox DB): ${match.title}`);
           return {
-            coverUrl: match.boxart.replace('http://', 'https://'),
+            coverUrl: match.boxart,
             description: `Xbox 360: ${match.title}`,
             genre: 'Xbox 360'
           };
         }
       }
 
-      // 3. Last Resort: Steam
+      // 2. FALLBACK A: ScreenScraper.fr (The "God Tier" Database)
+      // We try ScreenScraper before Steam because it's console-specific and more likely to have exact matches
+      if (window.electronAPI?.scrapeScreenScraper) {
+        console.log(`Falling back to ScreenScraper: ${gameName}`);
+        try {
+          // Use original filename and TitleId for best hashing/matching in SS
+          const ssData = await window.electronAPI.scrapeScreenScraper({ gameName, titleId });
+          if (ssData && ssData.reponse && ssData.reponse.jeu) {
+            const jeu = ssData.reponse.jeu;
+            const medias = jeu.medias || [];
+            const boxArt = medias.find(m => m.type === 'box-2D' && m.parent === 'Principale') ||
+              medias.find(m => m.type === 'box-2D') ||
+              medias.find(m => m.type.includes('box')) ||
+              medias[0];
+
+            if (boxArt && boxArt.url) {
+              console.log(`Success (ScreenScraper): ${jeu.noms?.[0]?.nom || cleanedName}`);
+              return {
+                coverUrl: boxArt.url,
+                description: jeu.synopsis?.find(s => s.langue === 'en')?.texte || jeu.synopsis?.[0]?.texte || results.description,
+                genre: jeu.genres?.[0]?.nom || results.genre
+              };
+            }
+          }
+        } catch (e) {
+          console.warn('ScreenScraper fetch failed:', e);
+        }
+      }
+
+      // 3. FALLBACK B: Steam (Good for cross-gen)
       try {
         const steamSearchUrl = `https://store.steampowered.com/api/storesearch/?term=${encodeURIComponent(cleanedName)}&l=english&cc=US`;
         const response = await fetch(steamSearchUrl);
@@ -380,6 +383,7 @@ const GameLibrary = ({ onGameSelect, onNavigate }) => {
           const data = await response.json();
           const items = data.items || data.results || [];
           if (items.length > 0) {
+            console.log(`Success (Steam): ${items[0].name}`);
             return {
               coverUrl: `https://cdn.akamai.steamstatic.com/steam/apps/${items[0].id}/library_600x900_2x.jpg`,
               description: `Steam: ${items[0].name}`,
@@ -391,7 +395,7 @@ const GameLibrary = ({ onGameSelect, onNavigate }) => {
 
       return null;
     } catch (error) {
-      console.error('Unified Scraper error:', error);
+      console.error('Scraper crash:', error);
       return null;
     }
   };

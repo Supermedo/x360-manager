@@ -114,33 +114,67 @@ const Dashboard = ({ onNavigate }) => {
   );
 
   const RecentGameCard = ({ game }) => {
-    const { updateGame, removeGame } = useContext(GameContext);
+    const { updateGame, removeGame, xbox360DB } = useContext(GameContext);
     const { settings } = useContext(SettingsContext);
     const [coverFetched, setCoverFetched] = React.useState(!!game.coverUrl);
 
-    // Auto-fetch cover if missing
     React.useEffect(() => {
       const fetchCover = async () => {
-        if (!game.coverUrl && !coverFetched) {
-          setCoverFetched(true);
+        // Wait for both game data and database to be ready before primary search
+        if (!game.coverUrl && !coverFetched && xbox360DB && xbox360DB.length > 0) {
           try {
-            console.log(`Fetching dashboard cover (ScreenScraper API): ${game.name}`);
+            const cleanName = (n) => n.replace(/\.[^/.]+$/, '').replace(/\[.*?\]/g, '').replace(/\(.*?\)/g, '').replace(/[_-]/g, ' ').replace(/ (Disc|Disk|DVD) \d+/gi, '').replace(/\s+/g, ' ').trim();
+            const cleanedName = cleanName(game.name);
+            console.log(`Auto-scraping cover: "${game.name}"`);
 
-            if (window.electronAPI?.scrapeScreenScraper) {
-              const filename = game.path ? (game.path.split(/[\\/]/).pop()) : game.name;
-              const ssData = await window.electronAPI.scrapeScreenScraper({ gameName: filename, titleId: game.titleId });
-              if (ssData && ssData.reponse && ssData.reponse.jeu) {
-                const medias = ssData.reponse.jeu.medias || [];
-                const boxArt = medias.find(m => m.type === 'box-2D' || m.type === 'box-3D') || medias[0];
-                if (boxArt && boxArt.url) {
-                  updateGame(game.id, { coverUrl: boxArt.url });
-                  return;
-                }
+            // 1. PRIMARY: Xbox 360 DB (Fuzzy)
+            let match = null;
+            if (game.titleId) {
+              const searchTitleId = game.titleId.toUpperCase();
+              match = xbox360DB.find(g =>
+                (g.id && g.id.toUpperCase() === searchTitleId) ||
+                (g.alternative_id && g.alternative_id.some(altId => altId.toUpperCase() === searchTitleId))
+              );
+            }
+            if (!match) {
+              const normalizedSearch = cleanedName.toLowerCase().replace(/[^a-z0-9]/g, '');
+              match = xbox360DB.find(g => g.title.toLowerCase().replace(/[^a-z0-9]/g, '') === normalizedSearch);
+              if (!match) {
+                match = xbox360DB.find(g => {
+                  const dbTitle = g.title.toLowerCase().replace(/[^a-z0-9]/g, '');
+                  return dbTitle.length > 3 && (dbTitle.includes(normalizedSearch) || normalizedSearch.includes(dbTitle));
+                });
               }
             }
 
-            // Fallback to Steam
-            const steamSearchUrl = `https://store.steampowered.com/api/storesearch/?term=${encodeURIComponent(game.name)}&l=english&cc=US`;
+            if (match && match.boxart) {
+              updateGame(game.id, { coverUrl: match.boxart });
+              setCoverFetched(true);
+              return;
+            }
+
+            // 2. FALLBACK A: ScreenScraper (The "God Tier" Database)
+            if (window.electronAPI?.scrapeScreenScraper) {
+              const filename = game.path ? (game.path.split(/[\\/]/).pop()) : game.name;
+              try {
+                const ssData = await window.electronAPI.scrapeScreenScraper({ gameName: filename, titleId: game.titleId });
+                if (ssData && ssData.reponse && ssData.reponse.jeu) {
+                  const medias = ssData.reponse.jeu.medias || [];
+                  const boxArt = medias.find(m => m.type === 'box-2D' && m.parent === 'Principale') ||
+                    medias.find(m => m.type === 'box-2D') ||
+                    medias.find(m => m.type.includes('box')) ||
+                    medias[0];
+                  if (boxArt && boxArt.url) {
+                    updateGame(game.id, { coverUrl: boxArt.url });
+                    setCoverFetched(true);
+                    return;
+                  }
+                }
+              } catch (e) { }
+            }
+
+            // 3. FALLBACK B: Steam
+            const steamSearchUrl = `https://store.steampowered.com/api/storesearch/?term=${encodeURIComponent(cleanedName)}&l=english&cc=US`;
             const response = await fetch(steamSearchUrl);
             if (response.ok) {
               const data = await response.json();
@@ -149,8 +183,13 @@ const Dashboard = ({ onNavigate }) => {
                 const appId = items[0].id;
                 const coverUrl = `https://cdn.akamai.steamstatic.com/steam/apps/${appId}/library_600x900_2x.jpg`;
                 updateGame(game.id, { coverUrl });
+                setCoverFetched(true);
+                return;
               }
             }
+
+            // Mark as fetched even if nothing found to prevent infinite retries
+            setCoverFetched(true);
           } catch (error) {
             console.error('Error fetching dashboard cover:', error);
           }
@@ -158,7 +197,7 @@ const Dashboard = ({ onNavigate }) => {
       };
 
       fetchCover();
-    }, [game.id, game.name, game.coverUrl, coverFetched, updateGame]);
+    }, [game.id, game.name, game.coverUrl, coverFetched, xbox360DB, updateGame]);
 
 
 
