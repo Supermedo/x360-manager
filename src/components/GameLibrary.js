@@ -1,12 +1,12 @@
-import React, { useState, useContext } from 'react';
-import { 
-  Plus, 
-  Search, 
-  Filter, 
-  Grid, 
-  List, 
-  Play, 
-  Settings, 
+import React, { useState, useContext, useCallback, useMemo } from 'react';
+import {
+  Plus,
+  Search,
+  Filter,
+  Grid,
+  List,
+  Play,
+  Settings,
   Trash2,
   FolderOpen,
   Gamepad2,
@@ -18,13 +18,204 @@ import {
   Heart,
   Archive,
   Download,
-  Upload
+  RefreshCw,
+  MonitorUp,
+  FilePlus,
+  Zap,
+  ImageIcon
 } from 'lucide-react';
 import { GameContext } from '../context/GameContext';
 import { SettingsContext } from '../context/SettingsContext';
+import GamePatchesModal from './GamePatchesModal';
 
+// Memoized sub-components moved outside to prevent re-definition and flashing
+const GameCard = React.memo(({ game, cardSize = 180, onLaunch, onContextMenu, onToggleFavorite, onConfigure }) => {
+  const [isLaunching, setIsLaunching] = React.useState(false);
+
+  // Dimensions: Modern 2:3 aspect ratio vertical posters
+  const coverWidth = cardSize;
+  const coverHeight = cardSize * 1.5;
+
+  return (
+    <div
+      className="game-card vertical-poster"
+      style={{
+        width: `${coverWidth}px`,
+        height: `${coverHeight}px`,
+      }}
+      onClick={async (e) => {
+        if (isLaunching) return;
+        setIsLaunching(true);
+        try {
+          await onLaunch(game);
+        } finally {
+          setIsLaunching(false);
+        }
+      }}
+      onContextMenu={(e) => onContextMenu(e, game)}>
+
+      {/* Cover Graphic taking full space */}
+      <div className="game-cover-full">
+        {game.coverUrl ? (
+          <img
+            key={game.coverUrl}
+            src={game.coverUrl}
+            alt={game.name}
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              display: 'block'
+            }}
+            onError={(e) => {
+              e.target.style.display = 'none';
+            }}
+          />
+        ) : (
+          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Gamepad2 size={40} opacity={0.6} />
+          </div>
+        )}
+        {/* Overlay gradient over the image */}
+        <div className="card-overlay-gradient"></div>
+      </div>
+
+      {/* Hover Action Buttons Overlay */}
+      <div className="card-hover-actions">
+        {isLaunching ? (
+          <div className="launching-spinner"></div>
+        ) : (
+          <Play fill="white" size={48} className="play-icon-overlay" />
+        )}
+        <div className="hover-buttons-row">
+          <button
+            className="btn-icon"
+            onClick={(e) => {
+              e.preventDefault(); e.stopPropagation(); onToggleFavorite(game.id);
+            }}
+            title={game.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+          >
+            <Heart size={18} fill={game.isFavorite ? '#fbbf24' : 'none'} color={game.isFavorite ? '#fbbf24' : 'white'} />
+          </button>
+          <button
+            className="btn-icon"
+            onClick={(e) => {
+              e.preventDefault(); e.stopPropagation(); onConfigure(game);
+            }}
+            title="Configure game"
+          >
+            <Settings size={18} color="white" />
+          </button>
+          <button
+            className="btn-icon danger-icon"
+            onClick={(e) => {
+              e.preventDefault(); e.stopPropagation();
+              // This is a bit tricky as removeGame is not passed here directly, 
+              // but we can handle it via the context menu or pass another prop
+              onContextMenu(e, game); // Show context menu as alternative for delete in card
+            }}
+            title="Options"
+          >
+            <Settings size={18} color="white" />
+          </button>
+        </div>
+      </div>
+
+      {/* Text info sliding up from the bottom */}
+      <div className="game-info">
+        <div className="game-title">
+          {game.name}
+        </div>
+        <div className="game-meta">
+          <div className="game-meta-row">
+            <span>{game.genre !== 'Unknown' ? game.genre : 'Local Game'}</span>
+            {game.rating > 0 && (
+              <span className="game-rating">
+                <Star size={10} color="#fbbf24" fill="#fbbf24" />
+                <span>{game.rating}</span>
+              </span>
+            )}
+          </div>
+          {game.timesPlayed > 0 && (
+            <div className="game-meta-playtime">
+              Played {game.timesPlayed} times
+            </div>
+          )}
+        </div>
+      </div>
+
+    </div>
+  );
+});
+
+const GameListItem = React.memo(({ game, onLaunch, onToggleFavorite, onConfigure, onRemove }) => (
+  <div className="card" style={{ padding: '16px', marginBottom: '8px' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+      <div style={{
+        width: '64px',
+        height: '64px',
+        background: 'linear-gradient(135deg, #8b5cf6, #3b82f6)',
+        borderRadius: '8px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }}>
+        <Gamepad2 size={24} color="white" />
+      </div>
+
+      <div style={{ flex: 1 }}>
+        <h3 style={{ color: '#e2e8f0', marginBottom: '4px' }}>{game.name}</h3>
+        <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '4px' }}>
+          {game.genre || 'Unknown Genre'} • {game.timesPlayed || 0} plays
+        </div>
+        <div style={{ color: '#64748b', fontSize: '12px' }}>
+          {game.path}
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        {game.rating > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <Star size={14} color="#fbbf24" fill="#fbbf24" />
+            <span style={{ color: '#fbbf24', fontSize: '14px' }}>{game.rating}</span>
+          </div>
+        )}
+
+        <button
+          className="btn btn-primary"
+          onClick={() => onLaunch(game)}
+        >
+          <Play size={16} />
+          Play
+        </button>
+
+        <button
+          className={`btn ${game.isFavorite ? 'btn-warning' : 'btn-secondary'}`}
+          onClick={() => onToggleFavorite(game.id)}
+          title={game.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+        >
+          <Heart size={16} fill={game.isFavorite ? 'currentColor' : 'none'} />
+        </button>
+
+        <button
+          className="btn btn-secondary"
+          onClick={() => onConfigure(game)}
+        >
+          <Settings size={16} />
+        </button>
+
+        <button
+          className="btn btn-danger"
+          onClick={() => onRemove(game.id)}
+        >
+          <Trash2 size={16} />
+        </button>
+      </div>
+    </div>
+  </div>
+));
 const GameLibrary = ({ onGameSelect, onNavigate }) => {
-  const { games, addGame, removeGame, updateGame, scanGamesDirectory, toggleFavorite } = useContext(GameContext);
+  const { games, addGame, batchAddGames, removeGame, updateGame, batchUpdateGames, scanGamesDirectory, toggleFavorite } = useContext(GameContext);
   const { settings } = useContext(SettingsContext);
   const [isScanning, setIsScanning] = useState(false);
   const [viewMode, setViewMode] = useState('grid');
@@ -36,6 +227,8 @@ const GameLibrary = ({ onGameSelect, onNavigate }) => {
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [isProcessingBulk, setIsProcessingBulk] = useState(false);
   const [cardSize, setCardSize] = useState(200); // Default card height
+  const [selectedGameForPatches, setSelectedGameForPatches] = useState(null);
+  const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, game: null });
   const [newGame, setNewGame] = useState({
     name: '',
     path: '',
@@ -45,13 +238,30 @@ const GameLibrary = ({ onGameSelect, onNavigate }) => {
     cover: ''
   });
 
-  // Set default RAWG API key if not already set
+  // Xbox 360 Database from Xenia Manager (official Xbox Marketplace covers for every X360 game)
+  const xbox360DB = React.useRef(null);
+  const [dbLoaded, setDbLoaded] = React.useState(false);
+
   React.useEffect(() => {
-    const existingKey = localStorage.getItem('rawgApiKey');
-    if (!existingKey) {
-      localStorage.setItem('rawgApiKey', 'e0dbb76130754c98a1e7648bbe45103d');
-      console.log('Set default RAWG API key');
-    }
+    // Load console-specific Xbox 360 database (from Xenia Manager's open database)
+    const loadXbox360DB = async () => {
+      try {
+        console.log('Loading Xbox 360 Database from Xenia Manager...');
+        const response = await fetch('https://xenia-manager.github.io/x360db/games.json');
+        if (response.ok) {
+          const data = await response.json();
+          xbox360DB.current = data;
+          setDbLoaded(true);
+          console.log(`Xbox 360 Database loaded successfully: ${data.length} games`);
+        } else {
+          console.warn('Failed to load Xbox 360 Database:', response.status);
+        }
+      } catch (err) {
+        console.warn('Xbox 360 Database load error:', err);
+      }
+    };
+    loadXbox360DB();
+
   }, []);
 
   // Load saved card size from localStorage
@@ -63,14 +273,14 @@ const GameLibrary = ({ onGameSelect, onNavigate }) => {
   }, []);
 
   // Save card size to localStorage when it changes
-   React.useEffect(() => {
-     localStorage.setItem('cardSize', cardSize.toString());
-   }, [cardSize]);
+  React.useEffect(() => {
+    localStorage.setItem('cardSize', cardSize.toString());
+  }, [cardSize]);
 
   const genres = ['Action', 'Adventure', 'RPG', 'Strategy', 'Sports', 'Racing', 'Puzzle', 'Simulation'];
 
   const filteredGames = games
-    .filter(game => 
+    .filter(game =>
       game.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
       (filterGenre === 'all' || game.genre === filterGenre)
     )
@@ -92,203 +302,111 @@ const GameLibrary = ({ onGameSelect, onNavigate }) => {
   const cleanGameName = (fileName) => {
     // Remove file extension
     let cleanName = fileName.replace(/\.[^/.]+$/, '');
-    
+
     // Remove common patterns like [Region], (Version), etc.
     cleanName = cleanName.replace(/\[.*?\]/g, ''); // Remove [USA], [PAL], etc.
     cleanName = cleanName.replace(/\(.*?\)/g, ''); // Remove (v1.0), (Disc 1), etc.
     cleanName = cleanName.replace(/[-_]/g, ' '); // Replace dashes and underscores with spaces
     cleanName = cleanName.replace(/\s+/g, ' '); // Replace multiple spaces with single space
     cleanName = cleanName.trim();
-    
+
     // Remove common suffixes
     const suffixes = ['XBLA', 'GOD', 'ISO', 'XEX', 'Arcade'];
     suffixes.forEach(suffix => {
       const regex = new RegExp(`\\b${suffix}\\b`, 'gi');
       cleanName = cleanName.replace(regex, '');
     });
-    
+
     return cleanName.trim();
   };
 
   // Rate limiting for cover fetching
   const coverFetchQueue = React.useRef([]);
   const isFetchingCovers = React.useRef(false);
-  
-  const fetchGameDetails = async (gameName) => {
+
+  const fetchGameDetails = async (gameName, titleId = null) => {
     try {
-      // Clean the game name for better search results
       const cleanedName = cleanGameName(gameName);
-      
-      // Try multiple search strategies
-      const searchTerms = [
-        cleanedName,
-        cleanedName.split(' ')[0], // First word only
-        gameName // Original name as fallback
-      ];
-      
-      // Try multiple sources for game details
-      const detailSources = [
-        // Direct API calls (works in Electron environment)
-        async (searchTerm) => {
-          try {
-            // Get API key from localStorage
-            const rawgApiKey = localStorage.getItem('rawgApiKey') || 'e0dbb76130754c98a1e7648bbe45103d';
-            const apiUrl = `https://api.rawg.io/api/games?key=${rawgApiKey}&search=${encodeURIComponent(searchTerm)}&page_size=1`;
-            console.log('Fetching from RAWG API:', apiUrl);
-            
-            const response = await fetch(apiUrl);
-            const data = await response.json();
-            console.log('RAWG API response:', data);
-            
-            if (data.results && data.results.length > 0) {
-              const game = data.results[0];
-              console.log('Found game details:', { cover: game.background_image, description: game.description_raw });
-              return {
-                coverUrl: game.background_image,
-                description: game.description_raw || game.description || 'No description available',
-                genre: game.genres && game.genres.length > 0 ? game.genres[0].name : null,
-                rating: game.rating ? Math.round(game.rating) : null
-              };
-            }
-          } catch (error) {
-            console.error('RAWG API failed:', error);
-          }
-          return null;
-        },
-        
-        // Alternative free API - OpenCritic (CORS-friendly)
-        async (searchTerm) => {
-          try {
-            // Try a different approach with a more permissive API
-            const cleanSearchTerm = searchTerm.replace(/[^a-zA-Z0-9\s]/g, '').trim();
-            const response = await fetch(`https://api.opencritic.com/api/game/search?criteria=${encodeURIComponent(cleanSearchTerm)}`);
-            const data = await response.json();
-            if (data && data.length > 0 && data[0].images && data[0].images.banner) {
-              return data[0].images.banner.og;
-            }
-          } catch (error) {
-            console.log('OpenCritic API failed:', error);
-          }
-          return null;
-        },
-        
-        // Local image search (check for local cover files)
-        async (searchTerm) => {
-          try {
-            const cleanName = searchTerm.toLowerCase().replace(/[^a-z0-9]/g, '');
-            const possibleExtensions = ['jpg', 'jpeg', 'png', 'webp'];
-            
-            for (const ext of possibleExtensions) {
-              try {
-                const localPath = `./covers/${cleanName}.${ext}`;
-                const response = await fetch(localPath);
-                if (response.ok) {
-                  return localPath;
-                }
-              } catch (e) {
-                // File doesn't exist, continue
-              }
-            }
-          } catch (error) {
-            console.log('Local image search failed:', error);
-          }
-          return null;
-        },
-        
-        // Fallback: Generate a placeholder based on game name
-         async (searchTerm) => {
-           try {
-             // Create a simple placeholder URL that will be handled by CSS
-             return `data:image/svg+xml;base64,${btoa(`
-               <svg width="300" height="400" xmlns="http://www.w3.org/2000/svg">
-                 <rect width="100%" height="100%" fill="#2a2a2a"/>
-                 <text x="50%" y="50%" font-family="Arial, sans-serif" font-size="16" fill="#ffffff" text-anchor="middle" dominant-baseline="middle">
-                   ${searchTerm.substring(0, 20)}${searchTerm.length > 20 ? '...' : ''}
-                 </text>
-               </svg>
-             `)}`;
-           } catch (error) {
-             console.log('Placeholder generation failed:', error);
-           }
-           return null;
-         },
-         
-         // IGDB API (requires API key)
-        async (searchTerm) => {
-          try {
-            const igdbClientId = localStorage.getItem('igdbApiKey');
-            const igdbAccessToken = localStorage.getItem('igdbAccessToken');
-            console.log('IGDB credentials check:', { hasClientId: !!igdbClientId, hasToken: !!igdbAccessToken });
-            
-            if (!igdbClientId || !igdbAccessToken) {
-              console.log('IGDB API skipped - missing credentials');
-              return null;
-            }
-            
-            console.log('Fetching from IGDB API for:', searchTerm);
-            const response = await fetch('https://api.igdb.com/v4/games', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Client-ID': igdbClientId,
-                'Authorization': `Bearer ${igdbAccessToken}`,
-              },
-              body: `search "${searchTerm}"; fields name,cover.url; limit 1;`
-            });
-            const data = await response.json();
-            console.log('IGDB API response:', data);
-            
-            if (data && data.length > 0 && data[0].cover) {
-              const coverUrl = `https:${data[0].cover.url.replace('t_thumb', 't_cover_big')}`;
-              console.log('Found IGDB cover:', coverUrl);
-              return coverUrl;
-            }
-          } catch (error) {
-            console.error('IGDB API failed:', error);
-          }
-          return null;
-        }
-      ];
-      
-      // Try each search term with each detail source
-      for (const searchTerm of searchTerms) {
-        console.log(`Searching for game details for: "${searchTerm}"`);
-        for (let i = 0; i < detailSources.length; i++) {
-          const source = detailSources[i];
-          try {
-            const gameDetails = await source(searchTerm);
-            if (gameDetails) {
-              console.log(`Found game details for "${searchTerm}" from source ${i + 1}:`, gameDetails);
-              return gameDetails;
-            }
-          } catch (error) {
-            console.log(`Detail source ${i + 1} failed for "${searchTerm}":`, error);
-            continue;
-          }
-          
-          // Add small delay between sources to avoid overwhelming APIs
-          if (i < detailSources.length - 1) {
-            await new Promise(resolve => setTimeout(resolve, 100));
+      console.log(`Scraping for: "${cleanedName}" (podpod account)`);
+
+      // 1. ScreenScraper.fr (Primary - Now robustly handled in backend)
+      if (window.electronAPI?.scrapeScreenScraper) {
+        const ssData = await window.electronAPI.scrapeScreenScraper({ gameName, titleId });
+        if (ssData && ssData.reponse && ssData.reponse.jeu) {
+          const jeu = ssData.reponse.jeu;
+          const medias = jeu.medias || [];
+
+          // Selection logic: Preferred professional 2D covers
+          const boxArt = medias.find(m => m.type === 'box-2D' && m.parent === 'Principale') ||
+            medias.find(m => m.type === 'box-2D') ||
+            medias.find(m => m.type.includes('box')) ||
+            medias[0];
+
+          if (boxArt && boxArt.url) {
+            console.log(`Success! ScreenScraper found: ${jeu.noms?.[0]?.nom || cleanedName}`);
+            return {
+              coverUrl: boxArt.url,
+              description: jeu.synopsis?.find(s => s.langue === 'en')?.texte || jeu.synopsis?.[0]?.texte || `Xbox 360 game: ${cleanedName}`,
+              genre: jeu.genres?.[0]?.nom || 'Xbox 360'
+            };
           }
         }
       }
-      
+
+      // 2. Fallback: Xbox 360 DB Cache
+      if (xbox360DB.current && xbox360DB.current.length > 0) {
+        let match = null;
+        if (titleId) {
+          match = xbox360DB.current.find(g => g.id === titleId || (g.alternative_id && g.alternative_id.includes(titleId)));
+        }
+        if (!match) {
+          const normalizedSearch = cleanedName.toLowerCase().replace(/[^a-z0-9]/g, '');
+          match = xbox360DB.current.find(g => g.title.toLowerCase().replace(/[^a-z0-9]/g, '') === normalizedSearch);
+        }
+        if (match && match.boxart) {
+          return {
+            coverUrl: match.boxart.replace('http://', 'https://'),
+            description: `Xbox 360: ${match.title}`,
+            genre: 'Xbox 360'
+          };
+        }
+      }
+
+      // 3. Last Resort: Steam
+      try {
+        const steamSearchUrl = `https://store.steampowered.com/api/storesearch/?term=${encodeURIComponent(cleanedName)}&l=english&cc=US`;
+        const response = await fetch(steamSearchUrl);
+        if (response.ok) {
+          const data = await response.json();
+          const items = data.items || data.results || [];
+          if (items.length > 0) {
+            return {
+              coverUrl: `https://cdn.akamai.steamstatic.com/steam/apps/${items[0].id}/library_600x900_2x.jpg`,
+              description: `Steam: ${items[0].name}`,
+              genre: 'PC / Xbox 360'
+            };
+          }
+        }
+      } catch (e) { }
+
       return null;
     } catch (error) {
-      console.error('Error fetching game details:', error);
+      console.error('Unified Scraper error:', error);
       return null;
     }
   };
-  
+
+
+
   const processDetailsQueue = async () => {
     if (isFetchingCovers.current || coverFetchQueue.current.length === 0) return;
-    
+
     isFetchingCovers.current = true;
-    
+
     while (coverFetchQueue.current.length > 0) {
-      const { gameId, gameName, resolve } = coverFetchQueue.current.shift();
+      const { gameId, gameName, titleId, resolve } = coverFetchQueue.current.shift();
       try {
-        const gameDetails = await fetchGameDetails(gameName);
+        const gameDetails = await fetchGameDetails(gameName, titleId);
         resolve(gameDetails);
         // Add delay between requests to avoid rate limiting
         await new Promise(resolve => setTimeout(resolve, 500));
@@ -296,13 +414,13 @@ const GameLibrary = ({ onGameSelect, onNavigate }) => {
         resolve(null);
       }
     }
-    
+
     isFetchingCovers.current = false;
   };
-  
-  const queueDetailsFetch = (gameId, gameName) => {
+
+  const queueDetailsFetch = (gameId, gameName, titleId = null) => {
     return new Promise((resolve) => {
-      coverFetchQueue.current.push({ gameId, gameName, resolve });
+      coverFetchQueue.current.push({ gameId, gameName, titleId, resolve });
       processDetailsQueue();
     });
   };
@@ -318,30 +436,43 @@ const GameLibrary = ({ onGameSelect, onNavigate }) => {
 
     setIsScanning(true);
     let updatedCount = 0;
+    const updatesMap = {};
 
     try {
       for (let i = 0; i < games.length; i++) {
         const game = games[i];
         console.log(`Syncing cover for game ${i + 1}/${games.length}: ${game.name}`);
-        
-        const gameDetails = await fetchGameDetails(game.name);
+
+        const filename = game.path ? (game.path.split(/[\\/]/).pop()) : game.name;
+        const gameDetails = await fetchGameDetails(filename, game.titleId);
         if (gameDetails) {
           const updateData = {};
           if (gameDetails.coverUrl) updateData.coverUrl = gameDetails.coverUrl;
           if (gameDetails.description) updateData.description = gameDetails.description;
           if (gameDetails.genre && (!game.genre || game.genre === 'Unknown')) updateData.genre = gameDetails.genre;
           if (gameDetails.rating && !game.rating) updateData.rating = gameDetails.rating;
-          
+
           if (Object.keys(updateData).length > 0) {
-            updateGame(game.id, updateData);
+            updatesMap[game.id] = updateData;
             updatedCount++;
           }
         }
-        
+
+        // Chunk updates to show progress without too much flashing - increased to 10
+        if (Object.keys(updatesMap).length >= 10) {
+          batchUpdateGames({ ...updatesMap });
+          // Clear processed updates
+          Object.keys(updatesMap).forEach(key => delete updatesMap[key]);
+        }
+
         // Small delay to avoid rate limiting
         await new Promise(resolve => setTimeout(resolve, 300));
       }
-      
+
+      if (Object.keys(updatesMap).length > 0) {
+        batchUpdateGames(updatesMap);
+      }
+
       alert(`Cover sync completed! Updated ${updatedCount} out of ${games.length} games.`);
     } catch (error) {
       console.error('Error syncing covers:', error);
@@ -350,6 +481,118 @@ const GameLibrary = ({ onGameSelect, onNavigate }) => {
       setIsScanning(false);
     }
   };
+
+  const syncMissingCovers = async () => {
+    const missingCoverGames = games.filter(g => !g.coverUrl);
+    if (missingCoverGames.length === 0) {
+      alert('All games already have covers.');
+      return;
+    }
+
+    const confirmed = window.confirm(`Found ${missingCoverGames.length} games missing covers. Sync them now?`);
+    if (!confirmed) return;
+
+    setIsScanning(true);
+    let updatedCount = 0;
+    const updatesMap = {};
+
+    try {
+      for (let i = 0; i < missingCoverGames.length; i++) {
+        const game = missingCoverGames[i];
+        console.log(`Syncing missing cover ${i + 1}/${missingCoverGames.length}: ${game.name}`);
+
+        const filename = game.path ? (game.path.split(/[\\/]/).pop()) : game.name;
+        const gameDetails = await fetchGameDetails(filename, game.titleId);
+        if (gameDetails) {
+          const updateData = {};
+          if (gameDetails.coverUrl) updateData.coverUrl = gameDetails.coverUrl;
+          if (gameDetails.description) updateData.description = gameDetails.description;
+          if (gameDetails.genre && (!game.genre || game.genre === 'Unknown')) updateData.genre = gameDetails.genre;
+          if (gameDetails.rating && !game.rating) updateData.rating = gameDetails.rating;
+
+          if (Object.keys(updateData).length > 0) {
+            updatesMap[game.id] = updateData;
+            updatedCount++;
+          }
+        }
+
+        // Chunk updates to show progress
+        if (Object.keys(updatesMap).length >= 5) {
+          batchUpdateGames({ ...updatesMap });
+          Object.keys(updatesMap).forEach(key => delete updatesMap[key]);
+        }
+
+        // Small delay to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }
+
+      if (Object.keys(updatesMap).length > 0) {
+        batchUpdateGames(updatesMap);
+      }
+
+      alert(`Missing cover sync completed! Updated ${updatedCount} out of ${missingCoverGames.length} games.`);
+    } catch (error) {
+      console.error('Error syncing covers:', error);
+      alert('Error occurred while syncing covers. Check console for details.');
+    } finally {
+      setIsScanning(false);
+    }
+  };
+
+  // Wrapped handlers in useCallback to prevent re-renders in memoized components
+  const handleLaunchGame = useCallback(async (game) => {
+    if (!settings.emulatorPath) {
+      window.electronAPI?.showMessageBox({
+        type: 'error',
+        title: 'Emulator Not Configured',
+        message: 'Please configure the emulator first.',
+        buttons: ['OK']
+      });
+      return;
+    }
+
+    try {
+      const gameConfig = game.config || {};
+      const launchConfig = {
+        ...gameConfig,
+        fullscreen: gameConfig.fullscreen !== undefined ? gameConfig.fullscreen : (settings.defaultFullscreen || false),
+        resolution: gameConfig.resolution || settings.defaultResolution || 'auto',
+        renderer: gameConfig.renderer || settings.defaultRenderer || 'auto',
+        vsync: gameConfig.vsync !== undefined ? gameConfig.vsync : true,
+        showFPS: gameConfig.showFPS !== undefined ? gameConfig.showFPS : settings.showFPS
+      };
+
+      await window.electronAPI.launchGame(settings.emulatorPath, game.path, launchConfig);
+
+      updateGame(game.id, {
+        lastPlayed: new Date().toISOString(),
+        timesPlayed: (game.timesPlayed || 0) + 1
+      });
+    } catch (error) {
+      console.error('Launch error:', error);
+    }
+  }, [settings.emulatorPath, settings.defaultFullscreen, settings.defaultResolution, settings.defaultRenderer, settings.showFPS, updateGame]);
+
+  const handleContextMenuCallback = useCallback((e, game) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({ visible: true, x: e.clientX, y: e.clientY, game });
+  }, []);
+
+  const handleToggleFavorite = useCallback((id) => {
+    toggleFavorite(id);
+  }, [toggleFavorite]);
+
+  const handleConfigure = useCallback((game) => {
+    onGameSelect(game);
+    onNavigate('config');
+  }, [onGameSelect, onNavigate]);
+
+  const handleRemoveGame = useCallback((id) => {
+    if (window.confirm('Are you sure you want to remove this game from your library?')) {
+      removeGame(id);
+    }
+  }, [removeGame]);
 
   const handleAddGame = async () => {
     try {
@@ -361,17 +604,22 @@ const GameLibrary = ({ onGameSelect, onNavigate }) => {
           const gamePath = gamePaths[0];
           const validation = await window.electronAPI.validateGameFile(gamePath);
           if (validation.valid) {
-            const fileName = gamePath.split('\\').pop().split('/').pop();
-            const gameName = fileName.replace(/\.[^/.]+$/, '');
-            
+            const pathParts = gamePath.split(/[\\/]/);
+            const fileName = pathParts.pop();
+            let gameName = fileName.replace(/\.[^/.]+$/, '');
+            if (fileName.toLowerCase() === 'default.xex' && pathParts.length > 0) {
+              gameName = pathParts.pop();
+            }
+
             // Fetch game details automatically
             console.log('Fetching details for game:', gameName);
-            const gameDetails = await queueDetailsFetch(Date.now().toString(), gameName);
+            const gameDetails = await queueDetailsFetch(Date.now().toString(), gameName, validation.info?.titleId);
             console.log('Fetched game details:', gameDetails);
-            
+
             setNewGame({
               name: gameName,
               path: gamePath,
+              titleId: validation.info?.titleId || null,
               genre: gameDetails?.genre || 'Unknown',
               description: gameDetails?.description || '',
               rating: gameDetails?.rating || 0,
@@ -595,46 +843,51 @@ const GameLibrary = ({ onGameSelect, onNavigate }) => {
 
   const processBulkGames = async () => {
     setIsProcessingBulk(true);
-    let addedCount = 0;
-    
+    const gamesToAdd = [];
+
     for (const gamePath of selectedFiles) {
       try {
         const validation = await window.electronAPI.validateGameFile(gamePath);
         if (validation.valid) {
-          const fileName = gamePath.split('\\').pop().split('/').pop();
-          const gameName = fileName.replace(/\.[^/.]+$/, '');
-          
+          const pathParts = gamePath.split(/[\\/]/);
+          const fileName = pathParts.pop();
+          let gameName = fileName.replace(/\.[^/.]+$/, '');
+          if (fileName.toLowerCase() === 'default.xex' && pathParts.length > 0) {
+            gameName = pathParts.pop();
+          }
+
           // Fetch game details automatically with rate limiting
-          console.log(`Fetching details for bulk game ${addedCount + 1}/${selectedFiles.length}:`, gameName);
+          console.log(`Fetching details for bulk game ${gamesToAdd.length + 1}/${selectedFiles.length}:`, gameName);
           const gameDetails = await queueDetailsFetch(Date.now().toString() + Math.random(), gameName);
           console.log('Fetched game details:', gameDetails);
-          
-          addGame({
-            id: Date.now().toString() + Math.random(),
+
+          gamesToAdd.push({
             name: gameName,
             path: gamePath,
+            titleId: validation.info?.titleId || null,
             genre: gameDetails?.genre || 'Unknown',
             description: gameDetails?.description || '',
             rating: gameDetails?.rating || 0,
-            cover: gameDetails?.coverUrl || '',
-            dateAdded: new Date().toISOString(),
-            timesPlayed: 0
+            cover: gameDetails?.coverUrl || ''
           });
-          addedCount++;
         }
       } catch (error) {
         console.error('Error processing game:', gamePath, error);
       }
     }
-    
+
+    if (gamesToAdd.length > 0) {
+      batchAddGames(gamesToAdd);
+    }
+
     setIsProcessingBulk(false);
     setShowBulkAddModal(false);
     setSelectedFiles([]);
-    
+
     await window.electronAPI.showMessageBox({
       type: 'info',
       title: 'Bulk Add Complete',
-      message: `Successfully added ${addedCount} out of ${selectedFiles.length} games to your library.`,
+      message: `Successfully added ${gamesToAdd.length} out of ${selectedFiles.length} games to your library.`,
       buttons: ['OK']
     });
   };
@@ -644,15 +897,43 @@ const GameLibrary = ({ onGameSelect, onNavigate }) => {
       const directory = await window.electronAPI.selectDirectory();
       if (directory) {
         setIsScanning(true);
-        
+
         const newGames = await scanGamesDirectory(directory);
-        
+
         await window.electronAPI.showMessageBox({
           type: 'info',
           title: 'Scan Complete',
-          message: `Found and added ${newGames.length} new games to your library.`,
+          message: `Found and added ${newGames.length} new games. Syncing covers in background...`,
           buttons: ['OK']
         });
+
+        // Auto-sync covers for newly added games in background with batching
+        if (newGames.length > 0) {
+          const updatesMap = {};
+          for (let i = 0; i < newGames.length; i++) {
+            const game = newGames[i];
+            try {
+              const details = await fetchGameDetails(game.name, game.titleId);
+              if (details && details.coverUrl) {
+                updatesMap[game.id] = {
+                  coverUrl: details.coverUrl,
+                  description: details.description || game.description,
+                  genre: details.genre || game.genre
+                };
+              }
+
+              // Batch update every 5 games or at the end
+              if (Object.keys(updatesMap).length >= 5 || i === newGames.length - 1) {
+                batchUpdateGames({ ...updatesMap });
+                Object.keys(updatesMap).forEach(key => delete updatesMap[key]);
+              }
+
+              await new Promise(r => setTimeout(r, 200));
+            } catch (err) {
+              console.log('Auto-sync cover failed for', game.name, err);
+            }
+          }
+        }
       }
     } catch (error) {
       console.error('Error scanning directory:', error);
@@ -667,315 +948,287 @@ const GameLibrary = ({ onGameSelect, onNavigate }) => {
     }
   };
 
-  const handleSaveGame = () => {
+  const handleSaveGame = async () => {
     if (newGame.name && newGame.path) {
-      addGame({
+      const savedGame = addGame({
         ...newGame,
         id: Date.now().toString(),
         dateAdded: new Date().toISOString(),
         timesPlayed: 0
       });
-      setNewGame({ name: '', path: '', genre: '', description: '', rating: 0, cover: '' });
+      setNewGame({ name: '', path: '', genre: '', description: '', rating: 0, cover: '', titleId: null });
       setShowAddGameModal(false);
-    }
-  };
 
-  const handleLaunchGame = async (game) => {
-    if (!window.electronAPI || !settings.emulatorPath) {
-      window.electronAPI?.showMessageBox({
-        type: 'error',
-        title: 'Emulator Not Configured',
-        message: 'Please configure the emulator first in the Setup section.',
-        buttons: ['OK']
-      });
-      return;
-    }
-
-    // Validate emulator and game before launching
-    const emulatorValidation = await window.electronAPI.validateEmulator(settings.emulatorPath);
-    if (!emulatorValidation.valid) {
-      window.electronAPI.showMessageBox({
-        type: 'error',
-        title: 'Emulator Error',
-        message: `Emulator is not valid or accessible:\n\n${emulatorValidation.error}\n\nPlease reconfigure the emulator in Settings.`,
-        buttons: ['OK']
-      });
-      return;
-    }
-
-    const gameValidation = await window.electronAPI.validateGameFile(game.path);
-    if (!gameValidation.valid) {
-      window.electronAPI.showMessageBox({
-        type: 'error',
-        title: 'Game File Error',
-        message: `Game file is not valid or accessible:\n\n${gameValidation.error}\n\nThe game file may have been moved, deleted, or corrupted.`,
-        buttons: ['OK']
-      });
-      return;
-    }
-
-    try {
-      // Use game-specific config if available, otherwise fall back to default settings
-      const gameConfig = game.config || {};
-      const launchConfig = {
-        fullscreen: gameConfig.fullscreen !== undefined ? gameConfig.fullscreen : (settings.defaultFullscreen || false),
-        resolution: gameConfig.resolution || settings.defaultResolution || 'auto',
-        renderer: gameConfig.renderer || settings.defaultRenderer || 'auto',
-        audioDriver: gameConfig.audioDriver || settings.defaultAudioDriver || 'auto',
-        vsync: gameConfig.vsync !== undefined ? gameConfig.vsync : true,
-        antialiasing: gameConfig.antialiasing || 'auto',
-        textureFiltering: gameConfig.textureFiltering || 'auto',
-        frameLimit: gameConfig.frameLimit || 'auto',
-        audioLatency: gameConfig.audioLatency || 'auto',
-        showFPS: gameConfig.showFPS !== undefined ? gameConfig.showFPS : settings.showFPS,
-        customArgs: gameConfig.customArgs || ''
-      };
-      
-      const result = await window.electronAPI.launchGame(settings.emulatorPath, game.path, launchConfig);
-      
-      // Update game stats
-      updateGame(game.id, {
-        lastPlayed: new Date().toISOString(),
-        timesPlayed: (game.timesPlayed || 0) + 1
-      });
-    } catch (error) {
-      window.electronAPI?.showMessageBox({
-        type: 'error',
-        title: 'Launch Failed',
-        message: `Failed to launch game: ${error.message}`,
-        buttons: ['OK']
-      });
-    }
-  };
-
-  const GameCard = ({ game, cardSize = 120 }) => {
-    const [isLaunching, setIsLaunching] = React.useState(false);
-    const [coverFetched, setCoverFetched] = React.useState(!!game.coverUrl);
-    
-    // Auto-fetch cover if missing (with rate limiting)
-    React.useEffect(() => {
-      if ((!game.coverUrl || !game.description || game.description === 'Auto-detected game') && !coverFetched) {
-        setCoverFetched(true);
-        queueDetailsFetch(game.id, game.name).then(gameDetails => {
-          if (gameDetails) {
-            const updateData = {};
-            if (gameDetails.coverUrl) updateData.coverUrl = gameDetails.coverUrl;
-            if (gameDetails.description) updateData.description = gameDetails.description;
-            if (gameDetails.genre && (!game.genre || game.genre === 'Unknown')) updateData.genre = gameDetails.genre;
-            if (gameDetails.rating && !game.rating) updateData.rating = gameDetails.rating;
-            
-            if (Object.keys(updateData).length > 0) {
-              updateGame(game.id, updateData);
-            }
+      // Auto-sync cover in background
+      if (savedGame && savedGame.id) {
+        try {
+          const validation = await window.electronAPI.validateGameFile(savedGame.path);
+          const details = await fetchGameDetails(savedGame.name);
+          if (details && details.coverUrl) {
+            updateGame(savedGame.id, {
+              coverUrl: details.coverUrl,
+              description: details.description || savedGame.description,
+              genre: details.genre || savedGame.genre,
+              titleId: validation?.info?.titleId || savedGame.titleId
+            });
+          } else if (validation?.info?.titleId) {
+            updateGame(savedGame.id, { titleId: validation.info.titleId });
           }
-        });
+        } catch (err) {
+          console.log('Auto-sync cover failed for', savedGame.name, err);
+        }
       }
-    }, [game.id, game.coverUrl, game.description, coverFetched]);
-    
-    const coverWidth = Math.max(60, cardSize * 0.75); // Cover width scales with card size
-    const fontSize = Math.max(10, cardSize * 0.12); // Font size scales with card size
-    const titleFontSize = Math.max(12, cardSize * 0.14);
-    
-    return (
-      <div 
-        className="game-card" 
-        style={{
-          height: `${cardSize}px`,
-          fontSize: `${fontSize}px`
-        }}
-        onClick={async (e) => {
-          if (isLaunching) return;
-          setIsLaunching(true);
-          try {
-            await handleLaunchGame(game);
-          } finally {
-            setIsLaunching(false);
-          }
-        }}>
-        <div 
-          className="game-cover"
-          style={{
-            width: `${coverWidth}px`,
-            fontSize: `${Math.max(16, cardSize * 0.15)}px`
-          }}
-        >
-          {game.coverUrl ? (
-            <img 
-              src={game.coverUrl} 
-              alt={game.name}
-              style={{
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover'
-              }}
-              onError={(e) => {
-                e.target.style.display = 'none';
-              }}
-            />
-          ) : (
-            <Gamepad2 size={20} />
-          )}
-        </div>
-        <div className="game-info">
-          <div 
-            className="game-title"
-            style={{
-              fontSize: `${titleFontSize}px`,
-              lineHeight: cardSize < 100 ? '1.2' : '1.3'
-            }}
-          >
-            {game.name}
-          </div>
-          <div className="game-meta">
-            <div style={{ marginBottom: '4px' }}>
-              <span>{game.genre || 'Unknown'}</span>
-              {game.rating > 0 && (
-                <span style={{ marginLeft: '8px', display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
-                  <Star size={10} color="#fbbf24" fill="#fbbf24" />
-                  <span>{game.rating}</span>
-                </span>
-              )}
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '10px' }}>
-              {game.timesPlayed > 0 && (
-                <span style={{ color: '#64748b' }}>
-                  Played {game.timesPlayed} times
-                </span>
-              )}
-              {game.lastPlayed && (
-                <span style={{ color: '#64748b', display: 'flex', alignItems: 'center', gap: '2px' }}>
-                  <Clock size={8} />
-                  {new Date(game.lastPlayed).toLocaleDateString()}
-                </span>
-              )}
-            </div>
-            <div style={{ marginTop: '8px', display: 'flex', gap: '6px' }}>
-              <button 
-                className={`btn btn-sm ${game.isFavorite ? 'btn-warning' : 'btn-secondary'}`}
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  toggleFavorite(game.id);
-                }}
-                style={{ padding: '8px 12px', fontSize: '12px', minWidth: '40px' }}
-                title={game.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
-              >
-                <Heart size={14} fill={game.isFavorite ? 'currentColor' : 'none'} />
-              </button>
-              <button 
-                className="btn btn-secondary"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  onGameSelect(game);
-                  onNavigate('config');
-                }}
-                style={{ padding: '8px 12px', fontSize: '12px', minWidth: '40px' }}
-                title="Configure game"
-              >
-                <Settings size={14} />
-              </button>
-              <button 
-                className="btn btn-danger"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  if (window.confirm(`Are you sure you want to remove "${game.name}" from your library?`)) {
-                    removeGame(game.id);
-                  }
-                }}
-                style={{ padding: '8px 12px', fontSize: '12px', minWidth: '40px' }}
-                title="Remove game"
-              >
-                <Trash2 size={14} />
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+    }
   };
 
-  const GameListItem = ({ game }) => (
-    <div className="card" style={{ padding: '16px', marginBottom: '8px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-        <div style={{
-          width: '64px',
-          height: '64px',
-          background: 'linear-gradient(135deg, #8b5cf6, #3b82f6)',
-          borderRadius: '8px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center'
-        }}>
-          <Gamepad2 size={24} color="white" />
-        </div>
-        
-        <div style={{ flex: 1 }}>
-          <h3 style={{ color: '#e2e8f0', marginBottom: '4px' }}>{game.name}</h3>
-          <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '4px' }}>
-            {game.genre || 'Unknown Genre'} • {game.timesPlayed || 0} plays
-          </div>
-          <div style={{ color: '#64748b', fontSize: '12px' }}>
-            {game.path}
-          </div>
-        </div>
-        
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          {game.rating > 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <Star size={14} color="#fbbf24" fill="#fbbf24" />
-              <span style={{ color: '#fbbf24', fontSize: '14px' }}>{game.rating}</span>
-            </div>
-          )}
-          
-          <button 
-            className="btn btn-primary"
-            onClick={() => handleLaunchGame(game)}
-          >
-            <Play size={16} />
-            Play
-          </button>
-          
-          <button 
-            className={`btn ${game.isFavorite ? 'btn-warning' : 'btn-secondary'}`}
-            onClick={() => toggleFavorite(game.id)}
-            title={game.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
-          >
-            <Heart size={16} fill={game.isFavorite ? 'currentColor' : 'none'} />
-          </button>
-          
-          <button 
-            className="btn btn-secondary"
-            onClick={() => {
-              onGameSelect(game);
-              onNavigate('config');
-            }}
-          >
-            <Settings size={16} />
-          </button>
-          
-          <button 
-            className="btn btn-danger"
-            onClick={() => {
-              if (window.confirm('Are you sure you want to remove this game from your library?')) {
-                removeGame(game.id);
-              }
-            }}
-          >
-            <Trash2 size={16} />
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+  // Right-click context menu handlers
+
+  const handleSetManualCover = async (game) => {
+    setContextMenu({ visible: false, x: 0, y: 0, game: null });
+    if (!window.electronAPI) return;
+    try {
+      // Just immediately open the native image file picker
+      const localCover = await window.electronAPI.selectImageFile();
+      if (localCover) {
+        // Ensure local paths are handled correctly for display
+        const displayPath = localCover.startsWith('http') ? localCover : `file:///${localCover.replace(/\\/g, '/')}`;
+        updateGame(game.id, { coverUrl: displayPath });
+      }
+    } catch (err) {
+      console.error('Manual cover error:', err);
+    }
+  };
+
+  const handleResyncCover = async (game) => {
+    setContextMenu({ visible: false, x: 0, y: 0, game: null });
+    try {
+      const validation = await window.electronAPI.validateGameFile(game.path);
+      const gameDetails = await fetchGameDetails(game.name);
+
+      const updates = {};
+      if (validation && validation.valid && validation.info?.titleId) {
+        updates.titleId = validation.info.titleId;
+      }
+
+      if (gameDetails && gameDetails.coverUrl) {
+        updates.coverUrl = gameDetails.coverUrl;
+        updates.description = gameDetails.description || game.description;
+        updates.genre = gameDetails.genre || game.genre;
+      }
+
+      if (Object.keys(updates).length > 0) {
+        updateGame(game.id, updates);
+        console.log(`Resynced metadata for ${game.name}`, updates);
+      } else {
+        alert(`No new metadata found for "${game.name}".`);
+      }
+    } catch (err) {
+      console.error('Resync cover error:', err);
+      alert('Failed to resync cover. Check console for details.');
+    }
+  };
+
+  // Close context menu on click anywhere
+  React.useEffect(() => {
+    const handleClick = () => setContextMenu(prev => prev.visible ? { ...prev, visible: false } : prev);
+    window.addEventListener('click', handleClick);
+    return () => window.removeEventListener('click', handleClick);
+  }, []);
+
 
   return (
     <div className="fade-in">
+      {/* Right-click context menu */}
+      {contextMenu.visible && contextMenu.game && (
+        <div
+          style={{
+            position: 'fixed',
+            top: contextMenu.y,
+            left: contextMenu.x,
+            zIndex: 10000,
+            background: 'rgba(15, 23, 42, 0.98)',
+            border: '1px solid rgba(139, 92, 246, 0.3)',
+            borderRadius: '12px',
+            padding: '6px 0',
+            minWidth: '200px',
+            boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
+            backdropFilter: 'blur(20px)',
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div style={{ padding: '8px 16px', color: '#8b5cf6', fontSize: '12px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid rgba(139,92,246,0.15)', marginBottom: '4px' }}>
+            {contextMenu.game.name}
+          </div>
+          <button
+            style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '10px 16px', background: 'none', border: 'none', color: '#e2e8f0', cursor: 'pointer', fontSize: '14px', textAlign: 'left' }}
+            onMouseEnter={(e) => e.target.style.background = 'rgba(139,92,246,0.15)'}
+            onMouseLeave={(e) => e.target.style.background = 'none'}
+            onClick={() => handleSetManualCover(contextMenu.game)}
+          >
+            <ImageIcon size={16} color="#8b5cf6" /> Set Cover Manually
+          </button>
+          <button
+            style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '10px 16px', background: 'none', border: 'none', color: '#e2e8f0', cursor: 'pointer', fontSize: '14px', textAlign: 'left' }}
+            onMouseEnter={(e) => e.target.style.background = 'rgba(139,92,246,0.15)'}
+            onMouseLeave={(e) => e.target.style.background = 'none'}
+            onClick={() => handleResyncCover(contextMenu.game)}
+          >
+            <RefreshCw size={16} color="#3b82f6" /> Resync Cover
+          </button>
+          <button
+            style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '10px 16px', background: 'none', border: 'none', color: '#e2e8f0', cursor: 'pointer', fontSize: '14px', textAlign: 'left' }}
+            onMouseEnter={(e) => e.target.style.background = 'rgba(139,92,246,0.15)'}
+            onMouseLeave={(e) => e.target.style.background = 'none'}
+            onClick={async () => {
+              const menuGame = contextMenu.game;
+              setContextMenu({ visible: false, x: 0, y: 0, game: null });
+              if (!settings.emulatorPath) {
+                alert('Please set emulator path in settings first.');
+                return;
+              }
+              const res = await window.electronAPI.createDesktopShortcut(menuGame.name, settings.emulatorPath, menuGame.path);
+              if (res && res.success) {
+                // Success
+              } else {
+                alert(`Failed to create shortcut:\n${res?.error || 'Unknown error'}`);
+              }
+            }}
+          >
+            <MonitorUp size={16} color="#f59e0b" /> Create Desktop Shortcut
+          </button>
+          <button
+            style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '10px 16px', background: 'none', border: 'none', color: '#e2e8f0', cursor: 'pointer', fontSize: '14px', textAlign: 'left' }}
+            onMouseEnter={(e) => e.target.style.background = 'rgba(139,92,246,0.15)'}
+            onMouseLeave={(e) => e.target.style.background = 'none'}
+            onClick={() => {
+              setContextMenu({ visible: false, x: 0, y: 0, game: null });
+              if (!settings.emulatorPath) {
+                alert('Please set emulator path in settings first.');
+                return;
+              }
+              window.electronAPI && window.electronAPI.openPatchesFolder(settings.emulatorPath);
+            }}
+          >
+            <FolderOpen size={16} color="#8b5cf6" /> Open Patches Folder
+          </button>
+          <button
+            style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '10px 16px', background: 'none', border: 'none', color: '#e2e8f0', cursor: 'pointer', fontSize: '14px', textAlign: 'left' }}
+            onMouseEnter={(e) => e.target.style.background = 'rgba(139,92,246,0.15)'}
+            onMouseLeave={(e) => e.target.style.background = 'none'}
+            onClick={async () => {
+              const menuGame = contextMenu.game;
+              setContextMenu({ visible: false, x: 0, y: 0, game: null });
+              if (!settings.emulatorPath) {
+                alert('Please set emulator path in settings first.');
+                return;
+              }
+              const res = await window.electronAPI.downloadPatches(settings.emulatorPath);
+              if (res.success) {
+                window.electronAPI?.showMessageBox({ type: 'info', title: 'Success', message: `Downloaded and extracted ${res.count} game patches successfully!` });
+              } else {
+                alert("Failed to download patches: " + res.error);
+              }
+            }}
+          >
+            <Download size={16} color="#14b8a6" /> Download All Patches
+          </button>
+          <button
+            style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '10px 16px', background: 'none', border: 'none', color: '#e2e8f0', cursor: 'pointer', fontSize: '14px', textAlign: 'left' }}
+            onMouseEnter={(e) => e.target.style.background = 'rgba(139,92,246,0.15)'}
+            onMouseLeave={(e) => e.target.style.background = 'none'}
+            onClick={async () => {
+              const menuGame = contextMenu.game;
+              setContextMenu({ visible: false, x: 0, y: 0, game: null });
+              if (!settings.emulatorPath) {
+                alert('Please set emulator path in settings first.');
+                return;
+              }
+              const res = await window.electronAPI.installGamePatch({ emulatorPath: settings.emulatorPath, titleId: menuGame.titleId || menuGame.id });
+              if (res.success) {
+                const fileName = res.path.split(/[\\/]/).pop();
+                const titleMatch = fileName.match(/^([A-F0-9]{8})/i);
+                if (titleMatch && updateGame) {
+                  updateGame(menuGame.id, { titleId: titleMatch[1].toUpperCase() });
+                }
+                window.electronAPI?.showMessageBox({ type: 'info', title: 'Patch Installed', message: `Patch successfully installed internally as ${fileName} and linked to the game!` });
+              } else if (!res.canceled) {
+                alert("Failed to install patch: " + res.error);
+              }
+            }}
+          >
+            <FilePlus size={16} color="#fbbf24" /> Install Patch...
+          </button>
+          <button
+            style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '10px 16px', background: 'none', border: 'none', color: '#e2e8f0', cursor: 'pointer', fontSize: '14px', textAlign: 'left' }}
+            onMouseEnter={(e) => e.target.style.background = 'rgba(139,92,246,0.15)'}
+            onMouseLeave={(e) => e.target.style.background = 'none'}
+            onClick={async () => {
+              const menuGame = contextMenu.game;
+              setContextMenu({ visible: false, x: 0, y: 0, game: null });
+              if (!settings.emulatorPath) {
+                alert('Please set emulator path in settings first.');
+                return;
+              }
+              const confirmMsg = `Do you want to add "${menuGame.name}" to Steam? You will need to restart Steam to see the new shortcut.`;
+              if (window.confirm(confirmMsg)) {
+                const res = await window.electronAPI.addToSteam({
+                  gameName: menuGame.name,
+                  emulatorPath: settings.emulatorPath,
+                  gamePath: menuGame.path,
+                  coverUrl: menuGame.coverUrl
+                });
+                if (res.success) {
+                  window.electronAPI?.showMessageBox({ type: 'info', title: 'Success', message: `Successfully added ${menuGame.name} to Steam! Please restart Steam to see it.` });
+                } else {
+                  alert("Failed to add to Steam: " + res.error);
+                }
+              }
+            }}
+          >
+            <Gamepad2 size={16} color="#1a2b4c" fill="#e2e8f0" /> Add to Steam
+          </button>
+          <div style={{ height: '1px', background: 'rgba(139,92,246,0.15)', margin: '4px 0' }} />
+          <button
+            style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '10px 16px', background: 'none', border: 'none', color: '#eab308', cursor: 'pointer', fontSize: '14px', textAlign: 'left' }}
+            onMouseEnter={(e) => e.target.style.background = 'rgba(234,179,8,0.15)'}
+            onMouseLeave={(e) => e.target.style.background = 'none'}
+            onClick={() => {
+              const menuGame = contextMenu.game;
+              setContextMenu({ visible: false, x: 0, y: 0, game: null });
+              if (!settings.emulatorPath) {
+                alert('Please set emulator path in settings first.');
+                return;
+              }
+              setSelectedGameForPatches(menuGame);
+            }}
+          >
+            <Zap size={16} color="#eab308" /> Configure Patches
+          </button>
+          <button
+            style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '10px 16px', background: 'none', border: 'none', color: '#e2e8f0', cursor: 'pointer', fontSize: '14px', textAlign: 'left' }}
+            onMouseEnter={(e) => e.target.style.background = 'rgba(139,92,246,0.15)'}
+            onMouseLeave={(e) => e.target.style.background = 'none'}
+            onClick={() => { setContextMenu({ visible: false, x: 0, y: 0, game: null }); onGameSelect(contextMenu.game); onNavigate('config'); }}
+          >
+            <Settings size={16} color="#10b981" /> Game Properties
+          </button>
+          <button
+            style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '10px 16px', background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '14px', textAlign: 'left' }}
+            onMouseEnter={(e) => e.target.style.background = 'rgba(239,68,68,0.15)'}
+            onMouseLeave={(e) => e.target.style.background = 'none'}
+            onClick={() => {
+              setContextMenu({ visible: false, x: 0, y: 0, game: null });
+              if (window.confirm(`Remove "${contextMenu.game.name}" from your library?`)) removeGame(contextMenu.game.id);
+            }}
+          >
+            <Trash2 size={16} color="#ef4444" /> Remove Game
+          </button>
+        </div>
+      )}
       <div style={{ marginBottom: '32px' }}>
-        <h1 style={{ 
-          fontSize: '32px', 
-          fontWeight: 'bold', 
+        <h1 style={{
+          fontSize: '32px',
+          fontWeight: 'bold',
           marginBottom: '8px',
           background: 'linear-gradient(135deg, #8b5cf6, #3b82f6)',
           WebkitBackgroundClip: 'text',
@@ -989,155 +1242,159 @@ const GameLibrary = ({ onGameSelect, onNavigate }) => {
       </div>
 
       {/* Controls */}
-      <div className="card" style={{ marginBottom: '24px' }}>
-        <div style={{ display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
-          <div style={{ flex: 1, minWidth: '200px' }}>
-            <div style={{ position: 'relative' }}>
-              <Search size={16} style={{ 
-                position: 'absolute', 
-                left: '12px', 
-                top: '50%', 
-                transform: 'translateY(-50%)',
-                color: '#94a3b8'
-              }} />
-              <input 
-                type="text" 
-                className="form-input" 
-                placeholder="Search games..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                style={{ paddingLeft: '40px' }}
-              />
+      <div className="card" style={{ marginBottom: '24px', padding: '16px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+
+          {/* Top Row: Search and Filters */}
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <div style={{ flex: 1, minWidth: '200px' }}>
+              <div style={{ position: 'relative' }}>
+                <Search size={16} style={{
+                  position: 'absolute',
+                  left: '12px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  color: '#94a3b8'
+                }} />
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="Search games..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  style={{ padding: '10px 16px 10px 40px', fontSize: '14px' }}
+                />
+              </div>
+            </div>
+
+            <select
+              className="form-select"
+              value={filterGenre}
+              onChange={(e) => setFilterGenre(e.target.value)}
+              style={{ minWidth: '140px', width: 'auto', padding: '10px 16px' }}
+            >
+              <option value="all">All Genres</option>
+              {genres.map(genre => (
+                <option key={genre} value={genre}>{genre}</option>
+              ))}
+            </select>
+
+            <select
+              className="form-select"
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              style={{ minWidth: '140px', width: 'auto', padding: '10px 16px' }}
+            >
+              <option value="name">Sort by Name</option>
+              <option value="genre">Sort by Genre</option>
+              <option value="rating">Sort by Rating</option>
+              <option value="lastPlayed">Sort by Last Played</option>
+            </select>
+          </div>
+
+          {/* Bottom Row: Actions and View Mode */}
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <button className="btn btn-success" onClick={handleAddGame} style={{ padding: '8px 16px' }}>
+                <Plus size={16} /> Add Games
+              </button>
+              <button className="btn btn-primary" onClick={handleScanDirectory} disabled={isScanning} style={{ padding: '8px 16px' }}>
+                <FolderOpen size={16} /> {isScanning ? 'Scanning...' : 'Scan Directory'}
+              </button>
+              <button className="btn btn-warning" onClick={syncAllCovers} disabled={isScanning} style={{ padding: '8px 16px' }}>
+                <Globe size={16} /> {isScanning ? 'Syncing...' : 'Sync Covers'}
+              </button>
+              <button className="btn btn-info" onClick={syncMissingCovers} disabled={isScanning} style={{ padding: '8px 16px', backgroundColor: '#3b82f6' }}>
+                <Globe size={16} /> {isScanning ? 'Syncing...' : 'Sync Missing Covers'}
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+              {viewMode === 'grid' && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '120px' }}>
+                  <span style={{ fontSize: '11px', color: '#94a3b8', whiteSpace: 'nowrap' }}>Card Size:</span>
+                  <input
+                    type="range"
+                    min="80"
+                    max="200"
+                    value={cardSize}
+                    onChange={(e) => setCardSize(parseInt(e.target.value))}
+                    style={{
+                      flex: 1,
+                      height: '4px',
+                      background: 'rgba(139, 92, 246, 0.3)',
+                      borderRadius: '2px',
+                      outline: 'none',
+                      cursor: 'pointer'
+                    }}
+                  />
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: '4px', background: 'rgba(30, 30, 60, 0.8)', padding: '4px', borderRadius: '8px', border: '1px solid rgba(139, 92, 246, 0.2)' }}>
+                <button
+                  className="btn"
+                  style={{
+                    padding: '6px 10px',
+                    background: viewMode === 'grid' ? '#8b5cf6' : 'transparent',
+                    color: viewMode === 'grid' ? 'white' : '#94a3b8',
+                    border: 'none',
+                    borderRadius: '6px',
+                    margin: 0
+                  }}
+                  onClick={() => setViewMode('grid')}
+                >
+                  <Grid size={16} />
+                </button>
+                <button
+                  className="btn"
+                  style={{
+                    padding: '6px 10px',
+                    background: viewMode === 'list' ? '#8b5cf6' : 'transparent',
+                    color: viewMode === 'list' ? 'white' : '#94a3b8',
+                    border: 'none',
+                    borderRadius: '6px',
+                    margin: 0
+                  }}
+                  onClick={() => setViewMode('list')}
+                >
+                  <List size={16} />
+                </button>
+              </div>
             </div>
           </div>
-          
-          <select 
-            className="form-select"
-            value={filterGenre}
-            onChange={(e) => setFilterGenre(e.target.value)}
-            style={{ minWidth: '120px' }}
-          >
-            <option value="all">All Genres</option>
-            {genres.map(genre => (
-              <option key={genre} value={genre}>{genre}</option>
-            ))}
-          </select>
-          
-          <select 
-            className="form-select"
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
-            style={{ minWidth: '120px' }}
-          >
-            <option value="name">Sort by Name</option>
-            <option value="genre">Sort by Genre</option>
-            <option value="rating">Sort by Rating</option>
-            <option value="lastPlayed">Sort by Last Played</option>
-          </select>
-          
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button 
-              className={`btn ${viewMode === 'grid' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setViewMode('grid')}
-            >
-              <Grid size={16} />
-            </button>
-            <button 
-              className={`btn ${viewMode === 'list' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setViewMode('list')}
-            >
-              <List size={16} />
-            </button>
-          </div>
-          
-          {/* Card Size Control */}
-          {viewMode === 'grid' && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '150px' }}>
-              <span style={{ fontSize: '12px', color: '#94a3b8', whiteSpace: 'nowrap' }}>Card Size:</span>
-              <input 
-                type="range" 
-                min="80" 
-                max="200" 
-                value={cardSize} 
-                onChange={(e) => setCardSize(parseInt(e.target.value))}
-                style={{
-                  flex: 1,
-                  height: '4px',
-                  background: 'rgba(139, 92, 246, 0.3)',
-                  borderRadius: '2px',
-                  outline: 'none',
-                  cursor: 'pointer'
-                }}
-              />
-              <span style={{ fontSize: '11px', color: '#64748b', minWidth: '30px' }}>{cardSize}px</span>
-            </div>
-          )}
-          
-          <button 
-            className="btn btn-success"
-            onClick={handleAddGame}
-          >
-            <Plus size={16} />
-            Add Games
-          </button>
-          
-          <button 
-            className="btn btn-success"
-            onClick={handleBulkBackupSaves}
-          >
-            <Archive size={16} />
-            Bulk Backup
-          </button>
-          
-          <button 
-            className="btn btn-primary"
-            onClick={handleBulkImportSaves}
-          >
-            <Upload size={16} />
-            Bulk Import
-          </button>
-          
-          <button 
-            className="btn btn-warning"
-            onClick={handleExportAllSaves}
-          >
-            <Download size={16} />
-            Export All
-          </button>
-          
-          <button 
-            className="btn btn-primary"
-            onClick={handleScanDirectory}
-            disabled={isScanning}
-          >
-            <FolderOpen size={16} />
-            {isScanning ? 'Scanning...' : 'Scan Directory'}
-          </button>
-          
-          <button 
-            className="btn btn-warning"
-            onClick={syncAllCovers}
-            disabled={isScanning}
-          >
-            <Globe size={16} />
-            {isScanning ? 'Syncing...' : 'Sync Covers'}
-          </button>
+
         </div>
       </div>
 
       {/* Games Display */}
       {filteredGames.length > 0 ? (
-        <div 
+        <div
           className={viewMode === 'grid' ? 'grid-dynamic' : ''}
           style={viewMode === 'grid' ? {
             '--card-min-width': `${Math.max(150, cardSize * 1.5)}px`
           } : {}}
         >
-          {filteredGames.map(game => 
+          {filteredGames.map(game =>
             viewMode === 'grid' ? (
-              <GameCard key={game.id} game={game} cardSize={cardSize} />
+              <GameCard
+                key={game.id}
+                game={game}
+                cardSize={cardSize}
+                onLaunch={handleLaunchGame}
+                onContextMenu={handleContextMenuCallback}
+                onToggleFavorite={handleToggleFavorite}
+                onConfigure={handleConfigure}
+              />
             ) : (
-              <GameListItem key={game.id} game={game} />
+              <GameListItem
+                key={game.id}
+                game={game}
+                onLaunch={handleLaunchGame}
+                onToggleFavorite={handleToggleFavorite}
+                onConfigure={handleConfigure}
+                onRemove={handleRemoveGame}
+              />
             )
           )}
         </div>
@@ -1148,13 +1405,13 @@ const GameLibrary = ({ onGameSelect, onNavigate }) => {
             {searchTerm || filterGenre !== 'all' ? 'No Games Found' : 'No Games in Library'}
           </h3>
           <p style={{ color: '#64748b', fontSize: '14px', marginBottom: '24px' }}>
-            {searchTerm || filterGenre !== 'all' 
+            {searchTerm || filterGenre !== 'all'
               ? 'Try adjusting your search or filter criteria'
               : 'Add games to your library to get started'
             }
           </p>
           {!searchTerm && filterGenre === 'all' && (
-            <button 
+            <button
               className="btn btn-primary"
               onClick={handleAddGame}
             >
@@ -1186,24 +1443,24 @@ const GameLibrary = ({ onGameSelect, onNavigate }) => {
                 Add New Game
               </h3>
             </div>
-            
+
             <div className="form-group">
               <label className="form-label">Game Name</label>
-              <input 
-                type="text" 
-                className="form-input" 
+              <input
+                type="text"
+                className="form-input"
                 value={newGame.name}
-                onChange={(e) => setNewGame({...newGame, name: e.target.value})}
+                onChange={(e) => setNewGame({ ...newGame, name: e.target.value })}
                 placeholder="Enter game name..."
               />
             </div>
-            
+
             <div className="form-group">
               <label className="form-label">Genre</label>
-              <select 
+              <select
                 className="form-select"
                 value={newGame.genre}
-                onChange={(e) => setNewGame({...newGame, genre: e.target.value})}
+                onChange={(e) => setNewGame({ ...newGame, genre: e.target.value })}
               >
                 <option value="">Select genre...</option>
                 {genres.map(genre => (
@@ -1211,50 +1468,50 @@ const GameLibrary = ({ onGameSelect, onNavigate }) => {
                 ))}
               </select>
             </div>
-            
+
             <div className="form-group">
               <label className="form-label">Rating (1-5)</label>
-              <input 
-                type="number" 
-                className="form-input" 
-                min="0" 
-                max="5" 
+              <input
+                type="number"
+                className="form-input"
+                min="0"
+                max="5"
                 value={newGame.rating}
-                onChange={(e) => setNewGame({...newGame, rating: parseInt(e.target.value) || 0})}
+                onChange={(e) => setNewGame({ ...newGame, rating: parseInt(e.target.value) || 0 })}
               />
             </div>
-            
+
             <div className="form-group">
               <label className="form-label">Cover Image URL</label>
-              <input 
-                type="url" 
-                className="form-input" 
+              <input
+                type="url"
+                className="form-input"
                 value={newGame.cover}
-                onChange={(e) => setNewGame({...newGame, cover: e.target.value})}
+                onChange={(e) => setNewGame({ ...newGame, cover: e.target.value })}
                 placeholder="Cover image URL (auto-fetched if available)..."
               />
             </div>
-            
+
             <div className="form-group">
               <label className="form-label">Description</label>
-              <textarea 
-                className="form-input" 
+              <textarea
+                className="form-input"
                 rows="3"
                 value={newGame.description}
-                onChange={(e) => setNewGame({...newGame, description: e.target.value})}
+                onChange={(e) => setNewGame({ ...newGame, description: e.target.value })}
                 placeholder="Optional description..."
               />
             </div>
-            
+
             <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
-              <button 
+              <button
                 className="btn btn-secondary"
                 onClick={() => setShowAddGameModal(false)}
                 style={{ flex: 1 }}
               >
                 Cancel
               </button>
-              <button 
+              <button
                 className="btn btn-success"
                 onClick={handleSaveGame}
                 disabled={!newGame.name || !newGame.path}
@@ -1266,7 +1523,7 @@ const GameLibrary = ({ onGameSelect, onNavigate }) => {
           </div>
         </div>
       )}
-      
+
       {/* Bulk Add Games Modal */}
       {showBulkAddModal && (
         <div style={{
@@ -1288,22 +1545,22 @@ const GameLibrary = ({ onGameSelect, onNavigate }) => {
                 Bulk Add Games
               </h3>
             </div>
-            
+
             <div style={{ padding: '20px' }}>
               <p>Selected {selectedFiles.length} game files:</p>
-              <div style={{ 
-                maxHeight: '200px', 
-                overflowY: 'auto', 
-                border: '1px solid #374151', 
-                borderRadius: '8px', 
+              <div style={{
+                maxHeight: '200px',
+                overflowY: 'auto',
+                border: '1px solid #374151',
+                borderRadius: '8px',
                 padding: '12px',
                 marginBottom: '20px'
               }}>
                 {selectedFiles.map((file, index) => {
                   const fileName = file.split('\\').pop().split('/').pop();
                   return (
-                    <div key={index} style={{ 
-                      padding: '4px 0', 
+                    <div key={index} style={{
+                      padding: '4px 0',
                       borderBottom: index < selectedFiles.length - 1 ? '1px solid #374151' : 'none'
                     }}>
                       {fileName}
@@ -1311,14 +1568,14 @@ const GameLibrary = ({ onGameSelect, onNavigate }) => {
                   );
                 })}
               </div>
-              
+
               <p style={{ fontSize: '14px', color: '#9CA3AF' }}>
                 Game covers will be automatically fetched for each game.
               </p>
             </div>
-            
+
             <div style={{ display: 'flex', gap: '12px', padding: '20px' }}>
-              <button 
+              <button
                 className="btn btn-secondary"
                 onClick={() => {
                   setShowBulkAddModal(false);
@@ -1329,7 +1586,7 @@ const GameLibrary = ({ onGameSelect, onNavigate }) => {
               >
                 Cancel
               </button>
-              <button 
+              <button
                 className="btn btn-success"
                 onClick={processBulkGames}
                 disabled={isProcessingBulk || selectedFiles.length === 0}
@@ -1340,6 +1597,16 @@ const GameLibrary = ({ onGameSelect, onNavigate }) => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Game Patches Modal */}
+      {selectedGameForPatches && (
+        <GamePatchesModal
+          game={games.find(g => g.id === selectedGameForPatches.id) || selectedGameForPatches}
+          settings={settings}
+          onClose={() => setSelectedGameForPatches(null)}
+          updateGame={updateGame}
+        />
       )}
     </div>
   );

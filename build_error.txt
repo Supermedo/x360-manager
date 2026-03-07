@@ -1,0 +1,56 @@
+﻿node.exe : (node:9832) 
+[DEP0176] 
+DeprecationWarning: fs.F_OK 
+is deprecated, use 
+fs.constants.F_OK instead
+At line:1 char:1
++ & "C:\Program 
+Files\nodejs/node.exe" 
+"C:\Program 
+Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~
+    + CategoryInfo           
+   : NotSpecified: ((node:9  
+  832) [DE...ts.F_OK inste   
+ ad:String) [], RemoteExc    
+eption
+    + FullyQualifiedErrorId  
+   : NativeCommandError
+ 
+(Use `node 
+--trace-deprecation ...` to 
+show where the warning was 
+created)
+Creating an optimized production build...
+Browserslist: browsers data 
+(caniuse-lite) is 9 months 
+old. Please run:
+  npx 
+update-browserslist-db@latest
+  Why you should do it 
+regularly: https://github.com
+/browserslist/update-db#readm
+e
+Browserslist: browsers data 
+(caniuse-lite) is 9 months 
+old. Please run:
+  npx 
+update-browserslist-db@latest
+  Why you should do it 
+regularly: https://github.com
+/browserslist/update-db#readm
+e
+Failed to compile.
+
+[eslint] 
+src\components\GameLibrary.js
+  Line 609:28:   'validation' is not defined  no-undef
+  Line 611:26:   'validation' is not defined  no-undef
+  Line 612:48:   'validation' is not defined  no-undef
+  Line 1038:14:  'Image' is not defined       react/jsx-no-undef
+
+Search for the keywords to learn more about each error.
+
+

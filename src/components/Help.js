@@ -93,10 +93,10 @@ const Help = () => {
             <h3>External Resources</h3>
             <div className="external-links">
               {externalLinks.map((link, index) => (
-                <a 
+                <a
                   key={index}
-                  href={link.url} 
-                  target="_blank" 
+                  href={link.url}
+                  target="_blank"
                   rel="noopener noreferrer"
                   className="external-link"
                 >
@@ -116,15 +116,15 @@ const Help = () => {
             <h3>About X360 Manager</h3>
             <div className="about-content">
               <div className="about-info">
-                <p><strong>Version:</strong> 1.1.0</p>
+                <p><strong>Version:</strong> 1.5.0</p>
                 <p><strong>Developer:</strong> Mohammed Albarghouthi</p>
                 <p><strong>License:</strong> MIT</p>
               </div>
-              
+
               <div className="about-description">
                 <p>
-                  X360 Manager is a modern, user-friendly interface for managing 
-                  Xbox 360 games with the Xenia emulator. Built with React and Electron 
+                  X360 Manager is a modern, user-friendly interface for managing
+                  Xbox 360 games with the Xenia emulator. Built with React and Electron
                   to provide a seamless gaming experience.
                 </p>
               </div>
@@ -133,17 +133,17 @@ const Help = () => {
                 <h4>Contact & Support</h4>
                 <div className="contact-links">
                   <a href="mailto:mohmmad.pod@gmail.com" className="contact-link">
-                  <Mail size={16} />
-                  <span>Email Support</span>
-                </a>
-                <a href="https://github.com/Supermedo" target="_blank" rel="noopener noreferrer" className="contact-link">
-                  <Github size={16} />
-                  <span>GitHub Profile</span>
-                </a>
-                <a href="https://discord.gg/XWNVcxATb3" target="_blank" rel="noopener noreferrer" className="contact-link">
-                  <MessageCircle size={16} />
-                  <span>Discord Community</span>
-                </a>
+                    <Mail size={16} />
+                    <span>Email Support</span>
+                  </a>
+                  <a href="https://github.com/Supermedo" target="_blank" rel="noopener noreferrer" className="contact-link">
+                    <Github size={16} />
+                    <span>GitHub Profile</span>
+                  </a>
+                  <a href="https://discord.gg/XWNVcxATb3" target="_blank" rel="noopener noreferrer" className="contact-link">
+                    <MessageCircle size={16} />
+                    <span>Discord Community</span>
+                  </a>
                 </div>
               </div>
 

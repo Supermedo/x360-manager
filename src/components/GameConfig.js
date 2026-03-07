@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { 
-  Settings, 
-  Monitor, 
-  Volume2, 
+import {
+  Settings,
+  Monitor,
+  Volume2,
   Gamepad2,
   Play,
   Save,
@@ -19,7 +19,8 @@ import {
   Download,
   Upload,
   Copy,
-  Archive
+  Archive,
+  Zap
 } from 'lucide-react';
 import { GameContext } from '../context/GameContext';
 import { SettingsContext } from '../context/SettingsContext';
@@ -109,7 +110,7 @@ const GameConfig = ({ game, onNavigate }) => {
           path: dlcPath,
           dateAdded: new Date().toISOString()
         }));
-        
+
         setConfig(prev => ({
           ...prev,
           dlcFiles: [...(prev.dlcFiles || []), ...newDlcFiles]
@@ -321,13 +322,13 @@ const GameConfig = ({ game, onNavigate }) => {
     console.log('Save config button clicked');
     console.log('Current game:', game);
     console.log('Current config:', config);
-    
+
     if (game) {
       try {
         updateGame(game.id, { config });
         setHasUnsavedChanges(false);
         console.log('Config saved successfully');
-        
+
         window.electronAPI?.showMessageBox({
           type: 'info',
           title: 'Configuration Saved',
@@ -408,7 +409,7 @@ const GameConfig = ({ game, onNavigate }) => {
     console.log('Emulator path:', settings.emulatorPath);
     console.log('Game:', game);
     console.log('Config:', config);
-    
+
     if (!window.electronAPI) {
       console.error('Electron API not available');
       window.electronAPI?.showMessageBox({
@@ -419,7 +420,7 @@ const GameConfig = ({ game, onNavigate }) => {
       });
       return;
     }
-    
+
     if (!settings.emulatorPath) {
       console.error('Emulator path not configured');
       window.electronAPI?.showMessageBox({
@@ -430,7 +431,7 @@ const GameConfig = ({ game, onNavigate }) => {
       });
       return;
     }
-    
+
     if (!game) {
       console.error('No game selected');
       window.electronAPI?.showMessageBox({
@@ -445,27 +446,18 @@ const GameConfig = ({ game, onNavigate }) => {
     try {
       console.log('Launching game with emulator:', settings.emulatorPath);
       console.log('Game path:', game.path);
-      
+
       await window.electronAPI.launchGame(settings.emulatorPath, game.path, config);
-      
+
       console.log('Game launched successfully');
-      
+
       // Save config and update game stats
       updateGame(game.id, {
         config,
         lastPlayed: new Date().toISOString(),
         timesPlayed: (game.timesPlayed || 0) + 1
       });
-      
-      setHasUnsavedChanges(false);
-      
-      window.electronAPI?.showMessageBox({
-        type: 'info',
-        title: 'Game Launched',
-        message: 'Game has been launched successfully!',
-        buttons: ['OK']
-      });
-      
+
     } catch (error) {
       console.error('Failed to launch game:', error);
       window.electronAPI?.showMessageBox({
@@ -633,7 +625,7 @@ const GameConfig = ({ game, onNavigate }) => {
           <p style={{ color: '#64748b', fontSize: '14px', marginBottom: '24px' }}>
             Select a game from your library to configure its settings
           </p>
-          <button 
+          <button
             className="btn btn-primary"
             onClick={() => onNavigate('library')}
             style={{ padding: '12px 24px', fontSize: '16px', fontWeight: '600' }}
@@ -649,7 +641,7 @@ const GameConfig = ({ game, onNavigate }) => {
     <div className="fade-in">
       {/* Back Button */}
       <div style={{ marginBottom: '24px' }}>
-        <button 
+        <button
           className="btn btn-outline"
           onClick={() => onNavigate('library')}
           style={{ minWidth: '120px', padding: '10px 16px', fontSize: '14px' }}
@@ -658,11 +650,11 @@ const GameConfig = ({ game, onNavigate }) => {
           Back
         </button>
       </div>
-      
+
       <div style={{ marginBottom: '32px' }}>
-        <h1 style={{ 
-          fontSize: '32px', 
-          fontWeight: 'bold', 
+        <h1 style={{
+          fontSize: '32px',
+          fontWeight: 'bold',
           marginBottom: '8px',
           background: 'linear-gradient(135deg, #8b5cf6, #3b82f6)',
           WebkitBackgroundClip: 'text',
@@ -685,102 +677,102 @@ const GameConfig = ({ game, onNavigate }) => {
         </div>
         <div className="card-body">
           {/* Cover Image Preview */}
-        {game.cover && (
-          <div style={{ marginBottom: '16px', textAlign: 'center' }}>
-            <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '8px' }}>Cover Image</div>
-            <img 
-              src={game.cover} 
-              alt={`${game.name} cover`}
-              style={{ 
-                maxWidth: '200px', 
-                maxHeight: '280px', 
-                borderRadius: '8px',
-                border: '2px solid rgba(139, 92, 246, 0.3)',
-                objectFit: 'cover'
-              }}
-              onError={(e) => {
-                e.target.style.display = 'none';
-              }}
-            />
-          </div>
-        )}
-        
-        <div className="grid grid-3" style={{ marginBottom: '16px' }}>
-          <div>
-            <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '4px' }}>Name</div>
-            <div style={{ color: '#e2e8f0', fontSize: '16px', fontWeight: '500' }}>{game.name}</div>
-          </div>
-          <div>
-            <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '4px' }}>Genre</div>
-            <div style={{ color: '#e2e8f0', fontSize: '16px', fontWeight: '500' }}>{game.genre || 'Unknown'}</div>
-          </div>
-          <div>
-            <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '4px' }}>Rating</div>
-            <div style={{ color: '#e2e8f0', fontSize: '16px', fontWeight: '500' }}>
-              {game.rating ? `${game.rating}/5 ⭐` : 'Not rated'}
+          {game.cover && (
+            <div style={{ marginBottom: '16px', textAlign: 'center' }}>
+              <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '8px' }}>Cover Image</div>
+              <img
+                src={game.cover}
+                alt={`${game.name} cover`}
+                style={{
+                  maxWidth: '200px',
+                  maxHeight: '280px',
+                  borderRadius: '8px',
+                  border: '2px solid rgba(139, 92, 246, 0.3)',
+                  objectFit: 'cover'
+                }}
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                }}
+              />
+            </div>
+          )}
+
+          <div className="grid grid-3" style={{ marginBottom: '16px' }}>
+            <div>
+              <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '4px' }}>Name</div>
+              <div style={{ color: '#e2e8f0', fontSize: '16px', fontWeight: '500' }}>{game.name}</div>
+            </div>
+            <div>
+              <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '4px' }}>Genre</div>
+              <div style={{ color: '#e2e8f0', fontSize: '16px', fontWeight: '500' }}>{game.genre || 'Unknown'}</div>
+            </div>
+            <div>
+              <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '4px' }}>Rating</div>
+              <div style={{ color: '#e2e8f0', fontSize: '16px', fontWeight: '500' }}>
+                {game.rating ? `${game.rating}/5 ⭐` : 'Not rated'}
+              </div>
             </div>
           </div>
-        </div>
-        <div className="grid grid-3" style={{ marginBottom: '16px' }}>
-          <div>
-            <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '4px' }}>Times Played</div>
-            <div style={{ color: '#e2e8f0', fontSize: '16px', fontWeight: '500' }}>{game.timesPlayed || 0}</div>
-          </div>
-          <div>
-            <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '4px' }}>Last Played</div>
-            <div style={{ color: '#e2e8f0', fontSize: '16px', fontWeight: '500' }}>
-              {game.lastPlayed ? new Date(game.lastPlayed).toLocaleDateString() : 'Never'}
+          <div className="grid grid-3" style={{ marginBottom: '16px' }}>
+            <div>
+              <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '4px' }}>Times Played</div>
+              <div style={{ color: '#e2e8f0', fontSize: '16px', fontWeight: '500' }}>{game.timesPlayed || 0}</div>
+            </div>
+            <div>
+              <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '4px' }}>Last Played</div>
+              <div style={{ color: '#e2e8f0', fontSize: '16px', fontWeight: '500' }}>
+                {game.lastPlayed ? new Date(game.lastPlayed).toLocaleDateString() : 'Never'}
+              </div>
+            </div>
+            <div>
+              <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '4px' }}>Date Added</div>
+              <div style={{ color: '#e2e8f0', fontSize: '16px', fontWeight: '500' }}>
+                {game.dateAdded ? new Date(game.dateAdded).toLocaleDateString() : 'Unknown'}
+              </div>
             </div>
           </div>
-          <div>
-            <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '4px' }}>Date Added</div>
-            <div style={{ color: '#e2e8f0', fontSize: '16px', fontWeight: '500' }}>
-              {game.dateAdded ? new Date(game.dateAdded).toLocaleDateString() : 'Unknown'}
+
+          {/* Additional Game Details */}
+          <div className="grid grid-3" style={{ marginBottom: '16px' }}>
+            <div>
+              <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '4px' }}>File Size</div>
+              <div style={{ color: '#e2e8f0', fontSize: '16px', fontWeight: '500' }}>
+                {game.fileSize ? `${(game.fileSize / (1024 * 1024 * 1024)).toFixed(2)} GB` : 'Unknown'}
+              </div>
+            </div>
+            <div>
+              <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '4px' }}>File Type</div>
+              <div style={{ color: '#e2e8f0', fontSize: '16px', fontWeight: '500' }}>
+                {game.path ? game.path.split('.').pop().toUpperCase() : 'Unknown'}
+              </div>
+            </div>
+            <div>
+              <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '4px' }}>Game ID</div>
+              <div style={{ color: '#e2e8f0', fontSize: '12px', fontFamily: 'monospace' }}>
+                {game.id || 'N/A'}
+              </div>
             </div>
           </div>
-        </div>
-        
-        {/* Additional Game Details */}
-        <div className="grid grid-3" style={{ marginBottom: '16px' }}>
+          {game.description && (
+            <div style={{ marginBottom: '16px' }}>
+              <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '4px' }}>Description</div>
+              <div style={{ color: '#e2e8f0', fontSize: '14px', lineHeight: '1.5' }}>{game.description}</div>
+            </div>
+          )}
           <div>
-            <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '4px' }}>File Size</div>
-            <div style={{ color: '#e2e8f0', fontSize: '16px', fontWeight: '500' }}>
-              {game.fileSize ? `${(game.fileSize / (1024 * 1024 * 1024)).toFixed(2)} GB` : 'Unknown'}
+            <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '4px' }}>File Path</div>
+            <div style={{
+              color: '#e2e8f0',
+              fontSize: '12px',
+              fontFamily: 'monospace',
+              background: 'rgba(0, 0, 0, 0.3)',
+              padding: '8px',
+              borderRadius: '4px',
+              wordBreak: 'break-all'
+            }}>
+              {game.path}
             </div>
           </div>
-          <div>
-            <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '4px' }}>File Type</div>
-            <div style={{ color: '#e2e8f0', fontSize: '16px', fontWeight: '500' }}>
-              {game.path ? game.path.split('.').pop().toUpperCase() : 'Unknown'}
-            </div>
-          </div>
-          <div>
-            <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '4px' }}>Game ID</div>
-            <div style={{ color: '#e2e8f0', fontSize: '12px', fontFamily: 'monospace' }}>
-              {game.id || 'N/A'}
-            </div>
-          </div>
-        </div>
-        {game.description && (
-          <div style={{ marginBottom: '16px' }}>
-            <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '4px' }}>Description</div>
-            <div style={{ color: '#e2e8f0', fontSize: '14px', lineHeight: '1.5' }}>{game.description}</div>
-          </div>
-        )}
-        <div>
-          <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '4px' }}>File Path</div>
-          <div style={{ 
-            color: '#e2e8f0', 
-            fontSize: '12px', 
-            fontFamily: 'monospace', 
-            background: 'rgba(0, 0, 0, 0.3)', 
-            padding: '8px', 
-            borderRadius: '4px',
-            wordBreak: 'break-all'
-          }}>
-            {game.path}
-          </div>
-        </div>
         </div>
       </div>
 
@@ -793,10 +785,10 @@ const GameConfig = ({ game, onNavigate }) => {
               Display Settings
             </h3>
           </div>
-          
+
           <div className="form-group">
             <label className="form-label">Resolution</label>
-            <select 
+            <select
               className="form-select"
               value={config.resolution}
               onChange={(e) => handleConfigChange('resolution', e.target.value)}
@@ -806,10 +798,10 @@ const GameConfig = ({ game, onNavigate }) => {
               ))}
             </select>
           </div>
-          
+
           <div className="form-group">
             <label className="form-label">Renderer</label>
-            <select 
+            <select
               className="form-select"
               value={config.renderer}
               onChange={(e) => handleConfigChange('renderer', e.target.value)}
@@ -819,11 +811,11 @@ const GameConfig = ({ game, onNavigate }) => {
               ))}
             </select>
           </div>
-          
+
           <div className="form-group">
             <label className="form-label">
-              <input 
-                type="checkbox" 
+              <input
+                type="checkbox"
                 checked={config.fullscreen}
                 onChange={(e) => handleConfigChange('fullscreen', e.target.checked)}
                 style={{ marginRight: '8px' }}
@@ -831,11 +823,11 @@ const GameConfig = ({ game, onNavigate }) => {
               Fullscreen Mode
             </label>
           </div>
-          
+
           <div className="form-group">
             <label className="form-label">
-              <input 
-                type="checkbox" 
+              <input
+                type="checkbox"
                 checked={config.vsync}
                 onChange={(e) => handleConfigChange('vsync', e.target.checked)}
                 style={{ marginRight: '8px' }}
@@ -853,10 +845,10 @@ const GameConfig = ({ game, onNavigate }) => {
               Graphics Settings
             </h3>
           </div>
-          
+
           <div className="form-group">
             <label className="form-label">Anti-aliasing</label>
-            <select 
+            <select
               className="form-select"
               value={config.antialiasing}
               onChange={(e) => handleConfigChange('antialiasing', e.target.value)}
@@ -866,10 +858,10 @@ const GameConfig = ({ game, onNavigate }) => {
               ))}
             </select>
           </div>
-          
+
           <div className="form-group">
             <label className="form-label">Texture Filtering</label>
-            <select 
+            <select
               className="form-select"
               value={config.textureFiltering}
               onChange={(e) => handleConfigChange('textureFiltering', e.target.value)}
@@ -879,10 +871,10 @@ const GameConfig = ({ game, onNavigate }) => {
               ))}
             </select>
           </div>
-          
+
           <div className="form-group">
             <label className="form-label">Frame Rate Limit</label>
-            <select 
+            <select
               className="form-select"
               value={config.frameLimit}
               onChange={(e) => handleConfigChange('frameLimit', e.target.value)}
@@ -902,10 +894,10 @@ const GameConfig = ({ game, onNavigate }) => {
               Audio Settings
             </h3>
           </div>
-          
+
           <div className="form-group">
             <label className="form-label">Audio Driver</label>
-            <select 
+            <select
               className="form-select"
               value={config.audioDriver}
               onChange={(e) => handleConfigChange('audioDriver', e.target.value)}
@@ -915,10 +907,10 @@ const GameConfig = ({ game, onNavigate }) => {
               ))}
             </select>
           </div>
-          
+
           <div className="form-group">
             <label className="form-label">Audio Latency</label>
-            <select 
+            <select
               className="form-select"
               value={config.audioLatency}
               onChange={(e) => handleConfigChange('audioLatency', e.target.value)}
@@ -938,10 +930,10 @@ const GameConfig = ({ game, onNavigate }) => {
               Advanced Settings
             </h3>
           </div>
-          
+
           <div className="form-group">
             <label className="form-label">Controller Profile</label>
-            <select 
+            <select
               className="form-select"
               value={config.controllerProfile}
               onChange={(e) => handleConfigChange('controllerProfile', e.target.value)}
@@ -951,12 +943,12 @@ const GameConfig = ({ game, onNavigate }) => {
               ))}
             </select>
           </div>
-          
+
           <div className="form-group">
             <label className="form-label">Custom Arguments</label>
-            <input 
-              type="text" 
-              className="form-input" 
+            <input
+              type="text"
+              className="form-input"
               value={config.customArgs}
               onChange={(e) => handleConfigChange('customArgs', e.target.value)}
               placeholder="Additional command line arguments..."
@@ -975,10 +967,10 @@ const GameConfig = ({ game, onNavigate }) => {
               Performance Settings
             </h3>
           </div>
-          
+
           <div className="form-group">
             <label className="form-label">CPU Threads</label>
-            <select 
+            <select
               className="form-select"
               value={config.cpuThreads}
               onChange={(e) => handleConfigChange('cpuThreads', e.target.value)}
@@ -988,10 +980,10 @@ const GameConfig = ({ game, onNavigate }) => {
               ))}
             </select>
           </div>
-          
+
           <div className="form-group">
             <label className="form-label">Memory Limit</label>
-            <select 
+            <select
               className="form-select"
               value={config.memoryLimit}
               onChange={(e) => handleConfigChange('memoryLimit', e.target.value)}
@@ -1001,11 +993,11 @@ const GameConfig = ({ game, onNavigate }) => {
               ))}
             </select>
           </div>
-          
+
           <div className="form-group">
             <label className="form-label">
-              <input 
-                type="checkbox" 
+              <input
+                type="checkbox"
                 checked={config.gpuAcceleration}
                 onChange={(e) => handleConfigChange('gpuAcceleration', e.target.checked)}
                 style={{ marginRight: '8px' }}
@@ -1013,11 +1005,11 @@ const GameConfig = ({ game, onNavigate }) => {
               GPU Acceleration
             </label>
           </div>
-          
+
           <div className="form-group">
             <label className="form-label">
-              <input 
-                type="checkbox" 
+              <input
+                type="checkbox"
                 checked={config.asyncShaderCompilation}
                 onChange={(e) => handleConfigChange('asyncShaderCompilation', e.target.checked)}
                 style={{ marginRight: '8px' }}
@@ -1025,11 +1017,11 @@ const GameConfig = ({ game, onNavigate }) => {
               Async Shader Compilation
             </label>
           </div>
-          
+
           <div className="form-group">
             <label className="form-label">
-              <input 
-                type="checkbox" 
+              <input
+                type="checkbox"
                 checked={config.textureCache}
                 onChange={(e) => handleConfigChange('textureCache', e.target.checked)}
                 style={{ marginRight: '8px' }}
@@ -1047,10 +1039,10 @@ const GameConfig = ({ game, onNavigate }) => {
               Compatibility Settings
             </h3>
           </div>
-          
+
           <div className="form-group">
             <label className="form-label">Compatibility Mode</label>
-            <select 
+            <select
               className="form-select"
               value={config.compatibilityMode}
               onChange={(e) => handleConfigChange('compatibilityMode', e.target.value)}
@@ -1060,10 +1052,10 @@ const GameConfig = ({ game, onNavigate }) => {
               ))}
             </select>
           </div>
-          
+
           <div className="form-group">
             <label className="form-label">Kernel Version</label>
-            <select 
+            <select
               className="form-select"
               value={config.kernelVersion}
               onChange={(e) => handleConfigChange('kernelVersion', e.target.value)}
@@ -1073,10 +1065,10 @@ const GameConfig = ({ game, onNavigate }) => {
               ))}
             </select>
           </div>
-          
+
           <div className="form-group">
             <label className="form-label">Region Lock</label>
-            <select 
+            <select
               className="form-select"
               value={config.regionLock}
               onChange={(e) => handleConfigChange('regionLock', e.target.value)}
@@ -1086,10 +1078,10 @@ const GameConfig = ({ game, onNavigate }) => {
               ))}
             </select>
           </div>
-          
+
           <div className="form-group">
             <label className="form-label">Language Override</label>
-            <select 
+            <select
               className="form-select"
               value={config.languageOverride}
               onChange={(e) => handleConfigChange('languageOverride', e.target.value)}
@@ -1109,11 +1101,11 @@ const GameConfig = ({ game, onNavigate }) => {
               Input Settings
             </h3>
           </div>
-          
+
           <div className="form-group">
             <label className="form-label">Input Deadzone: {config.inputDeadzone}</label>
-            <input 
-              type="range" 
+            <input
+              type="range"
               className="form-range"
               min="0"
               max="1"
@@ -1122,11 +1114,11 @@ const GameConfig = ({ game, onNavigate }) => {
               onChange={(e) => handleConfigChange('inputDeadzone', e.target.value)}
             />
           </div>
-          
+
           <div className="form-group">
             <label className="form-label">
-              <input 
-                type="checkbox" 
+              <input
+                type="checkbox"
                 checked={config.vibrationEnabled}
                 onChange={(e) => handleConfigChange('vibrationEnabled', e.target.checked)}
                 style={{ marginRight: '8px' }}
@@ -1134,11 +1126,11 @@ const GameConfig = ({ game, onNavigate }) => {
               Controller Vibration
             </label>
           </div>
-          
+
           <div className="form-group">
             <label className="form-label">
-              <input 
-                type="checkbox" 
+              <input
+                type="checkbox"
                 checked={config.keyboardSupport}
                 onChange={(e) => handleConfigChange('keyboardSupport', e.target.checked)}
                 style={{ marginRight: '8px' }}
@@ -1146,11 +1138,11 @@ const GameConfig = ({ game, onNavigate }) => {
               Keyboard Support
             </label>
           </div>
-          
+
           <div className="form-group">
             <label className="form-label">
-              <input 
-                type="checkbox" 
+              <input
+                type="checkbox"
                 checked={config.mouseSupport}
                 onChange={(e) => handleConfigChange('mouseSupport', e.target.checked)}
                 style={{ marginRight: '8px' }}
@@ -1168,10 +1160,10 @@ const GameConfig = ({ game, onNavigate }) => {
               Audio Enhancement
             </h3>
           </div>
-          
+
           <div className="form-group">
             <label className="form-label">Audio Channels</label>
-            <select 
+            <select
               className="form-select"
               value={config.audioChannels}
               onChange={(e) => handleConfigChange('audioChannels', e.target.value)}
@@ -1181,10 +1173,10 @@ const GameConfig = ({ game, onNavigate }) => {
               ))}
             </select>
           </div>
-          
+
           <div className="form-group">
             <label className="form-label">Sample Rate</label>
-            <select 
+            <select
               className="form-select"
               value={config.audioSampleRate}
               onChange={(e) => handleConfigChange('audioSampleRate', e.target.value)}
@@ -1194,11 +1186,11 @@ const GameConfig = ({ game, onNavigate }) => {
               ))}
             </select>
           </div>
-          
+
           <div className="form-group">
             <label className="form-label">Audio Volume: {config.audioVolume}%</label>
-            <input 
-              type="range" 
+            <input
+              type="range"
               className="form-range"
               min="0"
               max="200"
@@ -1217,11 +1209,11 @@ const GameConfig = ({ game, onNavigate }) => {
               Debug Settings
             </h3>
           </div>
-          
+
           <div className="form-group">
             <label className="form-label">
-              <input 
-                type="checkbox" 
+              <input
+                type="checkbox"
                 checked={config.debugMode}
                 onChange={(e) => handleConfigChange('debugMode', e.target.checked)}
                 style={{ marginRight: '8px' }}
@@ -1229,10 +1221,10 @@ const GameConfig = ({ game, onNavigate }) => {
               Debug Mode
             </label>
           </div>
-          
+
           <div className="form-group">
             <label className="form-label">Log Level</label>
-            <select 
+            <select
               className="form-select"
               value={config.logLevel}
               onChange={(e) => handleConfigChange('logLevel', e.target.value)}
@@ -1242,11 +1234,11 @@ const GameConfig = ({ game, onNavigate }) => {
               ))}
             </select>
           </div>
-          
+
           <div className="form-group">
             <label className="form-label">
-              <input 
-                type="checkbox" 
+              <input
+                type="checkbox"
                 checked={config.showFPS}
                 onChange={(e) => handleConfigChange('showFPS', e.target.checked)}
                 style={{ marginRight: '8px' }}
@@ -1254,17 +1246,31 @@ const GameConfig = ({ game, onNavigate }) => {
               Show FPS Counter
             </label>
           </div>
-          
+
           <div className="form-group">
             <label className="form-label">
-              <input 
-                type="checkbox" 
+              <input
+                type="checkbox"
                 checked={config.showStats}
                 onChange={(e) => handleConfigChange('showStats', e.target.checked)}
                 style={{ marginRight: '8px' }}
               />
               Show Performance Stats
             </label>
+          </div>
+
+          <div style={{ marginTop: '16px', padding: '16px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+            <h4 style={{ color: '#e2e8f0', marginBottom: '8px' }}>Game Patches</h4>
+            <p style={{ color: '#94a3b8', fontSize: '13px', marginBottom: '12px' }}>
+              Xenia Canary patches can be enabled for this game by opening its corresponding TOML file and setting `is_enabled = true`.
+            </p>
+            <button
+              className="btn btn-secondary"
+              onClick={() => window.electronAPI && window.electronAPI.openPatchesFolder(settings.emulatorPath)}
+              disabled={!settings.emulatorPath}
+            >
+              <FolderOpen size={16} /> Open Patches Folder
+            </button>
           </div>
         </div>
 
@@ -1276,9 +1282,9 @@ const GameConfig = ({ game, onNavigate }) => {
               DLC Management
             </h3>
           </div>
-          
+
           <div className="form-group">
-            <button 
+            <button
               className="btn btn-primary"
               onClick={handleBrowseDlc}
               style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px' }}
@@ -1290,14 +1296,14 @@ const GameConfig = ({ game, onNavigate }) => {
               Supported formats: .xcp, .dlc, .pkg, .zip, .7z
             </div>
           </div>
-          
+
           {config.dlcFiles && config.dlcFiles.length > 0 && (
             <div className="form-group">
               <label className="form-label">Added DLC Files ({config.dlcFiles.length})</label>
-              <div style={{ 
-                maxHeight: '200px', 
-                overflowY: 'auto', 
-                border: '1px solid rgba(148, 163, 184, 0.3)', 
+              <div style={{
+                maxHeight: '200px',
+                overflowY: 'auto',
+                border: '1px solid rgba(148, 163, 184, 0.3)',
                 borderRadius: '6px',
                 padding: '8px'
               }}>
@@ -1326,8 +1332,8 @@ const GameConfig = ({ game, onNavigate }) => {
                     <button
                       className="btn btn-danger"
                       onClick={() => handleRemoveDlc(dlc.id)}
-                      style={{ 
-                        padding: '6px 8px', 
+                      style={{
+                        padding: '6px 8px',
                         fontSize: '12px',
                         minWidth: 'auto',
                         marginLeft: '8px'
@@ -1341,7 +1347,7 @@ const GameConfig = ({ game, onNavigate }) => {
               </div>
             </div>
           )}
-          
+
           {(!config.dlcFiles || config.dlcFiles.length === 0) && (
             <div style={{
               textAlign: 'center',
@@ -1505,7 +1511,7 @@ const GameConfig = ({ game, onNavigate }) => {
       {/* Action Buttons */}
       <div className="card" style={{ marginTop: '24px' }}>
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-          <button 
+          <button
             className="btn btn-success"
             onClick={handleLaunchWithConfig}
             style={{ flex: 1, padding: '12px 16px', fontSize: '16px', fontWeight: '600' }}
@@ -1513,8 +1519,8 @@ const GameConfig = ({ game, onNavigate }) => {
             <Play size={20} />
             Launch Game
           </button>
-          
-          <button 
+
+          <button
             className="btn btn-primary"
             onClick={handleSaveConfig}
             disabled={!hasUnsavedChanges}
@@ -1523,8 +1529,8 @@ const GameConfig = ({ game, onNavigate }) => {
             <Save size={18} />
             Save Config
           </button>
-          
-          <button 
+
+          <button
             className="btn btn-secondary"
             onClick={handleResetToDefaults}
             style={{ padding: '12px 16px', fontSize: '14px', minWidth: '140px' }}
@@ -1533,12 +1539,12 @@ const GameConfig = ({ game, onNavigate }) => {
             Reset to Defaults
           </button>
         </div>
-        
+
         {hasUnsavedChanges && (
-          <div style={{ 
-            marginTop: '16px', 
-            padding: '12px', 
-            background: 'rgba(245, 158, 11, 0.1)', 
+          <div style={{
+            marginTop: '16px',
+            padding: '12px',
+            background: 'rgba(245, 158, 11, 0.1)',
             border: '1px solid rgba(245, 158, 11, 0.3)',
             borderRadius: '8px',
             color: '#f59e0b',
@@ -1552,7 +1558,7 @@ const GameConfig = ({ game, onNavigate }) => {
           </div>
         )}
       </div>
-    </div>
+    </div >
   );
 };
 

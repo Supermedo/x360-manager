@@ -7,11 +7,12 @@ import EmulatorSetup from './components/EmulatorSetup';
 import GameConfig from './components/GameConfig';
 import Settings from './components/Settings';
 import Help from './components/Help';
+import TitleBar from './components/TitleBar';
 import { GameProvider } from './context/GameContext';
 import { SettingsProvider, SettingsContext } from './context/SettingsContext';
 
 const AppContent = () => {
-  const [activeView, setActiveView] = useState('dashboard');
+  const [activeView, setActiveView] = useState('library');
   const [selectedGame, setSelectedGame] = useState(null);
   const { settings } = useContext(SettingsContext);
 
@@ -30,17 +31,20 @@ const AppContent = () => {
       case 'help':
         return <Help />;
       default:
-        return <Dashboard onNavigate={setActiveView} />;
+        return <GameLibrary onGameSelect={setSelectedGame} onNavigate={setActiveView} />;
     }
   };
 
   return (
-    <div className={`app theme-${settings.theme || 'dark'}`} data-language={settings.language || 'en'}>
-      <Sidebar activeView={activeView} onNavigate={setActiveView} />
-      <main className="main-content">
-        {renderView()}
-      </main>
-    </div>
+    <>
+      <TitleBar />
+      <div className={`app theme-${settings.theme || 'dark'}`} data-language={settings.language || 'en'}>
+        <Sidebar activeView={activeView} onNavigate={setActiveView} />
+        <main className="main-content">
+          {renderView()}
+        </main>
+      </div>
+    </>
   );
 };
 

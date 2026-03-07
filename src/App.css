@@ -6,8 +6,8 @@
 }
 
 body {
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
+  font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: radial-gradient(circle at top right, #2a1b4d 0%, #16162a 40%, #0d0d1a 100%);
   color: #e2e8f0;
   overflow: hidden;
 }
@@ -16,14 +16,17 @@ body {
   display: flex;
   height: 100vh;
   width: 100vw;
+  padding-top: 48px;
 }
 
 /* Sidebar Styles */
 .sidebar {
   width: 280px;
-  background: rgba(15, 15, 35, 0.95);
-  backdrop-filter: blur(10px);
-  border-right: 1px solid rgba(139, 92, 246, 0.2);
+  background: rgba(18, 18, 38, 0.65);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.4);
   display: flex;
   flex-direction: column;
   padding: 24px 0;
@@ -37,7 +40,7 @@ body {
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(180deg, rgba(139, 92, 246, 0.1) 0%, transparent 100%);
+  background: linear-gradient(180deg, rgba(168, 85, 247, 0.15) 0%, transparent 100%);
   pointer-events: none;
 }
 
@@ -94,9 +97,9 @@ body {
 }
 
 .nav-item.active {
-  background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(59, 130, 246, 0.1));
-  color: #8b5cf6;
-  border: 1px solid rgba(139, 92, 246, 0.3);
+  background: linear-gradient(135deg, rgba(236, 72, 153, 0.15), rgba(168, 85, 247, 0.15));
+  color: #e879f9;
+  border: 1px solid rgba(236, 72, 153, 0.3);
 }
 
 .nav-item.active::before {
@@ -105,7 +108,7 @@ body {
   left: 0;
   width: 4px;
   height: 24px;
-  background: linear-gradient(180deg, #8b5cf6, #3b82f6);
+  background: linear-gradient(180deg, #ec4899, #a855f7);
   border-radius: 0 2px 2px 0;
 }
 
@@ -119,19 +122,21 @@ body {
 
 /* Card Styles */
 .card {
-  background: rgba(30, 30, 60, 0.8);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(139, 92, 246, 0.2);
-  border-radius: 16px;
+  background: rgba(22, 22, 45, 0.6);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
   padding: 24px;
   margin-bottom: 24px;
-  transition: all 0.3s ease;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
 .card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 20px 40px rgba(139, 92, 246, 0.1);
-  border-color: rgba(139, 92, 246, 0.4);
+  transform: translateY(-4px);
+  box-shadow: 0 12px 48px rgba(168, 85, 247, 0.2);
+  border-color: rgba(236, 72, 153, 0.4);
 }
 
 .card-header {
@@ -172,13 +177,14 @@ body {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #8b5cf6, #3b82f6);
+  background: linear-gradient(135deg, #ec4899, #a855f7);
   color: white;
+  box-shadow: 0 4px 15px rgba(236, 72, 153, 0.3);
 }
 
 .btn-primary:hover {
   transform: translateY(-2px);
-  box-shadow: 0 10px 20px rgba(139, 92, 246, 0.3);
+  box-shadow: 0 8px 25px rgba(168, 85, 247, 0.5);
 }
 
 .btn-secondary {
@@ -338,69 +344,174 @@ body {
 
 /* Game Card Styles */
 .game-card {
-  background: rgba(20, 20, 30, 0.95);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
+  background: rgba(22, 22, 42, 0.7);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 16px;
   overflow: hidden;
-  transition: all 0.3s ease;
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   cursor: pointer;
   position: relative;
   display: flex;
-  flex-direction: row;
-  height: 120px;
-  will-change: auto;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  flex-direction: column;
+  will-change: transform;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  border-radius: 12px;
+  background-color: var(--bg-secondary);
 }
 
-.game-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
-  border-color: rgba(139, 92, 246, 0.6);
+.game-card.vertical-poster:hover {
+  transform: translateY(-8px) scale(1.03);
+  box-shadow: 0 20px 40px rgba(168, 85, 247, 0.4);
+  border-color: rgba(236, 72, 153, 0.6);
+  z-index: 10;
 }
 
-.game-cover {
-  width: 90px;
+.game-cover-full {
+  width: 100%;
   height: 100%;
-  background: linear-gradient(135deg, #1a1a2e, #16213e, #0f3460);
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+}
+
+.card-overlay-gradient {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(to top, rgba(10, 10, 25, 0.95) 0%, rgba(10, 10, 25, 0.4) 40%, transparent 100%);
+  z-index: 2;
+  pointer-events: none;
+}
+
+.card-overlay-gradient::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(to top, rgba(10, 10, 25, 0.95) 0%, rgba(168, 85, 247, 0.6) 50%, rgba(236, 72, 153, 0.3) 100%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.game-card.vertical-poster:hover .card-overlay-gradient::after {
+  opacity: 1;
+}
+
+.card-hover-actions {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.game-card.vertical-poster:hover .card-hover-actions {
+  opacity: 1;
+}
+
+.play-icon-overlay {
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.5));
+  transition: transform 0.2s ease;
+}
+
+.play-icon-overlay:hover {
+  transform: scale(1.15);
+}
+
+.hover-buttons-row {
+  position: absolute;
+  bottom: 80px;
+  display: flex;
+  gap: 12px;
+}
+
+.btn-icon {
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
-  font-size: 16px;
-  position: relative;
-  overflow: hidden;
-  border-radius: 12px 0 0 12px;
-  flex-shrink: 0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-icon:hover {
+  background: rgba(168, 85, 247, 0.8);
+  transform: translateY(-2px);
+}
+
+.btn-icon.danger-icon:hover {
+  background: rgba(239, 68, 68, 0.8);
 }
 
 .game-info {
-  padding: 12px;
-  flex: 1;
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  padding: 16px;
+  z-index: 4;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  min-width: 0;
 }
 
 .game-title {
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 16px;
+  font-weight: 700;
   color: #ffffff;
-  margin: 0 0 8px 0;
-  line-height: 1.3;
+  margin: 0 0 4px 0;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  word-wrap: break-word;
 }
 
 .game-meta {
-  display: block;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.game-meta-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   font-size: 11px;
+  color: #cbd5e1;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+.game-rating {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(0, 0, 0, 0.4);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.game-meta-playtime {
+  font-size: 10px;
   color: #94a3b8;
-  line-height: 1.2;
 }
 
 /* Range Slider Styles */
@@ -491,6 +602,7 @@ input[type="range"]::-moz-range-thumb:hover {
     opacity: 0;
     transform: translateY(20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -502,9 +614,12 @@ input[type="range"]::-moz-range-thumb:hover {
 }
 
 @keyframes pulse {
-  0%, 100% {
+
+  0%,
+  100% {
     opacity: 1;
   }
+
   50% {
     opacity: 0.5;
   }
@@ -525,7 +640,7 @@ input[type="range"]::-moz-range-thumb:hover {
   .grid-3 {
     grid-template-columns: repeat(2, 1fr);
   }
-  
+
   .grid-4 {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -535,11 +650,11 @@ input[type="range"]::-moz-range-thumb:hover {
   .sidebar {
     width: 240px;
   }
-  
+
   .main-content {
     padding: 16px;
   }
-  
+
   .grid-2,
   .grid-3,
   .grid-4 {
@@ -950,11 +1065,11 @@ input[type="range"]::-moz-range-thumb:hover {
     grid-template-columns: 1fr;
     gap: 24px;
   }
-  
+
   .help-container {
     padding: 16px;
   }
-  
+
   .help-title h1 {
     font-size: 1.5rem;
   }

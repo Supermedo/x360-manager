@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { 
-  Play, 
-  Download, 
-  Settings, 
-  Library, 
-  Zap, 
+import {
+  Play,
+  Download,
+  Settings,
+  Library,
+  Zap,
   HardDrive,
   Gamepad2,
   TrendingUp,
@@ -82,18 +82,18 @@ const Dashboard = ({ onNavigate }) => {
   );
 
   const QuickActionCard = ({ title, description, icon: Icon, action, color, disabled }) => (
-    <div 
+    <div
       className={`card ${disabled ? 'opacity-50' : 'cursor-pointer'}`}
       onClick={disabled ? undefined : action}
-      style={{ 
+      style={{
         opacity: disabled ? 0.5 : 1,
         cursor: disabled ? 'not-allowed' : 'pointer'
       }}
     >
       <div className="card-header">
-        <div style={{ 
-          width: '48px', 
-          height: '48px', 
+        <div style={{
+          width: '48px',
+          height: '48px',
           background: `linear-gradient(135deg, ${color}, ${color}88)`,
           borderRadius: '12px',
           display: 'flex',
@@ -124,22 +124,39 @@ const Dashboard = ({ onNavigate }) => {
         if (!game.coverUrl && !coverFetched) {
           setCoverFetched(true);
           try {
-            const rawgApiKey = localStorage.getItem('rawgApiKey') || 'e0dbb76130754c98a1e7648bbe45103d';
-            const response = await fetch(`https://api.rawg.io/api/games?key=${rawgApiKey}&search=${encodeURIComponent(game.name)}&page_size=1`);
-            const data = await response.json();
-            
-            if (data.results && data.results.length > 0) {
-              const coverUrl = data.results[0].background_image;
-              if (coverUrl) {
+            console.log(`Fetching dashboard cover (ScreenScraper API): ${game.name}`);
+
+            if (window.electronAPI?.scrapeScreenScraper) {
+              const filename = game.path ? (game.path.split(/[\\/]/).pop()) : game.name;
+              const ssData = await window.electronAPI.scrapeScreenScraper({ gameName: filename, titleId: game.titleId });
+              if (ssData && ssData.reponse && ssData.reponse.jeu) {
+                const medias = ssData.reponse.jeu.medias || [];
+                const boxArt = medias.find(m => m.type === 'box-2D' || m.type === 'box-3D') || medias[0];
+                if (boxArt && boxArt.url) {
+                  updateGame(game.id, { coverUrl: boxArt.url });
+                  return;
+                }
+              }
+            }
+
+            // Fallback to Steam
+            const steamSearchUrl = `https://store.steampowered.com/api/storesearch/?term=${encodeURIComponent(game.name)}&l=english&cc=US`;
+            const response = await fetch(steamSearchUrl);
+            if (response.ok) {
+              const data = await response.json();
+              const items = data.items || data.results || [];
+              if (items.length > 0) {
+                const appId = items[0].id;
+                const coverUrl = `https://cdn.akamai.steamstatic.com/steam/apps/${appId}/library_600x900_2x.jpg`;
                 updateGame(game.id, { coverUrl });
               }
             }
           } catch (error) {
-            console.error('Error fetching cover for recent game:', error);
+            console.error('Error fetching dashboard cover:', error);
           }
         }
       };
-      
+
       fetchCover();
     }, [game.id, game.name, game.coverUrl, coverFetched, updateGame]);
 
@@ -168,7 +185,7 @@ const Dashboard = ({ onNavigate }) => {
         }
 
         await window.electronAPI.launchGame(settings.emulatorPath, game.path, game.config || {});
-        
+
         // Update game statistics
         updateGame(game.id, {
           timesPlayed: (game.timesPlayed || 0) + 1,
@@ -200,8 +217,8 @@ const Dashboard = ({ onNavigate }) => {
       <div className="game-card" style={{ marginBottom: '16px' }}>
         <div className="game-cover" style={{ height: '120px' }}>
           {game.coverUrl ? (
-            <img 
-              src={game.coverUrl} 
+            <img
+              src={game.coverUrl}
               alt={game.name}
               style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '8px' }}
               onError={(e) => {
@@ -210,12 +227,12 @@ const Dashboard = ({ onNavigate }) => {
               }}
             />
           ) : null}
-          <div 
-            style={{ 
+          <div
+            style={{
               display: game.coverUrl ? 'none' : 'flex',
-              width: '100%', 
-              height: '100%', 
-              alignItems: 'center', 
+              width: '100%',
+              height: '100%',
+              alignItems: 'center',
               justifyContent: 'center',
               backgroundColor: '#2a2a2a',
               borderRadius: '8px'
@@ -231,7 +248,7 @@ const Dashboard = ({ onNavigate }) => {
             Last played: {game.lastPlayed ? new Date(game.lastPlayed).toLocaleDateString() : 'Never'}
           </div>
           <div className="game-actions" style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-            <button 
+            <button
               className="btn btn-primary btn-sm"
               onClick={handlePlayGame}
               style={{ flex: 1 }}
@@ -239,14 +256,14 @@ const Dashboard = ({ onNavigate }) => {
               <Play size={14} style={{ marginRight: '4px' }} />
               Play
             </button>
-            <button 
+            <button
               className={`btn btn-sm ${game.isFavorite ? 'btn-warning' : 'btn-secondary'}`}
               onClick={handleToggleFavorite}
               title={game.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
             >
               <Heart size={14} fill={game.isFavorite ? 'currentColor' : 'none'} />
             </button>
-            <button 
+            <button
               className="btn btn-danger btn-sm"
               onClick={handleRemoveGame}
               title="Remove from library"
@@ -262,9 +279,9 @@ const Dashboard = ({ onNavigate }) => {
   return (
     <div className="fade-in">
       <div style={{ marginBottom: '32px' }}>
-        <h1 style={{ 
-          fontSize: '32px', 
-          fontWeight: 'bold', 
+        <h1 style={{
+          fontSize: '32px',
+          fontWeight: 'bold',
           marginBottom: '8px',
           background: 'linear-gradient(135deg, #8b5cf6, #3b82f6)',
           WebkitBackgroundClip: 'text',
@@ -279,19 +296,19 @@ const Dashboard = ({ onNavigate }) => {
 
       {/* Stats Overview */}
       <div className="grid grid-3" style={{ marginBottom: '32px' }}>
-        <StatCard 
-          title="Total Games" 
-          value={stats.totalGames} 
+        <StatCard
+          title="Total Games"
+          value={stats.totalGames}
           icon={Library}
         />
-        <StatCard 
-          title="Recently Played" 
-          value={stats.recentlyPlayed} 
+        <StatCard
+          title="Recently Played"
+          value={stats.recentlyPlayed}
           icon={Clock}
         />
-        <StatCard 
-          title="Emulator Status" 
-          value={stats.emulatorStatus} 
+        <StatCard
+          title="Emulator Status"
+          value={stats.emulatorStatus}
           icon={Zap}
           status={stats.emulatorStatus}
         />
@@ -300,9 +317,9 @@ const Dashboard = ({ onNavigate }) => {
       <div className="grid grid-2">
         {/* Quick Actions */}
         <div>
-          <h2 style={{ 
-            fontSize: '24px', 
-            fontWeight: '600', 
+          <h2 style={{
+            fontSize: '24px',
+            fontWeight: '600',
             marginBottom: '24px',
             color: '#e2e8f0'
           }}>
@@ -317,9 +334,9 @@ const Dashboard = ({ onNavigate }) => {
 
         {/* Recent Games */}
         <div>
-          <h2 style={{ 
-            fontSize: '24px', 
-            fontWeight: '600', 
+          <h2 style={{
+            fontSize: '24px',
+            fontWeight: '600',
             marginBottom: '24px',
             color: '#e2e8f0'
           }}>
@@ -331,8 +348,8 @@ const Dashboard = ({ onNavigate }) => {
                 <RecentGameCard key={index} game={game} />
               ))}
               {recentGames.length > 3 && (
-                <button 
-                  className="btn btn-secondary" 
+                <button
+                  className="btn btn-secondary"
                   onClick={() => onNavigate('library')}
                   style={{ width: '100%', marginTop: '16px' }}
                 >
@@ -347,7 +364,7 @@ const Dashboard = ({ onNavigate }) => {
               <p style={{ color: '#64748b', fontSize: '14px', marginBottom: '24px' }}>
                 Add games to your library to see them here
               </p>
-              <button 
+              <button
                 className="btn btn-primary"
                 onClick={() => onNavigate('library')}
               >
