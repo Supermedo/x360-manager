@@ -12,7 +12,7 @@
 
 ## 🌟 Overview
 
-**X360 Manager** is a state-of-the-art, high-performance game management solution designed specifically for the Xbox 360 emulation community. It bridges the gap between raw emulation and a console-like experience, offering a beautiful glassmorphism-inspired UI, automated library management, and deep system integration.
+**X360 Manager** is a state-of-the-art, high-performance game management solution designed specifically for the Xbox 360 emulation community. It bridges the gap between raw emulation and a console-like experience, offering a beautiful glassmorphism-inspired UI, automated library management, and native support for **XBLA (Xbox Live Arcade)** and digital media.
 
 ## 🚀 What's New in v1.5.0?
 
@@ -30,7 +30,13 @@ We’ve moved beyond basic web searches.
 - **Smart Data**: Automatically pulls game info, release dates, and developer details.
 - **SteamDB Fallback**: High-reliability fallback system ensures your library always looks complete.
 
-### 🔗 Seamless OS Integration
+### �️ Native XBLA & Digital Support
+No more manual renaming or path fixes. X360 Manager natively handles:
+- **XBLA Titles**: Full support for digital-only Arcade games and indie titles.
+- **Smarter Discovery**: Automatically scans and identifies extensionless XBLA/GOD packages using STFS header verification.
+- **Deep Scraping**: Elite metadata fetching specifically tuned for digital-only titles.
+
+### �🔗 Seamless OS Integration
 Make your emulation library part of your Windows ecosystem:
 - **Add to Steam**: Export any game as a non-Steam game with one click, enabling full **Steam Deck** and **Big Picture Mode** support.
 - **Desktop Shortcuts**: Create custom shortcuts with game-specific icons directly to your desktop.
@@ -61,6 +67,7 @@ Make your emulation library part of your Windows ecosystem:
 ---
 
 ## 📝 Changelog (v1.5.0 "Emerald")
+- **NEW**: Native support for **XBLA**, **GOD**, and digital Arcade packages.
 - **NEW**: Completely new application branding and high-res icon.
 - **NEW**: Game Patches management system (Title ID based).
 - **NEW**: "Add to Steam" integration for library unified management.
