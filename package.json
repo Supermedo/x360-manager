@@ -43,7 +43,7 @@
     "dev": "node scripts/ensure-utf8.cjs && npm run icons && concurrently -k -n REACT,ELECTRON -c blue,magenta \"cross-env BROWSER=none npm start\" \"wait-on -d 1500 http://localhost:3000 && cross-env ELECTRON_IS_DEV=1 node node_modules/electron/cli.js .\"",
     "dev:built": "npm run build && cross-env ELECTRON_FORCE_BUILD=1 node node_modules/electron/cli.js .",
     "electron-build": "electron-builder",
-    "dist": "npm run build && electron-builder",
+    "dist": "npm run icons && npm run build && electron-builder",
     "build-portable": "npm run build && electron-builder --win --dir --publish=never",
     "build-setup": "npm run build-portable && node scripts/create-setup.js",
     "build-all": "npm run build && electron-builder --win --mac --linux --publish=never"
@@ -71,7 +71,7 @@
     "productName": "X360 Manager",
     "directories": {
       "output": "dist-setup",
-      "buildResources": "build"
+      "buildResources": "resources"
     },
     "files": [
       "build/**/*",
@@ -101,6 +101,8 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
+      "installerIcon": "resources/icon.ico",
+      "uninstallerIcon": "resources/icon.ico",
       "shortcutName": "X360 Manager",
       "deleteAppDataOnUninstall": false,
       "runAfterFinish": true,
@@ -115,7 +117,8 @@
           "x64"
         ]
       },
-      "icon": "build/icon.ico",
+      "icon": "resources/icon.ico",
+      "executableName": "X360 Manager",
       "publisherName": "X360 Team",
       "requestedExecutionLevel": "asInvoker",
       "artifactName": "X360-Manager-Setup-${version}.${ext}",

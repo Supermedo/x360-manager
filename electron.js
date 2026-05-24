@@ -242,6 +242,8 @@ const trackEmulatorPid = (pid) => {
 
 const resolveAppIconPath = () => {
   const candidates = [
+    path.join(__dirname, 'resources', 'icon.ico'),
+    path.join(__dirname, 'resources', 'icon.png'),
     path.join(__dirname, 'build', 'icon.ico'),
     path.join(__dirname, 'build', 'icon.png'),
     path.join(__dirname, 'public', 'icon.png')

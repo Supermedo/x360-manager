@@ -7,6 +7,10 @@ yarn-error.log*
 # Production builds
 build/
 dist/
+# Keep app icons for electron-builder (not CRA output)
+!resources/
+!resources/icon.ico
+!resources/icon.png
 dist-packager/
 dist-setup/
 
