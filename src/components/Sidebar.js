@@ -1,15 +1,15 @@
 import React from 'react';
 import {
-  Home,
   Library,
   Download,
   Settings,
-  Zap,
-  HelpCircle
+  HelpCircle,
+  Users
 } from 'lucide-react';
 import { useTranslation } from '../hooks/useTranslation';
+import ProfileAvatar from './ProfileAvatar';
 
-const Sidebar = ({ activeView, onNavigate }) => {
+const Sidebar = ({ activeView, onNavigate, onSwitchProfile, sessionGamertag, sessionAvatar }) => {
   const { t } = useTranslation();
 
   const navItems = [
@@ -37,12 +37,36 @@ const Sidebar = ({ activeView, onNavigate }) => {
         })}
       </nav>
 
+      <div style={{ padding: '0 16px 16px' }}>
+        {sessionGamertag && (
+          <button
+            type="button"
+            className="sidebar-profile-switch"
+            onClick={onSwitchProfile}
+            title="Switch profile"
+          >
+            <span className="sidebar-profile-switch__avatar">
+              <ProfileAvatar
+                avatar={sessionAvatar}
+                size={36}
+                fallbackInitials={sessionGamertag.slice(0, 2).toUpperCase()}
+              />
+            </span>
+            <span className="sidebar-profile-switch__meta">
+              <span className="sidebar-profile-switch__label">Signed in</span>
+              <span className="sidebar-profile-switch__tag">{sessionGamertag}</span>
+            </span>
+            <Users size={16} className="sidebar-profile-switch__icon" />
+          </button>
+        )}
+      </div>
+
       <div style={{ padding: '0 24px', marginTop: 'auto' }}>
         <div style={{
           padding: '16px',
-          background: 'rgba(139, 92, 246, 0.1)',
+          background: 'rgba(16, 124, 16, 0.1)',
           borderRadius: '12px',
-          border: '1px solid rgba(139, 92, 246, 0.2)',
+          border: '1px solid rgba(16, 124, 16, 0.2)',
           textAlign: 'center'
         }}>
           <div style={{ fontSize: '12px', color: '#94a3b8', marginBottom: '4px' }}>

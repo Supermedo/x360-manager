@@ -1,31 +1,87 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { Maximize2, Minimize2 } from 'lucide-react';
+import { getPublicAssetUrl } from '../utils/assetUrl';
+import useAppFullscreen from '../hooks/useAppFullscreen';
 
 const TitleBar = () => {
+    const [iconSrc, setIconSrc] = useState(getPublicAssetUrl('icon.png'));
+    const { isFullscreen, toggleFullscreen } = useAppFullscreen();
+
+    useEffect(() => {
+        let cancelled = false;
+        const loadIcon = async () => {
+            const electronIcon = await window.electronAPI?.getAppIconUrl?.();
+            if (!cancelled && electronIcon) {
+                setIconSrc(electronIcon);
+            }
+        };
+        loadIcon();
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
     return (
-        <div style={{
+        <div className="title-bar-host" style={{
             height: '48px',
-            background: 'rgba(18, 18, 38, 0.85)',
+            background: 'rgba(22, 22, 22, 0.95)',
             backdropFilter: 'blur(20px)',
             WebkitBackdropFilter: 'blur(20px)',
-            borderBottom: '1px solid rgba(139, 92, 246, 0.2)',
+            borderBottom: '1px solid rgba(16, 124, 16, 0.2)',
             WebkitAppRegion: 'drag',
             display: 'flex',
             alignItems: 'center',
+            justifyContent: 'space-between',
             padding: '0 16px',
             width: '100%',
             position: 'fixed',
             top: 0,
             left: 0,
-            zIndex: 9999
+            zIndex: 9999,
+            boxSizing: 'border-box'
         }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <img src={process.env.PUBLIC_URL + '/icon.png'} alt="X360 Manager Logo" style={{ width: '24px', height: '24px', borderRadius: '4px', objectFit: 'cover' }} />
-                <span style={{ fontWeight: '700', color: '#8b5cf6', fontSize: '15px', letterSpacing: '0.5px' }}>X360 Manager</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', WebkitAppRegion: 'drag', flex: 1, minWidth: 0 }}>
+                <img
+                    src={iconSrc}
+                    alt="X360 Manager"
+                    width={24}
+                    height={24}
+                    style={{ width: '24px', height: '24px', borderRadius: '4px', objectFit: 'cover', flexShrink: 0, WebkitAppRegion: 'no-drag' }}
+                    onError={() => setIconSrc(getPublicAssetUrl('icon.png'))}
+                />
+                <span style={{ fontWeight: '700', color: '#7bbf32', fontSize: '15px', letterSpacing: '0.5px' }}>X360 Manager</span>
             </div>
-            {/* 
-        Native Windows window controls (minimize/maximize/close) 
-        are drawn by Electron over the top right corner here. 
-      */}
+            <button
+                type="button"
+                className="titlebar-fullscreen-btn"
+                title={isFullscreen ? 'Exit fullscreen (F11)' : 'Fullscreen (F11)'}
+                onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    toggleFullscreen();
+                }}
+                style={{
+                    WebkitAppRegion: 'no-drag',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '6px 10px',
+                    borderRadius: '6px',
+                    border: '1px solid rgba(16, 124, 16, 0.35)',
+                    background: 'rgba(16, 124, 16, 0.15)',
+                    color: '#9bc848',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    flexShrink: 0,
+                    marginRight: '140px',
+                    position: 'relative',
+                    zIndex: 10000
+                }}
+            >
+                {isFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+                {isFullscreen ? 'Windowed' : 'Fullscreen'}
+            </button>
         </div>
     );
 };

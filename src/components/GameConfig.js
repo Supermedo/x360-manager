@@ -24,6 +24,10 @@ import {
 } from 'lucide-react';
 import { GameContext } from '../context/GameContext';
 import { SettingsContext } from '../context/SettingsContext';
+import { loadAllProfiles, getProfileById } from '../services/xeniaProfiles';
+import { buildGameLaunchConfig } from '../services/launchConfig';
+
+const CUSTOM_PROFILE_ID = 'custom';
 
 const GameConfig = ({ game, onNavigate }) => {
   const { updateGame } = useContext(GameContext);
@@ -73,27 +77,59 @@ const GameConfig = ({ game, onNavigate }) => {
     autoBackupEnabled: false
   });
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [profileId, setProfileId] = useState('');
+  const profiles = React.useMemo(() => loadAllProfiles(), []);
 
   useEffect(() => {
-    if (game && game.config) {
-      setConfig(prevConfig => ({ ...prevConfig, ...game.config }));
+    if (!game) return;
+
+    if (game.config && Object.keys(game.config).length > 0) {
+      setConfig((prev) => ({ ...prev, ...game.config }));
+      setProfileId(game.config.xeniaProfileId || CUSTOM_PROFILE_ID);
     } else {
-      // Load default settings
       setConfig({
         resolution: settings.defaultResolution || 'auto',
         renderer: settings.defaultRenderer || 'auto',
         audioDriver: settings.defaultAudioDriver || 'auto',
         fullscreen: settings.defaultFullscreen || false,
-        vsync: true,
+        vsync: settings.defaultVsync !== false,
         antialiasing: 'auto',
         textureFiltering: 'auto',
         frameLimit: 'auto',
         audioLatency: 'auto',
         controllerProfile: 'default',
-        customArgs: ''
+        customArgs: settings.customEmulatorArgs || '',
+        showFPS: settings.showFPS || false,
+        showStats: false,
+        debugMode: false,
+        logLevel: 'info',
+        dlcFiles: [],
+        saveFiles: [],
+        saveBackupPath: '',
+        autoBackupEnabled: false
       });
+      setProfileId(CUSTOM_PROFILE_ID);
     }
-  }, [game, settings]);
+    setHasUnsavedChanges(false);
+  }, [game?.id]);
+
+  const handleProfileSelect = (id) => {
+    setProfileId(id);
+    setHasUnsavedChanges(true);
+  };
+
+  const handleLoadPresetValues = () => {
+    if (!profileId || profileId === CUSTOM_PROFILE_ID) {
+      return;
+    }
+    const profile = getProfileById(profiles, profileId);
+    if (!profile) return;
+    setConfig((prev) => ({
+      ...prev,
+      ...profile.settings
+    }));
+    setHasUnsavedChanges(true);
+  };
 
   const handleConfigChange = (key, value) => {
     setConfig(prev => ({ ...prev, [key]: value }));
@@ -318,6 +354,12 @@ const GameConfig = ({ game, onNavigate }) => {
     }
   };
 
+  const getConfigToSave = () => ({
+    ...(game?.config || {}),
+    ...config,
+    xeniaProfileId: profileId === CUSTOM_PROFILE_ID ? null : profileId
+  });
+
   const handleSaveConfig = () => {
     console.log('Save config button clicked');
     console.log('Current game:', game);
@@ -325,7 +367,7 @@ const GameConfig = ({ game, onNavigate }) => {
 
     if (game) {
       try {
-        updateGame(game.id, { config });
+        updateGame(game.id, { config: getConfigToSave() });
         setHasUnsavedChanges(false);
         console.log('Config saved successfully');
 
@@ -447,16 +489,22 @@ const GameConfig = ({ game, onNavigate }) => {
       console.log('Launching game with emulator:', settings.emulatorPath);
       console.log('Game path:', game.path);
 
-      await window.electronAPI.launchGame(settings.emulatorPath, game.path, config);
+      const configToSave = getConfigToSave();
+      const launchConfig = buildGameLaunchConfig(
+        { ...game, config: configToSave },
+        settings
+      );
+
+      await window.electronAPI.launchGame(settings.emulatorPath, game.path, launchConfig);
 
       console.log('Game launched successfully');
 
-      // Save config and update game stats
       updateGame(game.id, {
-        config,
+        config: configToSave,
         lastPlayed: new Date().toISOString(),
         timesPlayed: (game.timesPlayed || 0) + 1
       });
+      setHasUnsavedChanges(false);
 
     } catch (error) {
       console.error('Failed to launch game:', error);
@@ -656,7 +704,7 @@ const GameConfig = ({ game, onNavigate }) => {
           fontSize: '32px',
           fontWeight: 'bold',
           marginBottom: '8px',
-          background: 'linear-gradient(135deg, #8b5cf6, #3b82f6)',
+          background: 'linear-gradient(180deg, #7bbf32, #107c10)',
           WebkitBackgroundClip: 'text',
           WebkitTextFillColor: 'transparent'
         }}>
@@ -666,6 +714,48 @@ const GameConfig = ({ game, onNavigate }) => {
           Configure settings for <strong style={{ color: '#e2e8f0' }}>{game.name}</strong>
         </p>
       </div>
+
+      <div className="card game-config-preset-card" style={{ marginBottom: '24px', padding: '16px' }}>
+        <h3 className="card-title" style={{ marginBottom: '12px', fontSize: '16px' }}>Graphics preset (optional)</h3>
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+          <select
+            className="form-select"
+            value={profileId}
+            onChange={(e) => handleProfileSelect(e.target.value)}
+            style={{ minWidth: '220px', width: 'auto' }}
+          >
+            <option value={CUSTOM_PROFILE_ID}>Custom — my own settings only</option>
+            {profiles.map((p) => (
+              <option key={p.id} value={p.id}>{p.name}{p.builtin ? '' : ' (custom)'}</option>
+            ))}
+          </select>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={handleLoadPresetValues}
+            disabled={!profileId || profileId === CUSTOM_PROFILE_ID}
+          >
+            Load preset values
+          </button>
+          {game.titleId && (
+            <span style={{ color: '#94a3b8', fontSize: '12px' }}>
+              Per-game config: config/{String(game.titleId).toUpperCase().replace(/[^0-9A-F]/g, '').slice(-8)}.config.toml
+            </span>
+          )}
+        </div>
+        <p style={{ color: '#64748b', fontSize: '12px', marginTop: '10px' }}>
+          {profileId === CUSTOM_PROFILE_ID
+            ? 'Only the Display settings below are used on launch. The preset dropdown does not change your values unless you click Load preset values.'
+            : 'This game is linked to a preset for launch. Edit fields below anytime — they override the preset. Switch to Custom to ignore presets completely.'}
+        </p>
+      </div>
+
+      {hasUnsavedChanges && (
+        <p className="game-config-unsaved-hint">
+          You have unsaved changes. Click <strong>Save Configuration</strong> before launching from the library,
+          or use <strong>Launch Game</strong> here to save and play.
+        </p>
+      )}
 
       {/* Game Info */}
       <div className="card" style={{ marginBottom: '24px' }}>
@@ -677,17 +767,17 @@ const GameConfig = ({ game, onNavigate }) => {
         </div>
         <div className="card-body">
           {/* Cover Image Preview */}
-          {game.cover && (
+          {(game.coverUrl || game.cover) && (
             <div style={{ marginBottom: '16px', textAlign: 'center' }}>
               <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '8px' }}>Cover Image</div>
               <img
-                src={game.cover}
+                src={game.coverUrl || game.cover}
                 alt={`${game.name} cover`}
                 style={{
                   maxWidth: '200px',
                   maxHeight: '280px',
                   borderRadius: '8px',
-                  border: '2px solid rgba(139, 92, 246, 0.3)',
+                  border: '2px solid rgba(16, 124, 16, 0.3)',
                   objectFit: 'cover'
                 }}
                 onError={(e) => {
@@ -709,7 +799,7 @@ const GameConfig = ({ game, onNavigate }) => {
             <div>
               <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '4px' }}>Rating</div>
               <div style={{ color: '#e2e8f0', fontSize: '16px', fontWeight: '500' }}>
-                {game.rating ? `${game.rating}/5 ⭐` : 'Not rated'}
+                {game.rating ? `${game.rating}/5 â­` : 'Not rated'}
               </div>
             </div>
           </div>
@@ -777,7 +867,12 @@ const GameConfig = ({ game, onNavigate }) => {
       </div>
 
       <div className="grid grid-2">
-        {/* Display Settings */}
+        <p style={{ color: '#94a3b8', fontSize: '13px', marginBottom: '16px' }}>
+        <strong style={{ color: '#c8e4ff' }}>Display</strong> (resolution, renderer, fullscreen, VSync) is applied when you launch.
+        Other sections are saved per game for your reference; only custom launch arguments are passed to Xenia today.
+      </p>
+
+      {/* Display Settings */}
         <div className="card">
           <div className="card-header">
             <h3 className="card-title">
@@ -1245,6 +1340,9 @@ const GameConfig = ({ game, onNavigate }) => {
               />
               Show FPS Counter
             </label>
+            <p style={{ color: '#94a3b8', fontSize: '12px', marginTop: '6px', marginLeft: '28px' }}>
+              Patches Xenia config and enables the profiler overlay. Press <strong>F3</strong> in-game to toggle the FPS display if it does not appear automatically.
+            </p>
           </div>
 
           <div className="form-group">
@@ -1448,9 +1546,9 @@ const GameConfig = ({ game, onNavigate }) => {
               <div style={{
                 padding: '24px',
                 textAlign: 'center',
-                border: '2px dashed rgba(139, 92, 246, 0.3)',
+                border: '2px dashed rgba(16, 124, 16, 0.3)',
                 borderRadius: '8px',
-                background: 'rgba(139, 92, 246, 0.05)'
+                background: 'rgba(16, 124, 16, 0.05)'
               }}>
                 <HardDrive size={32} style={{ color: '#64748b', marginBottom: '8px' }} />
                 <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '4px' }}>No save backups found</div>
@@ -1467,14 +1565,14 @@ const GameConfig = ({ game, onNavigate }) => {
                     background: 'rgba(0, 0, 0, 0.3)',
                     borderRadius: '6px',
                     marginBottom: '8px',
-                    border: '1px solid rgba(139, 92, 246, 0.2)'
+                    border: '1px solid rgba(16, 124, 16, 0.2)'
                   }}>
                     <div style={{ flex: 1 }}>
                       <div style={{ color: '#e2e8f0', fontSize: '14px', fontWeight: '500', marginBottom: '2px' }}>
                         {saveFile.name}
                       </div>
                       <div style={{ color: '#94a3b8', fontSize: '12px' }}>
-                        {new Date(saveFile.date).toLocaleString()} • {saveFile.type}
+                        {new Date(saveFile.date).toLocaleString()} â€¢ {saveFile.type}
                       </div>
                       <div style={{ color: '#64748b', fontSize: '11px', fontFamily: 'monospace', marginTop: '2px' }}>
                         {saveFile.path}

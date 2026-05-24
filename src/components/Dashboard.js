@@ -13,8 +13,11 @@ import {
   Heart,
   X
 } from 'lucide-react';
+import CoverImage from './CoverImage';
+import { fetchGameCoverDetails } from '../services/coverService';
 import { GameContext } from '../context/GameContext';
 import { SettingsContext } from '../context/SettingsContext';
+import { buildGameLaunchConfig } from '../services/launchConfig';
 
 const Dashboard = ({ onNavigate }) => {
   const { games, recentGames } = useContext(GameContext);
@@ -39,7 +42,7 @@ const Dashboard = ({ onNavigate }) => {
       description: 'Download and configure Xenia emulator',
       icon: Download,
       action: () => onNavigate('setup'),
-      color: '#8b5cf6',
+      color: '#7bbf32',
       disabled: false
     },
     {
@@ -75,7 +78,7 @@ const Dashboard = ({ onNavigate }) => {
           </span>
         )}
       </div>
-      <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#8b5cf6' }}>
+      <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#7bbf32' }}>
         {value}
       </div>
     </div>
@@ -120,84 +123,27 @@ const Dashboard = ({ onNavigate }) => {
 
     React.useEffect(() => {
       const fetchCover = async () => {
-        // Wait for both game data and database to be ready before primary search
         if (!game.coverUrl && !coverFetched && xbox360DB && xbox360DB.length > 0) {
           try {
-            const cleanName = (n) => n.replace(/\.[^/.]+$/, '').replace(/\[.*?\]/g, '').replace(/\(.*?\)/g, '').replace(/[_-]/g, ' ').replace(/ (Disc|Disk|DVD) \d+/gi, '').replace(/\s+/g, ' ').trim();
-            const cleanedName = cleanName(game.name);
-            console.log(`Auto-scraping cover: "${game.name}"`);
-
-            // 1. PRIMARY: Xbox 360 DB (Fuzzy)
-            let match = null;
-            if (game.titleId) {
-              const searchTitleId = game.titleId.toUpperCase();
-              match = xbox360DB.find(g =>
-                (g.id && g.id.toUpperCase() === searchTitleId) ||
-                (g.alternative_id && g.alternative_id.some(altId => altId.toUpperCase() === searchTitleId))
-              );
+            const filename = game.path ? game.path.split(/[\\/]/).pop() : game.name;
+            const details = await fetchGameCoverDetails(filename, game.titleId, xbox360DB);
+            if (details?.coverUrl) {
+              updateGame(game.id, {
+                coverUrl: details.coverUrl,
+                description: details.description || game.description,
+                genre: details.genre || game.genre
+              });
             }
-            if (!match) {
-              const normalizedSearch = cleanedName.toLowerCase().replace(/[^a-z0-9]/g, '');
-              match = xbox360DB.find(g => g.title.toLowerCase().replace(/[^a-z0-9]/g, '') === normalizedSearch);
-              if (!match) {
-                match = xbox360DB.find(g => {
-                  const dbTitle = g.title.toLowerCase().replace(/[^a-z0-9]/g, '');
-                  return dbTitle.length > 3 && (dbTitle.includes(normalizedSearch) || normalizedSearch.includes(dbTitle));
-                });
-              }
-            }
-
-            if (match && match.boxart) {
-              updateGame(game.id, { coverUrl: match.boxart });
-              setCoverFetched(true);
-              return;
-            }
-
-            // 2. FALLBACK A: ScreenScraper (The "God Tier" Database)
-            if (window.electronAPI?.scrapeScreenScraper) {
-              const filename = game.path ? (game.path.split(/[\\/]/).pop()) : game.name;
-              try {
-                const ssData = await window.electronAPI.scrapeScreenScraper({ gameName: filename, titleId: game.titleId });
-                if (ssData && ssData.reponse && ssData.reponse.jeu) {
-                  const medias = ssData.reponse.jeu.medias || [];
-                  const boxArt = medias.find(m => m.type === 'box-2D' && m.parent === 'Principale') ||
-                    medias.find(m => m.type === 'box-2D') ||
-                    medias.find(m => m.type.includes('box')) ||
-                    medias[0];
-                  if (boxArt && boxArt.url) {
-                    updateGame(game.id, { coverUrl: boxArt.url });
-                    setCoverFetched(true);
-                    return;
-                  }
-                }
-              } catch (e) { }
-            }
-
-            // 3. FALLBACK B: Steam
-            const steamSearchUrl = `https://store.steampowered.com/api/storesearch/?term=${encodeURIComponent(cleanedName)}&l=english&cc=US`;
-            const response = await fetch(steamSearchUrl);
-            if (response.ok) {
-              const data = await response.json();
-              const items = data.items || data.results || [];
-              if (items.length > 0) {
-                const appId = items[0].id;
-                const coverUrl = `https://cdn.akamai.steamstatic.com/steam/apps/${appId}/library_600x900_2x.jpg`;
-                updateGame(game.id, { coverUrl });
-                setCoverFetched(true);
-                return;
-              }
-            }
-
-            // Mark as fetched even if nothing found to prevent infinite retries
             setCoverFetched(true);
           } catch (error) {
             console.error('Error fetching dashboard cover:', error);
+            setCoverFetched(true);
           }
         }
       };
 
       fetchCover();
-    }, [game.id, game.name, game.coverUrl, coverFetched, xbox360DB, updateGame]);
+    }, [game.id, game.name, game.path, game.titleId, game.coverUrl, game.description, game.genre, coverFetched, xbox360DB, updateGame]);
 
 
 
@@ -223,7 +169,11 @@ const Dashboard = ({ onNavigate }) => {
           return;
         }
 
-        await window.electronAPI.launchGame(settings.emulatorPath, game.path, game.config || {});
+        await window.electronAPI.launchGame(
+          settings.emulatorPath,
+          game.path,
+          buildGameLaunchConfig(game, settings)
+        );
 
         // Update game statistics
         updateGame(game.id, {
@@ -255,30 +205,13 @@ const Dashboard = ({ onNavigate }) => {
     return (
       <div className="game-card" style={{ marginBottom: '16px' }}>
         <div className="game-cover" style={{ height: '120px' }}>
-          {game.coverUrl ? (
-            <img
-              src={game.coverUrl}
-              alt={game.name}
-              style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '8px' }}
-              onError={(e) => {
-                e.target.style.display = 'none';
-                e.target.nextSibling.style.display = 'flex';
-              }}
-            />
-          ) : null}
-          <div
-            style={{
-              display: game.coverUrl ? 'none' : 'flex',
-              width: '100%',
-              height: '100%',
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: '#2a2a2a',
-              borderRadius: '8px'
-            }}
-          >
-            <Gamepad2 size={32} />
-          </div>
+          <CoverImage
+            gameName={game.name}
+            coverUrl={game.coverHttpUrl || game.coverUrl}
+            alt={game.name}
+            style={{ borderRadius: '8px' }}
+            placeholderSize={32}
+          />
         </div>
         <div className="game-info">
           <div className="game-title">{game.name}</div>
@@ -322,7 +255,7 @@ const Dashboard = ({ onNavigate }) => {
           fontSize: '32px',
           fontWeight: 'bold',
           marginBottom: '8px',
-          background: 'linear-gradient(135deg, #8b5cf6, #3b82f6)',
+          background: 'linear-gradient(180deg, #7bbf32, #107c10)',
           WebkitBackgroundClip: 'text',
           WebkitTextFillColor: 'transparent'
         }}>

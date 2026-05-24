@@ -101,3 +101,21 @@ covers/
 user-data/
 settings.json
 game-library.json
+app-settings.json
+games-library.json
+xenia-profiles-custom.json
+x360-xbox-live-profiles.json
+portable.txt
+data/
+
+# Local secrets (use .env.example as template)
+.env
+.env.*
+!.env.example
+
+# Editor / tooling
+.cursor/
+*.local
+
+# Cover cache and user media
+**/cover-cache/

@@ -13,6 +13,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Emulator operations
   downloadEmulator: (url, downloadPath) => ipcRenderer.invoke('download-emulator', url, downloadPath),
   launchGame: (emulatorPath, gamePath, config) => ipcRenderer.invoke('launch-game', emulatorPath, gamePath, config),
+  getEmulatorSession: () => ipcRenderer.invoke('get-emulator-session'),
+  onEmulatorSessionChanged: (callback) => {
+    const listener = (_event, payload) => callback(payload);
+    ipcRenderer.on('emulator-session-changed', listener);
+    return () => ipcRenderer.removeListener('emulator-session-changed', listener);
+  },
 
   // Validation operations
   validateEmulator: (emulatorPath) => ipcRenderer.invoke('validate-emulator', emulatorPath),
@@ -24,6 +30,50 @@ contextBridge.exposeInMainWorld('electronAPI', {
   showMessageBox: (options) => ipcRenderer.invoke('show-message-box', options),
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
   getPlatform: () => ipcRenderer.invoke('get-platform'),
+  storageGet: (key) => ipcRenderer.invoke('storage-get', key),
+  storageSet: (key, data) => ipcRenderer.invoke('storage-set', key, data),
+  storageGetPath: () => ipcRenderer.invoke('storage-get-path'),
+  coverCacheExists: (url) => ipcRenderer.invoke('cover-cache-exists', url),
+  getCoverCacheStats: () => ipcRenderer.invoke('get-cover-cache-stats'),
+  clearCoverCache: () => ipcRenderer.invoke('clear-cover-cache'),
+  setFullScreen: (enabled) => ipcRenderer.invoke('set-fullscreen', enabled),
+  isFullScreen: () => ipcRenderer.invoke('is-fullscreen'),
+  toggleFullScreen: () => ipcRenderer.invoke('toggle-fullscreen'),
+  onFullscreenChanged: (callback) => {
+    const listener = (_event, isFullscreen) => callback(Boolean(isFullscreen));
+    ipcRenderer.on('app-fullscreen-changed', listener);
+    return () => ipcRenderer.removeListener('app-fullscreen-changed', listener);
+  },
+  getAppIconUrl: () => ipcRenderer.invoke('get-app-icon-url'),
+  applyXeniaUiSettings: (emulatorPath, config) =>
+    ipcRenderer.invoke('apply-xenia-ui-settings', emulatorPath, config),
+  applyXeniaProfile: (emulatorPath, profileSettings, titleId) =>
+    ipcRenderer.invoke('apply-xenia-profile', emulatorPath, profileSettings, titleId),
+  exportXeniaProfileToml: (profileSettings) =>
+    ipcRenderer.invoke('export-xenia-profile-toml', profileSettings),
+  openXeniaConfigFolder: (emulatorPath) =>
+    ipcRenderer.invoke('open-xenia-config-folder', emulatorPath),
+  listXboxLiveProfiles: (emulatorPath) =>
+    ipcRenderer.invoke('list-xbox-live-profiles', emulatorPath),
+  saveXboxLiveProfile: (emulatorPath, profile, setActive) =>
+    ipcRenderer.invoke('save-xbox-live-profile', emulatorPath, profile, setActive),
+  createXboxLiveProfile: (emulatorPath, options) =>
+    ipcRenderer.invoke('create-xbox-live-profile', emulatorPath, options),
+  verifyXboxLiveProfilePin: (emulatorPath, profileKey, pin) =>
+    ipcRenderer.invoke('verify-xbox-live-profile-pin', emulatorPath, profileKey, pin),
+  importXboxLiveProfile: (emulatorPath, sourcePath) =>
+    ipcRenderer.invoke('import-xbox-live-profile', emulatorPath, sourcePath),
+  deleteXboxLiveProfile: (emulatorPath, profileKey) =>
+    ipcRenderer.invoke('delete-xbox-live-profile', emulatorPath, profileKey),
+  exportXboxLiveProfile: (sourcePath) =>
+    ipcRenderer.invoke('export-xbox-live-profile', sourcePath),
+  openXboxLiveProfileFolder: (emulatorPath) =>
+    ipcRenderer.invoke('open-xbox-live-profile-folder', emulatorPath),
+  selectXboxLiveProfileFile: () =>
+    ipcRenderer.invoke('select-xbox-live-profile-file'),
+  validateCoverUrl: (url, options) => ipcRenderer.invoke('validate-cover-url', url, options),
+  cacheCoverImage: (url) => ipcRenderer.invoke('cache-cover-image', url),
+  screenScraperSearch: (params) => ipcRenderer.invoke('screenscraper-search', params),
   createDesktopShortcut: (gameName, emulatorPath, gamePath) => ipcRenderer.invoke('create-desktop-shortcut', gameName, emulatorPath, gamePath),
   addToSteam: (gameParams) => ipcRenderer.invoke('add-to-steam', gameParams),
   downloadPatches: (emulatorPath) => ipcRenderer.invoke('download-patches', emulatorPath),

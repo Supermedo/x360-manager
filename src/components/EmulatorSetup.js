@@ -36,11 +36,11 @@ const EmulatorSetup = ({ onNavigate }) => {
     },
     {
       name: 'Xenia Canary (Development)',
-      description: 'Latest development build with newest features (may be unstable)',
+      description: 'Required for gamer profiles / Xbox Live accounts, patches, and newest fixes',
       size: '~55 MB',
       url: 'https://github.com/xenia-canary/xenia-canary-releases/releases/latest/download/xenia_canary_windows.zip',
       recommended: false,
-      configPath: 'Same directory as xenia.exe (portable)',
+      configPath: 'Same directory as xenia_canary.exe (portable)',
       requiresRedirectHandling: true
     },
     {
@@ -320,7 +320,7 @@ const EmulatorSetup = ({ onNavigate }) => {
         <div className="grid grid-2" style={{ gap: '16px' }}>
           {emulatorVersions.map((version, index) => (
             <div key={index} className="card" style={{
-              border: version.recommended ? '2px solid #8b5cf6' : '1px solid rgba(139, 92, 246, 0.2)'
+              border: version.recommended ? '2px solid #7bbf32' : '1px solid rgba(16, 124, 16, 0.2)'
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
                 <div>
@@ -357,7 +357,7 @@ const EmulatorSetup = ({ onNavigate }) => {
           <div style={{ marginTop: '24px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
               <span style={{ color: '#e2e8f0' }}>{downloadStatus}</span>
-              <span style={{ color: '#8b5cf6' }}>{Math.round(downloadProgress)}%</span>
+              <span style={{ color: '#7bbf32' }}>{Math.round(downloadProgress)}%</span>
             </div>
             <div className="progress-bar">
               <div
@@ -402,9 +402,9 @@ const EmulatorSetup = ({ onNavigate }) => {
               <span style={{ color: '#f59e0b', fontWeight: '600' }}>Configuration Info</span>
             </div>
             <div style={{ color: '#94a3b8', fontSize: '14px', flex: 1 }}>
-              <p style={{ marginBottom: '8px' }}>• <strong>Xenia Stable:</strong> Config at Documents\Xenia\xenia.config.toml</p>
-              <p style={{ marginBottom: '8px' }}>• <strong>Xenia Canary:</strong> Config alongside xenia.exe (portable)</p>
-              <p>• <strong>Per-game configs:</strong> Create TitleID.config.toml in config folder</p>
+              <p style={{ marginBottom: '8px' }}>â€¢ <strong>Xenia Stable:</strong> Config at Documents\Xenia\xenia.config.toml</p>
+              <p style={{ marginBottom: '8px' }}>â€¢ <strong>Xenia Canary:</strong> Config alongside xenia.exe (portable)</p>
+              <p>â€¢ <strong>Per-game configs:</strong> Create TitleID.config.toml in config folder</p>
             </div>
           </div>
         </div>
@@ -557,7 +557,7 @@ const EmulatorSetup = ({ onNavigate }) => {
           fontSize: '32px',
           fontWeight: 'bold',
           marginBottom: '8px',
-          background: 'linear-gradient(135deg, #8b5cf6, #3b82f6)',
+          background: 'linear-gradient(180deg, #7bbf32, #107c10)',
           WebkitBackgroundClip: 'text',
           WebkitTextFillColor: 'transparent'
         }}>
@@ -575,13 +575,13 @@ const EmulatorSetup = ({ onNavigate }) => {
             display: 'flex',
             alignItems: 'center',
             gap: '8px',
-            color: setupStep >= 1 ? '#8b5cf6' : '#64748b'
+            color: setupStep >= 1 ? '#7bbf32' : '#64748b'
           }}>
             <div style={{
               width: '32px',
               height: '32px',
               borderRadius: '50%',
-              background: setupStep >= 1 ? 'linear-gradient(135deg, #8b5cf6, #3b82f6)' : 'rgba(100, 116, 139, 0.3)',
+              background: setupStep >= 1 ? 'linear-gradient(180deg, #7bbf32, #107c10)' : 'rgba(100, 116, 139, 0.3)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -593,19 +593,19 @@ const EmulatorSetup = ({ onNavigate }) => {
             <span>Download</span>
           </div>
 
-          <div style={{ flex: 1, height: '2px', background: setupStep >= 2 ? '#8b5cf6' : 'rgba(100, 116, 139, 0.3)' }} />
+          <div style={{ flex: 1, height: '2px', background: setupStep >= 2 ? '#7bbf32' : 'rgba(100, 116, 139, 0.3)' }} />
 
           <div style={{
             display: 'flex',
             alignItems: 'center',
             gap: '8px',
-            color: setupStep >= 2 ? '#8b5cf6' : '#64748b'
+            color: setupStep >= 2 ? '#7bbf32' : '#64748b'
           }}>
             <div style={{
               width: '32px',
               height: '32px',
               borderRadius: '50%',
-              background: setupStep >= 2 ? 'linear-gradient(135deg, #8b5cf6, #3b82f6)' : 'rgba(100, 116, 139, 0.3)',
+              background: setupStep >= 2 ? 'linear-gradient(180deg, #7bbf32, #107c10)' : 'rgba(100, 116, 139, 0.3)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',

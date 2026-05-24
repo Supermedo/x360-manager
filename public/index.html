@@ -5,7 +5,7 @@
   <meta charset="utf-8" />
   <link rel="icon" type="image/png" href="%PUBLIC_URL%/icon.png" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="theme-color" content="#8b5cf6" />
+  <meta name="theme-color" content="#107c10" />
   <meta name="description"
     content="X360 Manager - A modern frontend for managing and launching Xbox 360 emulator games" />
   <link rel="apple-touch-icon" href="%PUBLIC_URL%/icon.png" />
@@ -17,7 +17,7 @@
 
   <!-- Security headers -->
   <meta http-equiv="Content-Security-Policy"
-    content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: http: blob:; connect-src 'self' https: http: data: blob:;">
+    content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: http: blob: file: cover-cache:; connect-src 'self' https: http: data: blob:;">
 
   <title>X360 Manager</title>
 
@@ -30,7 +30,7 @@
         sans-serif;
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
-      background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
+      background: radial-gradient(ellipse at top, #1a2e1a 0%, #121212 50%, #0a0a0a 100%);
       color: #e2e8f0;
       overflow: hidden;
     }
@@ -47,7 +47,7 @@
       left: 0;
       width: 100%;
       height: 100%;
-      background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
+      background: radial-gradient(ellipse at top, #1a2e1a 0%, #121212 50%, #0a0a0a 100%);
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -58,7 +58,7 @@
     .loading-logo {
       width: 80px;
       height: 80px;
-      background: linear-gradient(45deg, #8b5cf6, #3b82f6);
+      background: linear-gradient(180deg, #7bbf32, #107c10);
       border-radius: 16px;
       display: flex;
       align-items: center;
@@ -77,8 +77,8 @@
     .loading-spinner {
       width: 32px;
       height: 32px;
-      border: 3px solid rgba(139, 92, 246, 0.3);
-      border-top: 3px solid #8b5cf6;
+      border: 3px solid rgba(16, 124, 16, 0.3);
+      border-top: 3px solid #107c10;
       border-radius: 50%;
       animation: spin 1s linear infinite;
     }

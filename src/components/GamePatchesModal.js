@@ -122,7 +122,7 @@ const GamePatchesModal = React.memo(({ game, settings, onClose, updateGame }) =>
             justifyContent: 'center',
             zIndex: 1000
         }}>
-            <div className="card" style={{ width: '650px', maxWidth: '90vw', maxHeight: '85vh', display: 'flex', flexDirection: 'column', background: 'linear-gradient(to bottom, #1e1e2f, #13131f)', border: '1px solid rgba(139, 92, 246, 0.2)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}>
+            <div className="card" style={{ width: '650px', maxWidth: '90vw', maxHeight: '85vh', display: 'flex', flexDirection: 'column', background: 'linear-gradient(to bottom, #1e1e2f, #13131f)', border: '1px solid rgba(16, 124, 16, 0.2)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}>
                 <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                     <h3 className="card-title" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '10px', fontSize: '18px', fontWeight: '600', color: '#f8fafc' }}>
                         <div style={{ background: 'rgba(234, 179, 8, 0.15)', padding: '6px', borderRadius: '8px', display: 'flex' }}>
@@ -167,12 +167,12 @@ const GamePatchesModal = React.memo(({ game, settings, onClose, updateGame }) =>
                 <div className="card-body" style={{ overflowY: 'auto', padding: '20px' }}>
                     {loadingPatches ? (
                         <div style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>
-                            <Zap size={48} style={{ color: '#8b5cf6', marginBottom: '16px', opacity: 0.5, animation: 'pulse 2s infinite' }} />
+                            <Zap size={48} style={{ color: '#7bbf32', marginBottom: '16px', opacity: 0.5, animation: 'pulse 2s infinite' }} />
                             <p>Loading patches...</p>
                         </div>
                     ) : availablePatches.length > 0 ? (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(139, 92, 246, 0.2)', borderRadius: '8px', padding: '0 12px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(16, 124, 16, 0.2)', borderRadius: '8px', padding: '0 12px' }}>
                                 <Search size={18} style={{ color: '#94a3b8' }} />
                                 <input
                                     type="text"
@@ -194,10 +194,10 @@ const GamePatchesModal = React.memo(({ game, settings, onClose, updateGame }) =>
                                             display: 'flex',
                                             justifyContent: 'space-between',
                                             alignItems: 'center',
-                                            background: patch.is_enabled ? 'rgba(139, 92, 246, 0.1)' : 'rgba(0, 0, 0, 0.2)',
+                                            background: patch.is_enabled ? 'rgba(16, 124, 16, 0.1)' : 'rgba(0, 0, 0, 0.2)',
                                             padding: '16px',
                                             borderRadius: '8px',
-                                            border: `1px solid ${patch.is_enabled ? 'rgba(139, 92, 246, 0.3)' : 'rgba(255, 255, 255, 0.05)'}`,
+                                            border: `1px solid ${patch.is_enabled ? 'rgba(16, 124, 16, 0.3)' : 'rgba(255, 255, 255, 0.05)'}`,
                                             transition: 'all 0.2s ease'
                                         }}>
                                             <div style={{ flex: 1, paddingRight: '16px' }}>
@@ -254,7 +254,7 @@ const GamePatchesModal = React.memo(({ game, settings, onClose, updateGame }) =>
                                         style={{
                                             padding: '10px 16px',
                                             borderRadius: '6px',
-                                            border: '1px solid rgba(139, 92, 246, 0.3)',
+                                            border: '1px solid rgba(16, 124, 16, 0.3)',
                                             background: 'rgba(0,0,0,0.2)',
                                             color: 'white',
                                             textTransform: 'uppercase',
@@ -268,7 +268,7 @@ const GamePatchesModal = React.memo(({ game, settings, onClose, updateGame }) =>
                                         <div style={{ width: '100%', maxWidth: '450px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                             <span style={{ color: '#64748b', fontSize: '12px', fontWeight: 'bold', textAlign: 'center' }}>OR SEARCH COMMUNITY LIST</span>
                                             <div style={{ position: 'relative', width: '100%' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(139, 92, 246, 0.3)', borderRadius: '6px', padding: '0 12px' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(16, 124, 16, 0.3)', borderRadius: '6px', padding: '0 12px' }}>
                                                     <Search size={16} style={{ color: '#94a3b8' }} />
                                                     <input
                                                         type="text"
@@ -287,7 +287,7 @@ const GamePatchesModal = React.memo(({ game, settings, onClose, updateGame }) =>
                                                         maxHeight: '200px',
                                                         overflowY: 'auto',
                                                         background: '#1a1a2e',
-                                                        border: '1px solid rgba(139, 92, 246, 0.4)',
+                                                        border: '1px solid rgba(16, 124, 16, 0.4)',
                                                         borderRadius: '0 0 8px 8px',
                                                         zIndex: 10,
                                                         marginTop: '2px',
@@ -317,7 +317,7 @@ const GamePatchesModal = React.memo(({ game, settings, onClose, updateGame }) =>
                                                                         borderBottom: '1px solid rgba(255,255,255,0.05)',
                                                                         transition: 'background 0.2s'
                                                                     }}
-                                                                    onMouseEnter={(e) => e.target.style.background = 'rgba(139, 92, 246, 0.2)'}
+                                                                    onMouseEnter={(e) => e.target.style.background = 'rgba(16, 124, 16, 0.2)'}
                                                                     onMouseLeave={(e) => e.target.style.background = 'transparent'}
                                                                 >
                                                                     <div style={{ fontWeight: '600' }}>{f.titleName}</div>

@@ -1,22 +1,274 @@
-const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, protocol, nativeImage } = require('electron');
 const path = require('path');
+const crypto = require('crypto');
+const { pathToFileURL, fileURLToPath } = require('url');
 const isDev = require('electron-is-dev');
 const fs = require('fs');
+
+const loadEnvFile = (envPath) => {
+  if (!envPath || !fs.existsSync(envPath)) return;
+  try {
+    const lines = fs.readFileSync(envPath, 'utf8').split(/\r?\n/);
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) continue;
+      const eq = trimmed.indexOf('=');
+      if (eq === -1) continue;
+      const key = trimmed.slice(0, eq).trim();
+      let value = trimmed.slice(eq + 1).trim();
+      if (
+        (value.startsWith('"') && value.endsWith('"'))
+        || (value.startsWith("'") && value.endsWith("'"))
+      ) {
+        value = value.slice(1, -1);
+      }
+      if (!process.env[key]) process.env[key] = value;
+    }
+  } catch (err) {
+    console.warn('[env] Could not load', envPath, err.message);
+  }
+};
+
+loadEnvFile(path.join(__dirname, '.env'));
+
+const getScreenScraperAuthQuery = () => {
+  const user = process.env.SCREENSCRAPER_USER || '';
+  const password = process.env.SCREENSCRAPER_PASSWORD || '';
+  const devId = process.env.SCREENSCRAPER_DEV_ID || '';
+  const devPassword = process.env.SCREENSCRAPER_DEV_PASSWORD || '';
+  const softName = process.env.SCREENSCRAPER_SOFTNAME || 'X360 Manager';
+  if (!user || !password || !devId || !devPassword) {
+    return null;
+  }
+  return (
+    `&devid=${encodeURIComponent(devId)}`
+    + `&devpassword=${encodeURIComponent(devPassword)}`
+    + `&softname=${encodeURIComponent(softName)}`
+    + `&ssid=${encodeURIComponent(user)}`
+    + `&sspassword=${encodeURIComponent(password)}`
+    + '&output=json&systemeid=33'
+  );
+};
+const http = require('http');
 const https = require('https');
 const { exec } = require('child_process');
+const {
+  applyXeniaUiSettings,
+  applyXeniaProfile,
+  applyLaunchDisplaySettings,
+  buildProfileToml,
+  wantsFpsOverlay,
+  mapLogLevel,
+  getResolutionLaunchArgs,
+  isTruthy
+} = require('./xeniaConfig');
+const { detectArcadeGame, resolveXeniaLaunchTarget } = require('./xeniaLaunch');
+const {
+  listXboxLiveProfiles,
+  saveXboxLiveProfile,
+  createProfile,
+  importProfileFile,
+  deleteProfile,
+  applyXboxLiveProfileToConfig,
+  applyActiveProfileForLaunch,
+  clearXeniaProfilesForArcadeLaunch,
+  exportProfileFile,
+  getActiveXboxLiveProfile,
+  verifyProfilePin,
+  getProfileStorageDir,
+  resolveXContentRoot
+} = require('./xboxLiveProfiles');
+
+const toXboxCdnHttpUrl = (url) => {
+  if (!url || typeof url !== 'string') return url;
+  let normalized = url.trim();
+  if (normalized.startsWith('//download.xbox.com')) {
+    normalized = `http:${normalized}`;
+  } else if (/^https:\/\/download\.xbox\.com/i.test(normalized)) {
+    normalized = normalized.replace(/^https:\/\/download\.xbox\.com/i, 'http://download.xbox.com');
+  }
+  return normalized.replace(/^http:\/\/download\.xbox\.com:80\//i, 'http://download.xbox.com/');
+};
+
+const downloadCoverToFile = (sourceUrl, destPath) =>
+  new Promise((resolve, reject) => {
+    const fetchOnce = (url, redirects = 0) => {
+      if (redirects > 5) {
+        reject(new Error('Too many redirects'));
+        return;
+      }
+      let parsed;
+      try {
+        parsed = new URL(url);
+      } catch (err) {
+        reject(err);
+        return;
+      }
+      const lib = parsed.protocol === 'https:' ? https : http;
+      const req = lib.get(
+        url,
+        { headers: { 'User-Agent': 'X360-Manager/1.5.0', Accept: 'image/*,*/*' } },
+        (res) => {
+          if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+            const next = res.headers.location.startsWith('http')
+              ? res.headers.location
+              : `${parsed.protocol}//${parsed.host}${res.headers.location}`;
+            res.resume();
+            fetchOnce(next, redirects + 1);
+            return;
+          }
+          if (res.statusCode < 200 || res.statusCode >= 400) {
+            res.resume();
+            reject(new Error(`HTTP ${res.statusCode}`));
+            return;
+          }
+          const file = fs.createWriteStream(destPath);
+          res.on('error', (err) => {
+            file.close();
+            fs.unlink(destPath, () => {});
+            reject(err);
+          });
+          res.pipe(file);
+          file.on('finish', () => file.close(() => resolve(destPath)));
+          file.on('error', (err) => {
+            fs.unlink(destPath, () => {});
+            reject(err);
+          });
+        }
+      );
+      req.setTimeout(20000, () => {
+        req.destroy();
+        reject(new Error('Timeout'));
+      });
+      req.on('error', reject);
+    };
+    fetchOnce(sourceUrl);
+  });
+
+const useDevServer = isDev && process.env.ELECTRON_FORCE_BUILD !== '1';
+
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: 'cover-cache',
+    privileges: {
+      secure: true,
+      standard: true,
+      supportFetchAPI: true,
+      corsEnabled: true
+    }
+  }
+]);
+
+const resolveLocalImagePath = (url) => {
+  if (!url || typeof url !== 'string') return null;
+  if (url.startsWith('file:')) {
+    try {
+      return fileURLToPath(url);
+    } catch {
+      return null;
+    }
+  }
+  if (url.startsWith('cover-cache://')) {
+    try {
+      const parsed = new URL(url);
+      let filePath = decodeURIComponent(parsed.pathname.replace(/^\//, ''));
+      if (process.platform === 'win32') {
+        filePath = filePath.replace(/\//g, '\\');
+      }
+      return path.normalize(filePath);
+    } catch {
+      return null;
+    }
+  }
+  return null;
+};
+
+const toLocalFileUrl = (absolutePath) => pathToFileURL(absolutePath).href;
 
 let mainWindow;
 
-// Ensure application is completely portable by keeping AppData locally next to the executable
-if (!isDev) {
-  const portableDataPath = path.join(path.dirname(app.getPath('exe')), 'data');
+const activeEmulatorPids = new Set();
+let emulatorWatchInterval = null;
+
+const isPidRunning = (pid) => {
+  if (!pid) return false;
   try {
-    if (!fs.existsSync(portableDataPath)) {
-      fs.mkdirSync(portableDataPath, { recursive: true });
-    }
-    app.setPath('userData', portableDataPath);
+    process.kill(pid, 0);
+    return true;
   } catch (err) {
-    console.warn("Could not set portable data path", err);
+    return err.code === 'EPERM';
+  }
+};
+
+const notifyEmulatorSession = () => {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  const running = activeEmulatorPids.size > 0;
+  mainWindow.webContents.send('emulator-session-changed', {
+    running,
+    count: activeEmulatorPids.size
+  });
+};
+
+const untrackEmulatorPid = (pid) => {
+  if (!pid) return;
+  activeEmulatorPids.delete(pid);
+  notifyEmulatorSession();
+  if (activeEmulatorPids.size === 0 && emulatorWatchInterval) {
+    clearInterval(emulatorWatchInterval);
+    emulatorWatchInterval = null;
+  }
+};
+
+const trackEmulatorPid = (pid) => {
+  if (!pid) return;
+  activeEmulatorPids.add(pid);
+  notifyEmulatorSession();
+
+  if (!emulatorWatchInterval) {
+    emulatorWatchInterval = setInterval(() => {
+      for (const trackedPid of [...activeEmulatorPids]) {
+        if (!isPidRunning(trackedPid)) {
+          activeEmulatorPids.delete(trackedPid);
+        }
+      }
+      notifyEmulatorSession();
+      if (activeEmulatorPids.size === 0 && emulatorWatchInterval) {
+        clearInterval(emulatorWatchInterval);
+        emulatorWatchInterval = null;
+      }
+    }, 2000);
+  }
+};
+
+const resolveAppIconPath = () => {
+  const candidates = [
+    path.join(__dirname, 'build', 'icon.ico'),
+    path.join(__dirname, 'build', 'icon.png'),
+    path.join(__dirname, 'public', 'icon.png')
+  ];
+  return candidates.find((candidate) => fs.existsSync(candidate)) || null;
+};
+
+const getAppIconImage = () => {
+  const iconPath = resolveAppIconPath();
+  if (!iconPath) return undefined;
+  const image = nativeImage.createFromPath(iconPath);
+  return image.isEmpty() ? undefined : image;
+};
+
+const { readJson: readAppStorage, writeJson: writeAppStorage } = require('./appStorage');
+
+if (!isDev) {
+  const exeDir = path.dirname(app.getPath('exe'));
+  const portableMarker = path.join(exeDir, 'portable.txt');
+  if (fs.existsSync(portableMarker)) {
+    const portableDataPath = path.join(exeDir, 'data');
+    try {
+      fs.mkdirSync(portableDataPath, { recursive: true });
+      app.setPath('userData', portableDataPath);
+    } catch (err) {
+      console.warn('[app] Could not set portable data path:', err.message);
+    }
   }
 }
 
@@ -30,24 +282,25 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true,
       enableRemoteModule: false,
-      webSecurity: false, // Allows cross-origin requests for fetching game covers from Steam/IGDB
-      preload: path.join(__dirname, 'preload.js')
+      webSecurity: false,
+      preload: path.join(__dirname, 'preload.js'),
+      partition: 'persist:x360-manager'
     },
     titleBarStyle: 'hidden',
     titleBarOverlay: {
-      color: '#0f0f1a',
-      symbolColor: '#e2e8f0',
+      color: '#1a1a1a',
+      symbolColor: '#e8e8e8',
       height: 48
     },
     autoHideMenuBar: true,
-    icon: path.join(__dirname, isDev ? 'public/icon.png' : 'build/icon.png'),
+    icon: getAppIconImage(),
     show: false
   });
 
   mainWindow.setMenuBarVisibility(false);
 
   mainWindow.loadURL(
-    isDev
+    useDevServer
       ? 'http://localhost:3000'
       : `file://${path.join(__dirname, './build/index.html')}`
   );
@@ -56,16 +309,93 @@ function createWindow() {
     mainWindow.show();
   });
 
-  if (isDev) {
+  if (useDevServer) {
     mainWindow.webContents.openDevTools();
   }
+
+  const notifyFullscreenChanged = () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    mainWindow.webContents.send('app-fullscreen-changed', mainWindow.isFullScreen());
+  };
+
+  mainWindow.on('enter-full-screen', notifyFullscreenChanged);
+  mainWindow.on('leave-full-screen', notifyFullscreenChanged);
 
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
 }
 
-app.whenReady().then(createWindow);
+const DEFAULT_TITLE_BAR_OVERLAY = {
+  color: '#1a1a1a',
+  symbolColor: '#e8e8e8',
+  height: 48
+};
+
+const setAppFullscreen = (enabled) => {
+  if (!mainWindow || mainWindow.isDestroyed()) return false;
+  const want = Boolean(enabled);
+
+  if (process.platform === 'win32' && typeof mainWindow.setTitleBarOverlay === 'function') {
+    try {
+      if (want) {
+        mainWindow.setTitleBarOverlay({ color: '#000000', symbolColor: '#e8e8e8', height: 0 });
+      } else {
+        mainWindow.setTitleBarOverlay(DEFAULT_TITLE_BAR_OVERLAY);
+      }
+    } catch (err) {
+      console.warn('[fullscreen] titleBarOverlay:', err.message);
+    }
+  }
+
+  mainWindow.setFullScreen(want);
+
+  if (want && process.platform === 'win32' && !mainWindow.isFullScreen()) {
+    mainWindow.maximize();
+  }
+
+  const isFs = mainWindow.isFullScreen();
+  if (!mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('app-fullscreen-changed', isFs);
+  }
+  return isFs;
+};
+
+app.whenReady().then(() => {
+  console.log('[app] Settings and library data folder:', app.getPath('userData'));
+  const coverCacheUrlToPath = (url) => {
+    const parsed = new URL(url);
+    let filePath = decodeURIComponent(parsed.pathname.replace(/^\//, ''));
+    if (process.platform === 'win32') {
+      filePath = filePath.replace(/\//g, '\\');
+    }
+    return path.normalize(filePath);
+  };
+
+  protocol.registerFileProtocol('cover-cache', (request, callback) => {
+    try {
+      const filePath = coverCacheUrlToPath(request.url);
+      if (!fs.existsSync(filePath)) {
+        callback({ error: -6 });
+        return;
+      }
+      callback({ path: filePath });
+    } catch (err) {
+      console.error('[cover-cache] protocol error:', err);
+      callback({ error: -2 });
+    }
+  });
+
+  if (process.platform === 'win32') {
+    app.setAppUserModelId('com.x360manager.app');
+  }
+  const dockIcon = getAppIconImage();
+  if (dockIcon && app.dock) {
+    app.dock.setIcon(dockIcon);
+  }
+
+  createWindow();
+});
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
@@ -338,86 +668,100 @@ ipcMain.handle('launch-game', async (event, emulatorPath, gamePath, config) => {
       return;
     }
 
-    // Validate game file exists
-    if (gamePath && !fs.existsSync(gamePath)) {
-      reject(new Error(`Game file not found at: ${gamePath}`));
+    const launchTarget = resolveXeniaLaunchTarget(gamePath, emulatorPath);
+    const effectiveGamePath = launchTarget.targetPath;
+    const launchCwd = launchTarget.cwd;
+    const isArcade = launchTarget.isArcade;
+
+    if (effectiveGamePath && !fs.existsSync(effectiveGamePath)) {
+      reject(new Error(`Game file not found at: ${effectiveGamePath}`));
       return;
     }
 
-    // Determine emulator type based on filename
     const emulatorName = path.basename(emulatorPath).toLowerCase();
-
-    // Use spawn instead of exec for better process handling
     const { spawn } = require('child_process');
 
-    // Properly format arguments for spawn (remove quotes as spawn handles them automatically)
     const spawnArgs = [];
-    if (gamePath) {
-      spawnArgs.push(gamePath); // Don't quote for spawn
+    const launchConfig = config || {};
+
+    if (emulatorName.includes('xenia') && !isArcade) {
+      const presetsEnabled = launchConfig.xeniaPresetsEnabled !== false;
+      const titleId = launchConfig.titleId || launchConfig.xeniaTitleId || null;
+      try {
+        if (presetsEnabled) {
+          applyXeniaProfile(emulatorPath, app.getPath('documents'), launchConfig, titleId);
+        }
+        applyLaunchDisplaySettings(emulatorPath, app.getPath('documents'), launchConfig, titleId);
+      } catch (err) {
+        console.warn('[launch-game] Xenia profile/config patch failed:', err.message);
+      }
+      try {
+        const profileResult = applyActiveProfileForLaunch(
+          emulatorPath,
+          app.getPath('documents'),
+          app.getPath('userData'),
+          launchConfig.xboxLiveProfileId || null
+        );
+        if (profileResult?.ok) {
+          console.log(`[launch-game] profile ${profileResult.profileKey}`);
+        } else if (profileResult?.error) {
+          console.warn('[launch-game] Xbox Live profile:', profileResult.error);
+        }
+      } catch (err) {
+        console.warn('[launch-game] Xbox Live profile config patch failed:', err.message);
+      }
+    } else if (isArcade) {
+      console.log('[launch-game] Arcade/XBLA title — minimal launch (clearing signed-in profile from Xenia config)');
+      try {
+        clearXeniaProfilesForArcadeLaunch(emulatorPath, app.getPath('documents'));
+      } catch (err) {
+        console.warn('[launch-game] Arcade profile clear failed:', err.message);
+      }
     }
 
-    // Add configuration parameters without quotes
-    if (config) {
+    if (effectiveGamePath) {
+      spawnArgs.push(effectiveGamePath);
+    }
+
+    if (launchConfig && !isArcade) {
       if (emulatorName.includes('xenia')) {
-        // Xenia-specific arguments
-        if (config.fullscreen) spawnArgs.push('--fullscreen=true');
-
-        // Handle resolution settings
-        if (config.resolution && config.resolution !== 'auto') {
-          // Convert resolution string to scale factor for Xenia
-          let scale = '1';
-          switch (config.resolution) {
-            case '1280x720':
-              scale = '1'; // 720p baseline
-              break;
-            case '1920x1080':
-              scale = '1.5'; // 1080p
-              break;
-            case '2560x1440':
-              scale = '2'; // 1440p
-              break;
-            case '3840x2160':
-              scale = '3'; // 4K
-              break;
-            default:
-              scale = '1';
-          }
-          if (scale !== '1') {
-            spawnArgs.push(`--draw_resolution_scale_x=${scale}`);
-            spawnArgs.push(`--draw_resolution_scale_y=${scale}`);
-          }
+        if (isTruthy(launchConfig.fullscreen)) {
+          spawnArgs.push('--fullscreen=true');
         }
 
-        // Legacy support for resolutionScale
-        if (config.resolutionScale && config.resolutionScale !== '1') {
-          spawnArgs.push(`--draw_resolution_scale_x=${config.resolutionScale}`);
-          spawnArgs.push(`--draw_resolution_scale_y=${config.resolutionScale}`);
-        }
-        if (config.renderer && config.renderer !== 'auto') {
-          if (config.renderer === 'directx12' || config.renderer === 'd3d12') {
+        spawnArgs.push(
+          ...getResolutionLaunchArgs(launchConfig.resolution, launchConfig.resolutionScale)
+        );
+        if (launchConfig.renderer && launchConfig.renderer !== 'auto') {
+          if (launchConfig.renderer === 'directx12' || launchConfig.renderer === 'd3d12') {
             spawnArgs.push('--gpu=d3d12');
-          } else if (config.renderer === 'vulkan') {
+          } else if (launchConfig.renderer === 'vulkan') {
             spawnArgs.push('--gpu=vulkan');
-          } else if (config.renderer === 'opengl') {
+          } else if (launchConfig.renderer === 'opengl') {
             spawnArgs.push(`--gpu=opengl`);
           }
         }
 
-        // Handle VSync and uncap FPS
-        let vsyncEnabled = config.vsync;
-        if (config.frameLimit === 'unlimited' || config.frameLimit === '120' || config.frameLimit === '144') {
-          vsyncEnabled = false; // Disable VSync to uncap FPS limit
+        let vsyncEnabled = launchConfig.vsync;
+        if (launchConfig.frameLimit === 'unlimited' || launchConfig.frameLimit === '120' || launchConfig.frameLimit === '144') {
+          vsyncEnabled = false;
         }
         if (vsyncEnabled !== undefined) {
           spawnArgs.push(`--vsync=${vsyncEnabled}`);
         }
 
-        // FPS Counter - Xenia doesn't have a reliable built-in HUD FPS counter except through Post processing in canary.
-        // We will disable the heavy dev profiler mask that previously broke the FPS option.
-        if (config.showFPS) {
-          // Xenia displays FPS in the window title bar by default.
-          // Warning: passing invalid postprocess flags will cause Xenia to crash on load.
-          // Users wanting HUD FPS should use external tools like RTSS/Afterburner.
+        if (wantsFpsOverlay(launchConfig)) {
+          spawnArgs.push('--headless=false');
+          spawnArgs.push('--show_profiler=true');
+          spawnArgs.push('--show_profiler=1');
+        }
+
+        if (launchConfig.debugMode === true || launchConfig.debugMode === 'true') {
+          spawnArgs.push('--debug=true');
+        }
+
+        if (launchConfig.logLevel) {
+          spawnArgs.push(`--log_level=${mapLogLevel(launchConfig.logLevel)}`);
         }
 
         // Add license mask for full/activated mode (Xenia Canary specific)
@@ -429,59 +773,61 @@ ipcMain.handle('launch-game', async (event, emulatorPath, gamePath, config) => {
         // Handle User Language (Language Override)
         let langCode = 1; // Default to English
         const langMap = { 'en': 1, 'ja': 2, 'de': 3, 'fr': 4, 'es': 5, 'it': 6, 'ko': 7, 'zh': 8 };
-        if (config.languageOverride && config.languageOverride !== 'auto' && langMap[config.languageOverride]) {
-          langCode = langMap[config.languageOverride];
-        } else if (config.userLanguage) {
-          langCode = config.userLanguage;
+        if (launchConfig.languageOverride && launchConfig.languageOverride !== 'auto' && langMap[launchConfig.languageOverride]) {
+          langCode = langMap[launchConfig.languageOverride];
+        } else if (launchConfig.userLanguage) {
+          langCode = launchConfig.userLanguage;
         }
         spawnArgs.push(`--user_language=${langCode}`);
 
         // Add mount cache if needed (maps to textureCache in frontend)
-        if (config.textureCache || config.mountCache) {
+        if (launchConfig.textureCache || launchConfig.mountCache) {
           spawnArgs.push('--mount_cache=true');
         }
 
-        // Add GPU readback if needed (often matches to async issues or frontend settings)
-        if (config.asyncShaderCompilation === false || config.gpuReadback) {
+        const renderer = String(launchConfig.renderer || 'auto').toLowerCase();
+        const usesD3d12 = renderer === 'd3d12' || renderer === 'directx12';
+        if (launchConfig.gpuReadback === true) {
           spawnArgs.push('--d3d12_readback_resolve=true');
         }
+        if (usesD3d12) {
+          spawnArgs.push('--d3d12_queue_priority=1');
+        }
 
-        // Add queue priority for better performance
-        spawnArgs.push('--d3d12_queue_priority=1'); // Default to High for better performance
-
-        if (config.customArgs) spawnArgs.push(...config.customArgs.split(' ').filter(arg => arg.trim()));
+        if (launchConfig.customArgs) spawnArgs.push(...launchConfig.customArgs.split(' ').filter(arg => arg.trim()));
       } else {
-        // Generic emulator arguments
-        if (config.fullscreen) spawnArgs.push('--fullscreen');
-        if (config.resolution && config.resolution !== 'auto') spawnArgs.push(`--resolution=${config.resolution}`);
-        if (config.renderer && config.renderer !== 'auto') spawnArgs.push(`--renderer=${config.renderer}`);
-        if (config.audioDriver && config.audioDriver !== 'auto') spawnArgs.push(`--audio=${config.audioDriver}`);
-        if (config.vsync === false) spawnArgs.push('--no-vsync');
-        else if (config.vsync === true) spawnArgs.push('--vsync');
+        if (launchConfig.fullscreen) spawnArgs.push('--fullscreen');
+        if (launchConfig.resolution && launchConfig.resolution !== 'auto') spawnArgs.push(`--resolution=${launchConfig.resolution}`);
+        if (launchConfig.renderer && launchConfig.renderer !== 'auto') spawnArgs.push(`--renderer=${launchConfig.renderer}`);
+        if (launchConfig.audioDriver && launchConfig.audioDriver !== 'auto') spawnArgs.push(`--audio=${launchConfig.audioDriver}`);
+        if (launchConfig.vsync === false) spawnArgs.push('--no-vsync');
+        else if (launchConfig.vsync === true) spawnArgs.push('--vsync');
 
-        // Additional generic settings
-        if (config.antialiasing && config.antialiasing !== 'auto') {
-          spawnArgs.push(`--antialiasing=${config.antialiasing}`);
+        if (launchConfig.antialiasing && launchConfig.antialiasing !== 'auto') {
+          spawnArgs.push(`--antialiasing=${launchConfig.antialiasing}`);
         }
-        if (config.textureFiltering && config.textureFiltering !== 'auto') {
-          spawnArgs.push(`--texture-filter=${config.textureFiltering}`);
+        if (launchConfig.textureFiltering && launchConfig.textureFiltering !== 'auto') {
+          spawnArgs.push(`--texture-filter=${launchConfig.textureFiltering}`);
         }
-        if (config.frameLimit && config.frameLimit !== 'auto') {
-          spawnArgs.push(`--fps-limit=${config.frameLimit}`);
+        if (launchConfig.frameLimit && launchConfig.frameLimit !== 'auto') {
+          spawnArgs.push(`--fps-limit=${launchConfig.frameLimit}`);
         }
-        if (config.audioLatency && config.audioLatency !== 'auto') {
-          spawnArgs.push(`--audio-latency=${config.audioLatency}`);
+        if (launchConfig.audioLatency && launchConfig.audioLatency !== 'auto') {
+          spawnArgs.push(`--audio-latency=${launchConfig.audioLatency}`);
         }
-        if (config.customArgs) spawnArgs.push(...config.customArgs.split(' ').filter(arg => arg.trim()));
+        if (launchConfig.customArgs) spawnArgs.push(...launchConfig.customArgs.split(' ').filter(arg => arg.trim()));
       }
     }
 
     const command = `"${emulatorPath}" ${spawnArgs.join(' ')}`;
     console.log('Launching game with command:', command);
     console.log('Spawn args:', spawnArgs);
+    if (emulatorName.includes('xenia') && wantsFpsOverlay(launchConfig)) {
+      console.log('[launch-game] FPS overlay enabled (show_profiler). Press F3 in Xenia if overlay is hidden.');
+    }
 
     const child = spawn(emulatorPath, spawnArgs, {
-      cwd: path.dirname(emulatorPath),
+      cwd: launchCwd,
       detached: true,
       stdio: 'ignore'
     });
@@ -491,21 +837,32 @@ ipcMain.handle('launch-game', async (event, emulatorPath, gamePath, config) => {
       reject(new Error(`Failed to launch game: ${error.message}`));
     });
 
+    child.on('exit', () => {
+      untrackEmulatorPid(child.pid);
+    });
+
     child.on('spawn', () => {
       console.log('Game launched successfully');
+      trackEmulatorPid(child.pid);
       child.unref(); // Allow the parent process to exit independently
-      resolve({ command, pid: child.pid });
+      resolve({ command, pid: child.pid, emulatorRunning: true });
     });
 
     // Set a timeout for the spawn event
     setTimeout(() => {
       if (!child.killed && child.exitCode === null) {
         console.log('Game process started successfully');
-        resolve({ command, pid: child.pid });
+        trackEmulatorPid(child.pid);
+        resolve({ command, pid: child.pid, emulatorRunning: true });
       }
     }, 3000);
   });
 });
+
+ipcMain.handle('get-emulator-session', () => ({
+  running: activeEmulatorPids.size > 0,
+  count: activeEmulatorPids.size
+}));
 
 ipcMain.handle('open-external', async (event, url) => {
   shell.openExternal(url);
@@ -522,6 +879,475 @@ ipcMain.handle('get-app-version', () => {
 
 ipcMain.handle('get-platform', () => {
   return process.platform;
+});
+
+ipcMain.handle('storage-get', async (event, key) => {
+  try {
+    return readAppStorage(app.getPath('userData'), key, null);
+  } catch (err) {
+    return null;
+  }
+});
+
+ipcMain.handle('storage-set', async (event, key, data) => {
+  try {
+    return writeAppStorage(app.getPath('userData'), key, data);
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
+
+ipcMain.handle('storage-get-path', async () => {
+  return app.getPath('userData');
+});
+
+ipcMain.handle('cover-cache-exists', async (event, url) => {
+  if (!url || typeof url !== 'string') return false;
+  if (!url.startsWith('cover-cache://') && !url.startsWith('file:')) return true;
+  try {
+    const filePath = resolveLocalImagePath(url);
+    return Boolean(filePath && fs.existsSync(filePath));
+  } catch {
+    return false;
+  }
+});
+
+const getCoverCacheDir = () => path.join(app.getPath('userData'), 'cover-cache');
+
+ipcMain.handle('get-cover-cache-stats', async () => {
+  try {
+    const cacheDir = getCoverCacheDir();
+    if (!fs.existsSync(cacheDir)) {
+      return { ok: true, path: cacheDir, fileCount: 0, bytes: 0 };
+    }
+    let fileCount = 0;
+    let bytes = 0;
+    for (const name of fs.readdirSync(cacheDir)) {
+      const filePath = path.join(cacheDir, name);
+      try {
+        const stat = fs.statSync(filePath);
+        if (stat.isFile()) {
+          fileCount += 1;
+          bytes += stat.size;
+        }
+      } catch {
+        // skip
+      }
+    }
+    return { ok: true, path: cacheDir, fileCount, bytes };
+  } catch (err) {
+    return { ok: false, error: err.message, fileCount: 0, bytes: 0 };
+  }
+});
+
+ipcMain.handle('clear-cover-cache', async () => {
+  try {
+    const cacheDir = getCoverCacheDir();
+    if (!fs.existsSync(cacheDir)) {
+      return { ok: true, path: cacheDir, deleted: 0, bytesFreed: 0 };
+    }
+    let deleted = 0;
+    let bytesFreed = 0;
+    for (const name of fs.readdirSync(cacheDir)) {
+      const filePath = path.join(cacheDir, name);
+      try {
+        const stat = fs.statSync(filePath);
+        if (!stat.isFile()) continue;
+        bytesFreed += stat.size;
+        fs.unlinkSync(filePath);
+        deleted += 1;
+      } catch (err) {
+        console.warn('[cover-cache] Could not delete:', filePath, err.message);
+      }
+    }
+    return { ok: true, path: cacheDir, deleted, bytesFreed };
+  } catch (err) {
+    return { ok: false, error: err.message, deleted: 0, bytesFreed: 0 };
+  }
+});
+
+ipcMain.handle('set-fullscreen', async (event, enabled) => setAppFullscreen(enabled));
+
+ipcMain.handle('is-fullscreen', () => {
+  return mainWindow && !mainWindow.isDestroyed() ? mainWindow.isFullScreen() : false;
+});
+
+ipcMain.handle('toggle-fullscreen', async () => {
+  if (!mainWindow || mainWindow.isDestroyed()) return false;
+  return setAppFullscreen(!mainWindow.isFullScreen());
+});
+
+ipcMain.handle('get-app-icon-url', () => {
+  const iconPath = resolveAppIconPath();
+  if (!iconPath) return null;
+  return pathToFileURL(iconPath).href;
+});
+
+ipcMain.handle('apply-xenia-ui-settings', async (event, emulatorPath, config) => {
+  if (!emulatorPath || !fs.existsSync(emulatorPath)) {
+    return { ok: false, error: 'Emulator path not found' };
+  }
+  try {
+    const result = applyXeniaUiSettings(emulatorPath, app.getPath('documents'), config || {});
+    return { ok: true, ...result };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
+
+ipcMain.handle('apply-xenia-profile', async (event, emulatorPath, profileSettings, titleId) => {
+  if (!emulatorPath || !fs.existsSync(emulatorPath)) {
+    return { ok: false, error: 'Emulator path not found' };
+  }
+  try {
+    const result = applyXeniaProfile(
+      emulatorPath,
+      app.getPath('documents'),
+      profileSettings || {},
+      titleId || null
+    );
+    return { ok: true, ...result };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
+
+ipcMain.handle('export-xenia-profile-toml', async (event, profileSettings) => {
+  try {
+    const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
+      title: 'Export Xenia Profile',
+      defaultPath: 'x360-xenia-profile.toml',
+      filters: [{ name: 'TOML Config', extensions: ['toml'] }]
+    });
+    if (canceled || !filePath) return { ok: false, cancelled: true };
+    fs.writeFileSync(filePath, buildProfileToml(profileSettings || {}), 'utf8');
+    return { ok: true, path: filePath };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
+
+ipcMain.handle('open-xenia-config-folder', async (event, emulatorPath) => {
+  if (!emulatorPath || !fs.existsSync(emulatorPath)) {
+    return { ok: false, error: 'Emulator path not found' };
+  }
+  const configDir = path.join(path.dirname(emulatorPath), 'config');
+  fs.mkdirSync(configDir, { recursive: true });
+  await shell.openPath(configDir);
+  return { ok: true, path: configDir };
+});
+
+ipcMain.handle('list-xbox-live-profiles', async (event, emulatorPath) => {
+  try {
+    return listXboxLiveProfiles(emulatorPath, app.getPath('documents'), app.getPath('userData'));
+  } catch (err) {
+    return { ok: false, error: err.message, profiles: [] };
+  }
+});
+
+ipcMain.handle('save-xbox-live-profile', async (event, emulatorPath, profile, setActive) => {
+  if (!emulatorPath || !fs.existsSync(emulatorPath)) {
+    return { ok: false, error: 'Emulator path not found' };
+  }
+  try {
+    return saveXboxLiveProfile(
+      emulatorPath,
+      app.getPath('documents'),
+      app.getPath('userData'),
+      profile,
+      Boolean(setActive)
+    );
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
+
+ipcMain.handle('create-xbox-live-profile', async (event, emulatorPath, options) => {
+  if (!emulatorPath || !fs.existsSync(emulatorPath)) {
+    return { ok: false, error: 'Emulator path not found' };
+  }
+  try {
+    return createProfile(emulatorPath, app.getPath('documents'), app.getPath('userData'), options || {});
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
+
+ipcMain.handle('verify-xbox-live-profile-pin', async (event, emulatorPath, profileKey, pin) => {
+  try {
+    return verifyProfilePin(app.getPath('userData'), profileKey, pin);
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
+
+ipcMain.handle('import-xbox-live-profile', async (event, emulatorPath, sourcePath) => {
+  if (!emulatorPath || !fs.existsSync(emulatorPath)) {
+    return { ok: false, error: 'Emulator path not found' };
+  }
+  if (!sourcePath || !fs.existsSync(sourcePath)) {
+    return { ok: false, error: 'Profile file not found' };
+  }
+  try {
+    return importProfileFile(emulatorPath, app.getPath('documents'), app.getPath('userData'), sourcePath);
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
+
+ipcMain.handle('delete-xbox-live-profile', async (event, emulatorPath, profileKey) => {
+  if (!emulatorPath || !fs.existsSync(emulatorPath)) {
+    return { ok: false, error: 'Emulator path not found' };
+  }
+  try {
+    return deleteProfile(emulatorPath, app.getPath('documents'), app.getPath('userData'), profileKey);
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
+
+ipcMain.handle('export-xbox-live-profile', async (event, sourcePath) => {
+  if (!sourcePath || !fs.existsSync(sourcePath)) {
+    return { ok: false, error: 'Profile file not found' };
+  }
+  try {
+    const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
+      title: 'Export Xbox Live Profile',
+      defaultPath: path.basename(sourcePath),
+      filters: [{ name: 'Xbox Profile', extensions: ['*'] }]
+    });
+    if (canceled || !filePath) return { ok: false, cancelled: true };
+    return exportProfileFile(sourcePath, filePath);
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
+
+ipcMain.handle('open-xbox-live-profile-folder', async (event, emulatorPath) => {
+  if (!emulatorPath || !fs.existsSync(emulatorPath)) {
+    return { ok: false, error: 'Emulator path not found' };
+  }
+  try {
+    const contentRoot = resolveXContentRoot(emulatorPath, app.getPath('documents'));
+    const dir = getProfileStorageDir(contentRoot);
+    fs.mkdirSync(dir, { recursive: true });
+    await shell.openPath(dir);
+    return { ok: true, path: dir };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
+
+ipcMain.handle('select-xbox-live-profile-file', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: 'Import Xbox Live Profile',
+    filters: [{ name: 'Xbox Profile (E000…)', extensions: ['*'] }],
+    properties: ['openFile']
+  });
+  if (result.canceled || result.filePaths.length === 0) return null;
+  return result.filePaths[0];
+});
+
+ipcMain.handle('validate-cover-url', async (event, url, options = {}) => {
+  const lenient = options?.lenient === true;
+  if (!url || typeof url !== 'string') return false;
+  if (url.startsWith('data:')) return true;
+  if (url.startsWith('file:')) {
+    try {
+      const localPath = url.replace(/^file:\/+/i, '');
+      return fs.existsSync(localPath);
+    } catch {
+      return false;
+    }
+  }
+
+  let normalized = url.startsWith('//') ? `https:${url}` : url;
+  let hostname = '';
+  try {
+    hostname = new URL(normalized).hostname.toLowerCase();
+    if (hostname.includes('download.xbox.com')) {
+      normalized = toXboxCdnHttpUrl(normalized);
+      hostname = 'download.xbox.com';
+    } else if (normalized.startsWith('http://')) {
+      normalized = normalized.replace(/^http:\/\//i, 'https://');
+      hostname = new URL(normalized).hostname.toLowerCase();
+    }
+  } catch {
+    return false;
+  }
+
+  const trustedHost =
+    hostname.includes('download.xbox.com') ||
+    hostname.includes('xbox.com') ||
+    hostname.includes('screenscraper.fr') ||
+    hostname.includes('steamstatic.com');
+
+  if (lenient && trustedHost) return true;
+
+  const checkUrl = (targetUrl, method = 'HEAD') =>
+    new Promise((resolve) => {
+      try {
+        const parsed = new URL(targetUrl);
+        const lib = parsed.protocol === 'https:' ? require('https') : require('http');
+        const req = lib.request(
+          {
+            method,
+            hostname: parsed.hostname,
+            port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
+            path: `${parsed.pathname}${parsed.search}`,
+            headers: {
+              'User-Agent': 'X360-Manager/1.5.0',
+              Accept: 'image/*,*/*;q=0.8'
+            },
+            timeout: lenient ? 5000 : 8000
+          },
+          (res) => {
+            const status = res.statusCode || 0;
+            const contentType = (res.headers['content-type'] || '').toLowerCase();
+            const contentLength = parseInt(res.headers['content-length'] || '0', 10);
+            res.resume();
+            if (status < 200 || status >= 400) return resolve(false);
+            if (!lenient) {
+              if (contentType && !contentType.startsWith('image/') && !contentType.includes('octet-stream')) {
+                return resolve(false);
+              }
+              if (contentLength && contentLength < 512) return resolve(false);
+            }
+            resolve(true);
+          }
+        );
+        req.on('timeout', () => {
+          req.destroy();
+          resolve(lenient && trustedHost);
+        });
+        req.on('error', () => resolve(lenient && trustedHost));
+        req.end();
+      } catch {
+        resolve(lenient && trustedHost);
+      }
+    });
+
+  if (await checkUrl(normalized, 'HEAD')) return true;
+  if (lenient && trustedHost) return true;
+  return checkUrl(normalized, 'GET');
+});
+
+ipcMain.handle('cache-cover-image', async (event, url) => {
+  if (!url || typeof url !== 'string') return null;
+
+  let fetchUrl = url;
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    if (!host.includes('download.xbox.com')) {
+      return null;
+    }
+    fetchUrl = toXboxCdnHttpUrl(url);
+  } catch {
+    return null;
+  }
+
+  try {
+    const cacheDir = path.join(app.getPath('userData'), 'cover-cache');
+    if (!fs.existsSync(cacheDir)) {
+      fs.mkdirSync(cacheDir, { recursive: true });
+    }
+
+    const hash = crypto.createHash('md5').update(fetchUrl).digest('hex');
+    let ext = '.jpg';
+    try {
+      ext = path.extname(new URL(fetchUrl).pathname) || '.jpg';
+    } catch {
+      ext = '.jpg';
+    }
+    const cachePath = path.join(cacheDir, `${hash}${ext}`);
+
+    if (fs.existsSync(cachePath)) {
+      const stat = fs.statSync(cachePath);
+      if (stat.size > 1024) {
+        return toLocalFileUrl(cachePath);
+      }
+      fs.unlinkSync(cachePath);
+    }
+
+    await downloadCoverToFile(fetchUrl, cachePath);
+    if (!fs.existsSync(cachePath) || fs.statSync(cachePath).size < 512) {
+      if (fs.existsSync(cachePath)) fs.unlinkSync(cachePath);
+      return toXboxCdnHttpUrl(fetchUrl);
+    }
+
+    return toLocalFileUrl(cachePath);
+  } catch (err) {
+    console.warn('[CoverCache] Failed to cache cover:', fetchUrl, err.message);
+    return toXboxCdnHttpUrl(fetchUrl);
+  }
+});
+
+ipcMain.handle('screenscraper-search', async (event, { gameName, limit = 8 }) => {
+  if (!gameName) return [];
+  const baseAuth = getScreenScraperAuthQuery();
+  if (!baseAuth) {
+    console.warn('[ScreenScraper] Missing credentials — copy .env.example to .env');
+    return [];
+  }
+  try {
+    const searchUrl = `https://www.screenscraper.fr/api2/jeuRecherche.php?recherche=${encodeURIComponent(gameName)}${baseAuth}`;
+    const searchRes = await fetch(searchUrl);
+    if (!searchRes.ok) return [];
+    const searchData = await searchRes.json();
+    const jeux = searchData?.reponse?.jeux || [];
+    if (!jeux.length) return [];
+
+    const baseInfoUrl = `https://www.screenscraper.fr/api2/jeuInfos.php?dummy=1${baseAuth}`;
+    const fetchInfo = async (jeu) => {
+      try {
+        const infoRes = await fetch(`${baseInfoUrl}&gameid=${jeu.id}`);
+        if (!infoRes.ok) return null;
+        const infoData = await infoRes.json();
+        const j = infoData?.reponse?.jeu;
+        if (!j) return null;
+        const medias = (j.medias || []).map((m) => {
+          if (!m?.url) return m;
+          let u = m.url.trim();
+          if (u.startsWith('//')) u = `https:${u}`;
+          else if (u.startsWith('/')) u = `https://www.screenscraper.fr${u}`;
+          else if (u.startsWith('http://')) u = u.replace(/^http:\/\//i, 'https://');
+          return { ...m, url: u };
+        });
+        const boxPreferences = [
+          (m) => m.type === 'box-2D' && m.parent === 'Principale',
+          (m) => m.type === 'box-2D' && (m.region === 'us' || m.region === 'wor'),
+          (m) => m.type === 'box-2D',
+          (m) => m.type === 'box-3D',
+          (m) => typeof m.type === 'string' && m.type.includes('box')
+        ];
+        let cover = null;
+        for (const pred of boxPreferences) {
+          const m = medias.find(pred);
+          if (m?.url) {
+            cover = m.url;
+            break;
+          }
+        }
+        if (!cover) return null;
+        return {
+          source: 'screenscraper',
+          title: j.noms?.[0]?.nom || jeu.nom,
+          coverUrl: cover,
+          description: j.synopsis?.find((s) => s.langue === 'en')?.texte || j.synopsis?.[0]?.texte || null,
+          genre: j.genres?.[0]?.noms?.find((n) => n.langue === 'en')?.text || j.genres?.[0]?.nom || null
+        };
+      } catch {
+        return null;
+      }
+    };
+
+    const top = jeux.slice(0, Math.min(limit, 6));
+    const results = await Promise.all(top.map(fetchInfo));
+    return results.filter(Boolean);
+  } catch (err) {
+    console.error('[ScreenScraper Search] exception', err);
+    return [];
+  }
 });
 
 // Create a desktop shortcut for a game
@@ -982,6 +1808,7 @@ ipcMain.handle('validate-game-file', async (event, gamePath) => {
 
     // Extract Title ID for patch support
     const titleId = extractTitleId(gamePath);
+    const isArcade = detectArcadeGame(gamePath);
 
     return {
       valid: true,
@@ -990,7 +1817,8 @@ ipcMain.handle('validate-game-file', async (event, gamePath) => {
         format: ext,
         modified: stats.mtime,
         path: gamePath,
-        titleId: titleId
+        titleId: titleId,
+        isArcade
       }
     };
   } catch (error) {
@@ -1243,17 +2071,15 @@ ipcMain.handle('add-to-steam', async (event, gameParams) => {
   }
 });
 ipcMain.handle('scrape-screenscraper', async (event, { gameName, titleId }) => {
-  const SS_USER = 'podpod';
-  const SS_PASS = 'myJcWQIhEv3';
-  const SS_DEV_ID = 'podpod';
-  const SS_DEV_PASS = 'scqk4aretua';
-  const SS_SOFT = 'X360 Manager';
+  const baseAuth = getScreenScraperAuthQuery();
+  if (!baseAuth) {
+    console.warn('[ScreenScraper] Missing credentials — copy .env.example to .env');
+    return null;
+  }
 
   try {
     const cleanedName = gameName.replace(/\.[^/.]+$/, '').trim();
     console.log(`[ScreenScraper] Scraping: "${gameName}" TitleID: ${titleId || 'None'}`);
-
-    const baseAuth = `&devid=${SS_DEV_ID}&devpassword=${SS_DEV_PASS}&softname=${encodeURIComponent(SS_SOFT)}&ssid=${SS_USER}&sspassword=${SS_PASS}&output=json&systemeid=33`;
     const baseInfoUrl = `https://www.screenscraper.fr/api2/jeuInfos.php?dummy=1${baseAuth}`;
     let data = null;
 
@@ -1302,6 +2128,15 @@ ipcMain.handle('scrape-screenscraper', async (event, { gameName, titleId }) => {
 
     if (data?.reponse?.jeu) {
       console.log(`[ScreenScraper] Found: ${data.reponse.jeu.noms?.[0]?.nom}`);
+      const medias = data.reponse.jeu.medias || [];
+      data.reponse.jeu.medias = medias.map((media) => {
+        if (!media?.url) return media;
+        let mediaUrl = media.url.trim();
+        if (mediaUrl.startsWith('//')) mediaUrl = `https:${mediaUrl}`;
+        else if (mediaUrl.startsWith('/')) mediaUrl = `https://www.screenscraper.fr${mediaUrl}`;
+        else if (mediaUrl.startsWith('http://')) mediaUrl = mediaUrl.replace(/^http:\/\//i, 'https://');
+        return { ...media, url: mediaUrl };
+      });
     } else {
       console.log(`[ScreenScraper] Failed to find: ${gameName}`);
     }

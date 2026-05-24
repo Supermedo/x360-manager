@@ -1,31 +1,82 @@
-import React, { createContext, useState, useEffect } from 'react';
+import React, { createContext, useState, useEffect, useRef } from 'react';
+import { sanitizeStoredCoverUrl, coverUrlForPersistence, isEphemeralCoverUrl } from '../services/coverService';
+import { loadPersisted, savePersisted } from '../utils/persistentStorage';
 
 export const GameContext = createContext();
+
+const sanitizeGameCovers = async (gameList) => {
+  const out = [];
+  for (const game of gameList) {
+    let coverUrl = game.coverHttpUrl || game.coverUrl;
+    if (coverUrl && isEphemeralCoverUrl(coverUrl)) {
+      const exists = window.electronAPI?.coverCacheExists
+        ? await window.electronAPI.coverCacheExists(coverUrl)
+        : false;
+      if (!exists) {
+        coverUrl = game.coverHttpUrl || null;
+      } else {
+        coverUrl = sanitizeStoredCoverUrl(coverUrl);
+      }
+    } else if (coverUrl) {
+      coverUrl = sanitizeStoredCoverUrl(coverUrl);
+    }
+    if (coverUrl !== game.coverUrl) {
+      out.push({ ...game, coverUrl: coverUrl || undefined });
+    } else {
+      out.push(game);
+    }
+  }
+  return out;
+};
+
+const gamesForPersistence = (gameList) =>
+  gameList.map((game) => {
+    const persistedCover =
+      game.coverHttpUrl || coverUrlForPersistence(game.coverUrl) || null;
+    if (persistedCover === game.coverUrl && !game.coverHttpUrl) return game;
+    const next = { ...game };
+    if (persistedCover) {
+      next.coverUrl = persistedCover;
+      if (game.coverHttpUrl) next.coverHttpUrl = game.coverHttpUrl;
+    } else {
+      delete next.coverUrl;
+      delete next.coverHttpUrl;
+    }
+    return next;
+  });
 
 export const GameProvider = ({ children }) => {
   const [games, setGames] = useState([]);
   const [recentGames, setRecentGames] = useState([]);
   const [xbox360DB, setXbox360DB] = useState([]);
   const [isDbLoaded, setIsDbLoaded] = useState(false);
+  const [gamesHydrated, setGamesHydrated] = useState(false);
+  const canPersistGames = useRef(false);
 
-  // Load games from localStorage on component mount
   useEffect(() => {
-    const savedGames = localStorage.getItem('x360-games');
-    if (savedGames) {
-      try {
-        const parsedGames = JSON.parse(savedGames);
-        setGames(parsedGames);
+    let cancelled = false;
 
-        // Update recent games (last 5 played)
-        const recent = parsedGames
-          .filter(game => game.lastPlayed)
+    const hydrate = async () => {
+      const saved = await loadPersisted('games', []);
+      if (cancelled) return;
+      const parsedGames = await sanitizeGameCovers(Array.isArray(saved) ? saved : []);
+      setGames(parsedGames);
+      setRecentGames(
+        parsedGames
+          .filter((game) => game.lastPlayed)
           .sort((a, b) => new Date(b.lastPlayed) - new Date(a.lastPlayed))
-          .slice(0, 5);
-        setRecentGames(recent);
-      } catch (error) {
-        console.error('Error loading games from localStorage:', error);
+          .slice(0, 5)
+      );
+      if (parsedGames.length > 0) {
+        canPersistGames.current = true;
       }
-    }
+      setGamesHydrated(true);
+    };
+
+    hydrate();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Load Xbox 360 Database from shared GitHub resource
@@ -49,19 +100,22 @@ export const GameProvider = ({ children }) => {
     loadXbox360DB();
   }, []);
 
-  // Save games to localStorage whenever games array changes
   useEffect(() => {
-    localStorage.setItem('x360-games', JSON.stringify(games));
-
-    // Update recent games
+    if (!gamesHydrated || !canPersistGames.current) return;
+    savePersisted('games', gamesForPersistence(games));
     const recent = games
-      .filter(game => game.lastPlayed)
+      .filter((game) => game.lastPlayed)
       .sort((a, b) => new Date(b.lastPlayed) - new Date(a.lastPlayed))
       .slice(0, 5);
     setRecentGames(recent);
-  }, [games]);
+  }, [games, gamesHydrated]);
+
+  const markGamesDirty = () => {
+    canPersistGames.current = true;
+  };
 
   const addGame = (gameData) => {
+    markGamesDirty();
     const newGame = {
       id: Date.now().toString(),
       ...gameData,
@@ -76,6 +130,7 @@ export const GameProvider = ({ children }) => {
   };
 
   const batchAddGames = (gamesData) => {
+    markGamesDirty();
     const newGames = gamesData.map(gameData => ({
       id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
       ...gameData,
@@ -116,6 +171,7 @@ export const GameProvider = ({ children }) => {
             name: gameName,
             path: gameFile,
             titleId: validation?.info?.titleId || null,
+            isArcade: Boolean(validation?.info?.isArcade),
             genre: 'Unknown',
             description: 'Auto-detected game',
             dateAdded: new Date().toISOString(),
@@ -128,6 +184,7 @@ export const GameProvider = ({ children }) => {
       }
 
       if (newGames.length > 0) {
+        markGamesDirty();
         const updatedGames = [...games, ...newGames];
         setGames(updatedGames);
       }
@@ -140,10 +197,12 @@ export const GameProvider = ({ children }) => {
   };
 
   const removeGame = (gameId) => {
+    markGamesDirty();
     setGames(prevGames => prevGames.filter(game => game.id !== gameId));
   };
 
   const updateGame = (gameId, updates) => {
+    markGamesDirty();
     setGames(prevGames =>
       prevGames.map(game =>
         game.id === gameId
@@ -154,6 +213,7 @@ export const GameProvider = ({ children }) => {
   };
 
   const batchUpdateGames = (updatesMap) => {
+    markGamesDirty();
     setGames(prevGames =>
       prevGames.map(game =>
         updatesMap[game.id]
@@ -203,6 +263,7 @@ export const GameProvider = ({ children }) => {
   };
 
   const importGames = (gameList) => {
+    markGamesDirty();
     const validGames = gameList.filter(game =>
       game.name && game.path && !games.some(existing => existing.path === game.path)
     );
@@ -230,6 +291,7 @@ export const GameProvider = ({ children }) => {
   };
 
   const clearAllGames = () => {
+    markGamesDirty();
     setGames([]);
     setRecentGames([]);
   };
@@ -261,10 +323,10 @@ export const GameProvider = ({ children }) => {
     scanGamesDirectory,
     toggleFavorite,
     getFavoriteGames,
-    getFavoriteGames,
     batchUpdateGames,
     xbox360DB,
-    isDbLoaded
+    isDbLoaded,
+    gamesHydrated
   };
 
   return (

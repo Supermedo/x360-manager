@@ -22,14 +22,29 @@ import {
   MonitorUp,
   FilePlus,
   Zap,
-  ImageIcon
+  Maximize2,
+  ImageIcon,
+  Eraser
 } from 'lucide-react';
 import { GameContext } from '../context/GameContext';
 import { SettingsContext } from '../context/SettingsContext';
 import GamePatchesModal from './GamePatchesModal';
+import CoverImage from './CoverImage';
+import CoverPickerModal from './CoverPickerModal';
+import {
+  fetchGameCoverDetails,
+  MATCH_THRESHOLDS,
+  coverFieldsFromDetails,
+  localCoverResetPatch
+} from '../services/coverService';
+import useGamepad from '../hooks/useGamepad';
+import { buildGameLaunchConfig } from '../services/launchConfig';
+
+const gameNeedsCoverFetch = (game) =>
+  !game.coverUrl && !game.coverHttpUrl;
 
 // Memoized sub-components moved outside to prevent re-definition and flashing
-const GameCard = React.memo(({ game, cardSize = 180, onLaunch, onContextMenu, onToggleFavorite, onConfigure }) => {
+const GameCard = React.memo(React.forwardRef(({ game, cardSize = 180, isFocused = false, onLaunch, onContextMenu, onToggleFavorite, onConfigure, onCoverFailed }, ref) => {
   const [isLaunching, setIsLaunching] = React.useState(false);
 
   // Dimensions: Modern 2:3 aspect ratio vertical posters
@@ -38,7 +53,8 @@ const GameCard = React.memo(({ game, cardSize = 180, onLaunch, onContextMenu, on
 
   return (
     <div
-      className="game-card vertical-poster"
+      ref={ref}
+      className={`game-card vertical-poster${isFocused ? ' game-card--focused' : ''}`}
       style={{
         width: `${coverWidth}px`,
         height: `${coverHeight}px`,
@@ -56,26 +72,13 @@ const GameCard = React.memo(({ game, cardSize = 180, onLaunch, onContextMenu, on
 
       {/* Cover Graphic taking full space */}
       <div className="game-cover-full">
-        {game.coverUrl ? (
-          <img
-            key={game.coverUrl}
-            src={game.coverUrl}
-            alt={game.name}
-            style={{
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover',
-              display: 'block'
-            }}
-            onError={(e) => {
-              e.target.style.display = 'none';
-            }}
-          />
-        ) : (
-          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Gamepad2 size={40} opacity={0.6} />
-          </div>
-        )}
+        <CoverImage
+          gameName={game.name}
+          coverUrl={game.coverHttpUrl || game.coverUrl}
+          alt={game.name}
+          placeholderSize={40}
+          onCoverFailed={() => onCoverFailed?.(game)}
+        />
         {/* Overlay gradient over the image */}
         <div className="card-overlay-gradient"></div>
       </div>
@@ -146,7 +149,9 @@ const GameCard = React.memo(({ game, cardSize = 180, onLaunch, onContextMenu, on
 
     </div>
   );
-});
+}));
+
+GameCard.displayName = 'GameCard';
 
 const GameListItem = React.memo(({ game, onLaunch, onToggleFavorite, onConfigure, onRemove }) => (
   <div className="card" style={{ padding: '16px', marginBottom: '8px' }}>
@@ -154,7 +159,7 @@ const GameListItem = React.memo(({ game, onLaunch, onToggleFavorite, onConfigure
       <div style={{
         width: '64px',
         height: '64px',
-        background: 'linear-gradient(135deg, #8b5cf6, #3b82f6)',
+        background: 'linear-gradient(180deg, #7bbf32, #107c10)',
         borderRadius: '8px',
         display: 'flex',
         alignItems: 'center',
@@ -166,7 +171,7 @@ const GameListItem = React.memo(({ game, onLaunch, onToggleFavorite, onConfigure
       <div style={{ flex: 1 }}>
         <h3 style={{ color: '#e2e8f0', marginBottom: '4px' }}>{game.name}</h3>
         <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '4px' }}>
-          {game.genre || 'Unknown Genre'} • {game.timesPlayed || 0} plays
+          {game.genre || 'Unknown Genre'} â€¢ {game.timesPlayed || 0} plays
         </div>
         <div style={{ color: '#64748b', fontSize: '12px' }}>
           {game.path}
@@ -214,8 +219,20 @@ const GameListItem = React.memo(({ game, onLaunch, onToggleFavorite, onConfigure
     </div>
   </div>
 ));
-const GameLibrary = ({ onGameSelect, onNavigate }) => {
-  const { games, addGame, batchAddGames, removeGame, updateGame, batchUpdateGames, scanGamesDirectory, toggleFavorite, xbox360DB, isDbLoaded } = useContext(GameContext);
+const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode }) => {
+  const {
+    games,
+    addGame,
+    batchAddGames,
+    removeGame,
+    updateGame,
+    batchUpdateGames,
+    scanGamesDirectory,
+    toggleFavorite,
+    xbox360DB,
+    isDbLoaded,
+    gamesHydrated
+  } = useContext(GameContext);
   const { settings } = useContext(SettingsContext);
   const [isScanning, setIsScanning] = useState(false);
   const [viewMode, setViewMode] = useState('grid');
@@ -228,7 +245,11 @@ const GameLibrary = ({ onGameSelect, onNavigate }) => {
   const [isProcessingBulk, setIsProcessingBulk] = useState(false);
   const [cardSize, setCardSize] = useState(200); // Default card height
   const [selectedGameForPatches, setSelectedGameForPatches] = useState(null);
+  const [coverPickerGame, setCoverPickerGame] = useState(null);
   const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, game: null });
+  const [padFocusIdx, setPadFocusIdx] = useState(0);
+  const gamesGridRef = React.useRef(null);
+  const gameCardRefs = React.useRef([]);
   const [newGame, setNewGame] = useState({
     name: '',
     path: '',
@@ -275,132 +296,77 @@ const GameLibrary = ({ onGameSelect, onNavigate }) => {
       }
     });
 
-  const cleanGameName = (name) => {
-    if (!name) return '';
-    // Preserve common sequels like "2", "3" but remove technical tags
-    return name
-      .replace(/\.[^/.]+$/, '') // Remove extension
-      .replace(/\[.*?\]/g, '') // Remove [Region/tags]
-      .replace(/\(.*?\)/g, '') // Remove (Year/tags)
-      .replace(/[_-]/g, ' ') // Replace underscore/dash
-      .replace(/ (Disc|Disk|DVD) \d+/gi, '') // Remove Disc 1/2
-      .replace(/\s+/g, ' ') // Collapse spaces
-      .trim();
-  };
+  React.useEffect(() => {
+    setPadFocusIdx(0);
+  }, [searchTerm, filterGenre, sortBy, viewMode]);
 
-  const getFuzzyMatch = (db, searchTerm) => {
-    if (!db || !searchTerm) return null;
-    const normalizedSearch = searchTerm.toLowerCase().replace(/[^a-z0-9]/g, '');
-    if (!normalizedSearch) return null;
+  React.useEffect(() => {
+    if (padFocusIdx >= filteredGames.length) {
+      setPadFocusIdx(Math.max(0, filteredGames.length - 1));
+    }
+  }, [filteredGames.length, padFocusIdx]);
 
-    // 1. Exact normalized match
-    let match = db.find(g => g.title.toLowerCase().replace(/[^a-z0-9]/g, '') === normalizedSearch);
-    if (match) return match;
+  React.useEffect(() => {
+    const node = gameCardRefs.current[padFocusIdx];
+    node?.scrollIntoView?.({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+  }, [padFocusIdx, viewMode, cardSize]);
 
-    // 2. Starts with / Substring
-    match = db.find(g => {
-      const dbTitle = g.title.toLowerCase().replace(/[^a-z0-9]/g, '');
-      return dbTitle.length > 3 && (dbTitle.includes(normalizedSearch) || normalizedSearch.includes(dbTitle));
-    });
+  const fetchGameDetails = useCallback(async (gameName, titleId = null) => {
+    return fetchGameCoverDetails(gameName, titleId, xbox360DB, { lenient: true, allowPlaceholder: false });
+  }, [xbox360DB]);
 
-    return match;
-  };
+  const handleCoverFailed = useCallback(async (game) => {
+    const filename = game.path ? game.path.split(/[\\/]/).pop() : game.name;
+    const gameDetails = await fetchGameDetails(filename, game.titleId);
+    if (gameDetails?.coverUrl) {
+      updateGame(game.id, {
+        ...coverFieldsFromDetails(gameDetails),
+        description: gameDetails.description || game.description,
+        genre: gameDetails.genre || game.genre
+      });
+      return gameDetails.coverUrl;
+    }
+    return null;
+  }, [fetchGameDetails, updateGame]);
 
-  // Rate limiting for cover fetching
+  // Auto-fetch covers for games missing artwork once the database is ready
+  const missingCoverCount = games.filter(gameNeedsCoverFetch).length;
+
+  React.useEffect(() => {
+    if (!isDbLoaded || !gamesHydrated || games.length === 0 || missingCoverCount === 0) {
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    const syncMissing = async () => {
+      const missing = games.filter(gameNeedsCoverFetch);
+      for (const game of missing) {
+        if (cancelled) break;
+        const filename = game.path ? game.path.split(/[\\/]/).pop() : game.name;
+        const details = await fetchGameCoverDetails(filename, game.titleId, xbox360DB, {
+          lenient: true,
+          allowPlaceholder: false
+        });
+        if (details?.coverUrl) {
+          updateGame(game.id, {
+            ...coverFieldsFromDetails(details),
+            description: details.description || game.description,
+            genre: details.genre || game.genre
+          });
+        }
+        await new Promise((resolve) => setTimeout(resolve, 350));
+      }
+    };
+
+    syncMissing();
+    return () => {
+      cancelled = true;
+    };
+  }, [isDbLoaded, gamesHydrated, missingCoverCount, xbox360DB, updateGame]);
+
   const coverFetchQueue = React.useRef([]);
   const isFetchingCovers = React.useRef(false);
-
-  const fetchGameDetails = async (gameName, titleId = null) => {
-    try {
-      const cleanedName = cleanGameName(gameName);
-      console.log(`Deep Scraping: "${cleanedName}" (ID: ${titleId || 'None'})`);
-
-      let results = {
-        coverUrl: null,
-        description: `Xbox 360 game: ${cleanedName}`,
-        genre: 'Xbox 360'
-      };
-
-      // 1. PRIMARY: Xbox 360 DB (Best for official art)
-      if (xbox360DB && xbox360DB.length > 0) {
-        let match = null;
-        if (titleId) {
-          const searchTitleId = titleId.toUpperCase();
-          match = xbox360DB.find(g =>
-            (g.id && g.id.toUpperCase() === searchTitleId) ||
-            (g.alternative_id && g.alternative_id.some(altId => altId.toUpperCase() === searchTitleId))
-          );
-        }
-
-        if (!match) {
-          match = getFuzzyMatch(xbox360DB, cleanedName);
-        }
-
-        if (match && match.boxart) {
-          console.log(`Success (Xbox DB): ${match.title}`);
-          return {
-            coverUrl: match.boxart,
-            description: `Xbox 360: ${match.title}`,
-            genre: 'Xbox 360'
-          };
-        }
-      }
-
-      // 2. FALLBACK A: ScreenScraper.fr (The "God Tier" Database)
-      // We try ScreenScraper before Steam because it's console-specific and more likely to have exact matches
-      if (window.electronAPI?.scrapeScreenScraper) {
-        console.log(`Falling back to ScreenScraper: ${gameName}`);
-        try {
-          // Use original filename and TitleId for best hashing/matching in SS
-          const ssData = await window.electronAPI.scrapeScreenScraper({ gameName, titleId });
-          if (ssData && ssData.reponse && ssData.reponse.jeu) {
-            const jeu = ssData.reponse.jeu;
-            const medias = jeu.medias || [];
-            const boxArt = medias.find(m => m.type === 'box-2D' && m.parent === 'Principale') ||
-              medias.find(m => m.type === 'box-2D') ||
-              medias.find(m => m.type.includes('box')) ||
-              medias[0];
-
-            if (boxArt && boxArt.url) {
-              console.log(`Success (ScreenScraper): ${jeu.noms?.[0]?.nom || cleanedName}`);
-              return {
-                coverUrl: boxArt.url,
-                description: jeu.synopsis?.find(s => s.langue === 'en')?.texte || jeu.synopsis?.[0]?.texte || results.description,
-                genre: jeu.genres?.[0]?.nom || results.genre
-              };
-            }
-          }
-        } catch (e) {
-          console.warn('ScreenScraper fetch failed:', e);
-        }
-      }
-
-      // 3. FALLBACK B: Steam (Good for cross-gen)
-      try {
-        const steamSearchUrl = `https://store.steampowered.com/api/storesearch/?term=${encodeURIComponent(cleanedName)}&l=english&cc=US`;
-        const response = await fetch(steamSearchUrl);
-        if (response.ok) {
-          const data = await response.json();
-          const items = data.items || data.results || [];
-          if (items.length > 0) {
-            console.log(`Success (Steam): ${items[0].name}`);
-            return {
-              coverUrl: `https://cdn.akamai.steamstatic.com/steam/apps/${items[0].id}/library_600x900_2x.jpg`,
-              description: `Steam: ${items[0].name}`,
-              genre: 'PC / Xbox 360'
-            };
-          }
-        }
-      } catch (e) { }
-
-      return null;
-    } catch (error) {
-      console.error('Scraper crash:', error);
-      return null;
-    }
-  };
-
-
 
   const processDetailsQueue = async () => {
     if (isFetchingCovers.current || coverFetchQueue.current.length === 0) return;
@@ -449,17 +415,16 @@ const GameLibrary = ({ onGameSelect, onNavigate }) => {
 
         const filename = game.path ? (game.path.split(/[\\/]/).pop()) : game.name;
         const gameDetails = await fetchGameDetails(filename, game.titleId);
-        if (gameDetails) {
-          const updateData = {};
-          if (gameDetails.coverUrl) updateData.coverUrl = gameDetails.coverUrl;
+        if (gameDetails?.coverUrl) {
+          const updateData = {
+            ...coverFieldsFromDetails(gameDetails)
+          };
           if (gameDetails.description) updateData.description = gameDetails.description;
           if (gameDetails.genre && (!game.genre || game.genre === 'Unknown')) updateData.genre = gameDetails.genre;
           if (gameDetails.rating && !game.rating) updateData.rating = gameDetails.rating;
 
-          if (Object.keys(updateData).length > 0) {
-            updatesMap[game.id] = updateData;
-            updatedCount++;
-          }
+          updatesMap[game.id] = updateData;
+          updatedCount++;
         }
 
         // Chunk updates to show progress without too much flashing - increased to 10
@@ -486,15 +451,61 @@ const GameLibrary = ({ onGameSelect, onNavigate }) => {
     }
   };
 
-  const syncMissingCovers = async () => {
-    const missingCoverGames = games.filter(g => !g.coverUrl);
+  const handleClearCoverCache = async () => {
+    if (!window.electronAPI?.clearCoverCache) {
+      alert('Cover cache cleanup is only available in the desktop app.');
+      return;
+    }
+    let stats = { fileCount: 0, bytes: 0 };
+    if (window.electronAPI.getCoverCacheStats) {
+      stats = (await window.electronAPI.getCoverCacheStats()) || stats;
+    }
+    const sizeMb =
+      stats.bytes >= 1024 * 1024
+        ? `${(stats.bytes / (1024 * 1024)).toFixed(1)} MB`
+        : `${Math.round((stats.bytes || 0) / 1024)} KB`;
+    if (!stats.fileCount) {
+      alert('Cover cache is already empty.');
+      return;
+    }
+    const confirmed = window.confirm(
+      `Delete ${stats.fileCount} cached cover(s) (${sizeMb})?\n\nCovers will re-download when shown in the library.`
+    );
+    if (!confirmed) return;
+
+    setIsScanning(true);
+    try {
+      const result = await window.electronAPI.clearCoverCache();
+      if (!result?.ok) {
+        alert(result?.error || 'Failed to clear cover cache.');
+        return;
+      }
+      const updatesMap = {};
+      games.forEach((game) => {
+        const patch = localCoverResetPatch(game);
+        if (patch) updatesMap[game.id] = patch;
+      });
+      if (Object.keys(updatesMap).length > 0) {
+        batchUpdateGames(updatesMap);
+      }
+    } finally {
+      setIsScanning(false);
+    }
+    await syncMissingCovers({ silent: true });
+  };
+
+  const syncMissingCovers = async (options = {}) => {
+    const { silent = false } = options;
+    const missingCoverGames = games.filter(gameNeedsCoverFetch);
     if (missingCoverGames.length === 0) {
-      alert('All games already have covers.');
+      if (!silent) alert('All games already have covers.');
       return;
     }
 
-    const confirmed = window.confirm(`Found ${missingCoverGames.length} games missing covers. Sync them now?`);
-    if (!confirmed) return;
+    if (!silent) {
+      const confirmed = window.confirm(`Found ${missingCoverGames.length} games missing covers. Sync them now?`);
+      if (!confirmed) return;
+    }
 
     setIsScanning(true);
     let updatedCount = 0;
@@ -507,17 +518,16 @@ const GameLibrary = ({ onGameSelect, onNavigate }) => {
 
         const filename = game.path ? (game.path.split(/[\\/]/).pop()) : game.name;
         const gameDetails = await fetchGameDetails(filename, game.titleId);
-        if (gameDetails) {
-          const updateData = {};
-          if (gameDetails.coverUrl) updateData.coverUrl = gameDetails.coverUrl;
+        if (gameDetails?.coverUrl) {
+          const updateData = {
+            ...coverFieldsFromDetails(gameDetails)
+          };
           if (gameDetails.description) updateData.description = gameDetails.description;
           if (gameDetails.genre && (!game.genre || game.genre === 'Unknown')) updateData.genre = gameDetails.genre;
           if (gameDetails.rating && !game.rating) updateData.rating = gameDetails.rating;
 
-          if (Object.keys(updateData).length > 0) {
-            updatesMap[game.id] = updateData;
-            updatedCount++;
-          }
+          updatesMap[game.id] = updateData;
+          updatedCount++;
         }
 
         // Chunk updates to show progress
@@ -534,10 +544,12 @@ const GameLibrary = ({ onGameSelect, onNavigate }) => {
         batchUpdateGames(updatesMap);
       }
 
-      alert(`Missing cover sync completed! Updated ${updatedCount} out of ${missingCoverGames.length} games.`);
+      if (!silent) {
+        alert(`Missing cover sync completed! Updated ${updatedCount} out of ${missingCoverGames.length} games.`);
+      }
     } catch (error) {
       console.error('Error syncing covers:', error);
-      alert('Error occurred while syncing covers. Check console for details.');
+      if (!silent) alert('Error occurred while syncing covers. Check console for details.');
     } finally {
       setIsScanning(false);
     }
@@ -556,15 +568,7 @@ const GameLibrary = ({ onGameSelect, onNavigate }) => {
     }
 
     try {
-      const gameConfig = game.config || {};
-      const launchConfig = {
-        ...gameConfig,
-        fullscreen: gameConfig.fullscreen !== undefined ? gameConfig.fullscreen : (settings.defaultFullscreen || false),
-        resolution: gameConfig.resolution || settings.defaultResolution || 'auto',
-        renderer: gameConfig.renderer || settings.defaultRenderer || 'auto',
-        vsync: gameConfig.vsync !== undefined ? gameConfig.vsync : true,
-        showFPS: gameConfig.showFPS !== undefined ? gameConfig.showFPS : settings.showFPS
-      };
+      const launchConfig = buildGameLaunchConfig(game, settings);
 
       await window.electronAPI.launchGame(settings.emulatorPath, game.path, launchConfig);
 
@@ -575,7 +579,7 @@ const GameLibrary = ({ onGameSelect, onNavigate }) => {
     } catch (error) {
       console.error('Launch error:', error);
     }
-  }, [settings.emulatorPath, settings.defaultFullscreen, settings.defaultResolution, settings.defaultRenderer, settings.showFPS, updateGame]);
+  }, [settings, updateGame]);
 
   const handleContextMenuCallback = useCallback((e, game) => {
     e.preventDefault();
@@ -591,6 +595,50 @@ const GameLibrary = ({ onGameSelect, onNavigate }) => {
     onGameSelect(game);
     onNavigate('config');
   }, [onGameSelect, onNavigate]);
+
+  const getGridColumns = useCallback(() => {
+    if (viewMode !== 'grid' || !gamesGridRef.current) return 1;
+    const style = window.getComputedStyle(gamesGridRef.current);
+    const trackList = style.gridTemplateColumns || '';
+    if (!trackList || trackList === 'none') return 1;
+    return Math.max(1, trackList.split(' ').filter(Boolean).length);
+  }, [viewMode, cardSize]);
+
+  const gamepadEnabled =
+    !contextMenu.visible &&
+    !coverPickerGame &&
+    !showAddGameModal &&
+    !showBulkAddModal &&
+    !selectedGameForPatches;
+
+  useGamepad(
+    {
+      left: () => setPadFocusIdx((index) => Math.max(0, index - 1)),
+      right: () => setPadFocusIdx((index) => Math.min(filteredGames.length - 1, index + 1)),
+      up: () => {
+        const cols = getGridColumns();
+        setPadFocusIdx((index) => Math.max(0, index - cols));
+      },
+      down: () => {
+        const cols = getGridColumns();
+        setPadFocusIdx((index) => Math.min(filteredGames.length - 1, index + cols));
+      },
+      confirm: () => {
+        const game = filteredGames[padFocusIdx];
+        if (game) handleLaunchGame(game);
+      },
+      actionX: () => {
+        const game = filteredGames[padFocusIdx];
+        if (game) handleToggleFavorite(game.id);
+      },
+      actionY: () => {
+        const game = filteredGames[padFocusIdx];
+        if (game) handleConfigure(game);
+      },
+      menu: () => onEnterConsoleMode?.()
+    },
+    gamepadEnabled && filteredGames.length > 0
+  );
 
   const handleRemoveGame = useCallback((id) => {
     if (window.confirm('Are you sure you want to remove this game from your library?')) {
@@ -920,7 +968,7 @@ const GameLibrary = ({ onGameSelect, onNavigate }) => {
               const details = await fetchGameDetails(game.name, game.titleId);
               if (details && details.coverUrl) {
                 updatesMap[game.id] = {
-                  coverUrl: details.coverUrl,
+                  ...coverFieldsFromDetails(details),
                   description: details.description || game.description,
                   genre: details.genre || game.genre
                 };
@@ -970,7 +1018,7 @@ const GameLibrary = ({ onGameSelect, onNavigate }) => {
           const details = await fetchGameDetails(savedGame.name);
           if (details && details.coverUrl) {
             updateGame(savedGame.id, {
-              coverUrl: details.coverUrl,
+              ...coverFieldsFromDetails(details),
               description: details.description || savedGame.description,
               genre: details.genre || savedGame.genre,
               titleId: validation?.info?.titleId || savedGame.titleId
@@ -991,15 +1039,71 @@ const GameLibrary = ({ onGameSelect, onNavigate }) => {
     setContextMenu({ visible: false, x: 0, y: 0, game: null });
     if (!window.electronAPI) return;
     try {
-      // Just immediately open the native image file picker
       const localCover = await window.electronAPI.selectImageFile();
       if (localCover) {
-        // Ensure local paths are handled correctly for display
         const displayPath = localCover.startsWith('http') ? localCover : `file:///${localCover.replace(/\\/g, '/')}`;
-        updateGame(game.id, { coverUrl: displayPath });
+        updateGame(game.id, { coverUrl: displayPath, coverSource: 'manual', coverMatchScore: 1 });
       }
     } catch (err) {
       console.error('Manual cover error:', err);
+    }
+  };
+
+  const handlePickCover = (game) => {
+    setContextMenu({ visible: false, x: 0, y: 0, game: null });
+    setCoverPickerGame(game);
+  };
+
+  const handleCoverPickerSelect = useCallback(
+    (entry) => {
+      if (!coverPickerGame) return;
+      updateGame(coverPickerGame.id, {
+        coverUrl: entry.coverUrl,
+        coverSource: entry.source || 'manual',
+        coverMatchScore: entry.score ?? 1,
+        description: entry.description || coverPickerGame.description,
+        genre: entry.genre || coverPickerGame.genre
+      });
+      setCoverPickerGame(null);
+    },
+    [coverPickerGame, updateGame]
+  );
+
+  const handleResetWrongCovers = async () => {
+    const suspect = games.filter(
+      (g) =>
+        !g.coverUrl ||
+        g.coverSource === 'placeholder' ||
+        (g.coverSource && g.coverSource !== 'manual' && (g.coverMatchScore ?? 0) < MATCH_THRESHOLDS.MIN_FALLBACK_MATCH) ||
+        (typeof g.coverUrl === 'string' && g.coverUrl.startsWith('http://'))
+    );
+    if (!suspect.length) {
+      alert('No suspect covers detected. Use "Pick Cover" on individual games to override.');
+      return;
+    }
+    const confirmed = window.confirm(
+      `Found ${suspect.length} games with missing or low-confidence covers. Re-fetch with the new matcher?`
+    );
+    if (!confirmed) return;
+    setIsScanning(true);
+    let updated = 0;
+    try {
+      for (const game of suspect) {
+        const filename = game.path ? game.path.split(/[\\/]/).pop() : game.name;
+        const details = await fetchGameCoverDetails(filename, game.titleId, xbox360DB);
+        if (details?.coverUrl) {
+          updateGame(game.id, {
+            ...coverFieldsFromDetails(details),
+            description: details.description || game.description,
+            genre: details.genre || game.genre
+          });
+          updated += 1;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 250));
+      }
+      alert(`Re-fetched ${updated} of ${suspect.length} covers.`);
+    } finally {
+      setIsScanning(false);
     }
   };
 
@@ -1051,7 +1155,7 @@ const GameLibrary = ({ onGameSelect, onNavigate }) => {
             left: contextMenu.x,
             zIndex: 10000,
             background: 'rgba(15, 23, 42, 0.98)',
-            border: '1px solid rgba(139, 92, 246, 0.3)',
+            border: '1px solid rgba(16, 124, 16, 0.3)',
             borderRadius: '12px',
             padding: '6px 0',
             minWidth: '200px',
@@ -1060,28 +1164,36 @@ const GameLibrary = ({ onGameSelect, onNavigate }) => {
           }}
           onClick={(e) => e.stopPropagation()}
         >
-          <div style={{ padding: '8px 16px', color: '#8b5cf6', fontSize: '12px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid rgba(139,92,246,0.15)', marginBottom: '4px' }}>
+          <div style={{ padding: '8px 16px', color: '#7bbf32', fontSize: '12px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid rgba(139,92,246,0.15)', marginBottom: '4px' }}>
             {contextMenu.game.name}
           </div>
           <button
             style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '10px 16px', background: 'none', border: 'none', color: '#e2e8f0', cursor: 'pointer', fontSize: '14px', textAlign: 'left' }}
-            onMouseEnter={(e) => e.target.style.background = 'rgba(139,92,246,0.15)'}
+            onMouseEnter={(e) => e.target.style.background = 'rgba(16,124,16,0.2)'}
+            onMouseLeave={(e) => e.target.style.background = 'none'}
+            onClick={() => handlePickCover(contextMenu.game)}
+          >
+            <ImageIcon size={16} color="#10b981" /> Pick Cover...
+          </button>
+          <button
+            style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '10px 16px', background: 'none', border: 'none', color: '#e2e8f0', cursor: 'pointer', fontSize: '14px', textAlign: 'left' }}
+            onMouseEnter={(e) => e.target.style.background = 'rgba(16,124,16,0.2)'}
             onMouseLeave={(e) => e.target.style.background = 'none'}
             onClick={() => handleSetManualCover(contextMenu.game)}
           >
-            <ImageIcon size={16} color="#8b5cf6" /> Set Cover Manually
+            <ImageIcon size={16} color="#7bbf32" /> Set Cover From File
           </button>
           <button
             style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '10px 16px', background: 'none', border: 'none', color: '#e2e8f0', cursor: 'pointer', fontSize: '14px', textAlign: 'left' }}
-            onMouseEnter={(e) => e.target.style.background = 'rgba(139,92,246,0.15)'}
+            onMouseEnter={(e) => e.target.style.background = 'rgba(16,124,16,0.2)'}
             onMouseLeave={(e) => e.target.style.background = 'none'}
             onClick={() => handleResyncCover(contextMenu.game)}
           >
-            <RefreshCw size={16} color="#3b82f6" /> Resync Cover
+            <RefreshCw size={16} color="#3b82f6" /> Resync Cover (Auto)
           </button>
           <button
             style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '10px 16px', background: 'none', border: 'none', color: '#e2e8f0', cursor: 'pointer', fontSize: '14px', textAlign: 'left' }}
-            onMouseEnter={(e) => e.target.style.background = 'rgba(139,92,246,0.15)'}
+            onMouseEnter={(e) => e.target.style.background = 'rgba(16,124,16,0.2)'}
             onMouseLeave={(e) => e.target.style.background = 'none'}
             onClick={async () => {
               const menuGame = contextMenu.game;
@@ -1102,7 +1214,7 @@ const GameLibrary = ({ onGameSelect, onNavigate }) => {
           </button>
           <button
             style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '10px 16px', background: 'none', border: 'none', color: '#e2e8f0', cursor: 'pointer', fontSize: '14px', textAlign: 'left' }}
-            onMouseEnter={(e) => e.target.style.background = 'rgba(139,92,246,0.15)'}
+            onMouseEnter={(e) => e.target.style.background = 'rgba(16,124,16,0.2)'}
             onMouseLeave={(e) => e.target.style.background = 'none'}
             onClick={() => {
               setContextMenu({ visible: false, x: 0, y: 0, game: null });
@@ -1113,11 +1225,11 @@ const GameLibrary = ({ onGameSelect, onNavigate }) => {
               window.electronAPI && window.electronAPI.openPatchesFolder(settings.emulatorPath);
             }}
           >
-            <FolderOpen size={16} color="#8b5cf6" /> Open Patches Folder
+            <FolderOpen size={16} color="#7bbf32" /> Open Patches Folder
           </button>
           <button
             style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '10px 16px', background: 'none', border: 'none', color: '#e2e8f0', cursor: 'pointer', fontSize: '14px', textAlign: 'left' }}
-            onMouseEnter={(e) => e.target.style.background = 'rgba(139,92,246,0.15)'}
+            onMouseEnter={(e) => e.target.style.background = 'rgba(16,124,16,0.2)'}
             onMouseLeave={(e) => e.target.style.background = 'none'}
             onClick={async () => {
               const menuGame = contextMenu.game;
@@ -1138,7 +1250,7 @@ const GameLibrary = ({ onGameSelect, onNavigate }) => {
           </button>
           <button
             style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '10px 16px', background: 'none', border: 'none', color: '#e2e8f0', cursor: 'pointer', fontSize: '14px', textAlign: 'left' }}
-            onMouseEnter={(e) => e.target.style.background = 'rgba(139,92,246,0.15)'}
+            onMouseEnter={(e) => e.target.style.background = 'rgba(16,124,16,0.2)'}
             onMouseLeave={(e) => e.target.style.background = 'none'}
             onClick={async () => {
               const menuGame = contextMenu.game;
@@ -1164,7 +1276,7 @@ const GameLibrary = ({ onGameSelect, onNavigate }) => {
           </button>
           <button
             style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '10px 16px', background: 'none', border: 'none', color: '#e2e8f0', cursor: 'pointer', fontSize: '14px', textAlign: 'left' }}
-            onMouseEnter={(e) => e.target.style.background = 'rgba(139,92,246,0.15)'}
+            onMouseEnter={(e) => e.target.style.background = 'rgba(16,124,16,0.2)'}
             onMouseLeave={(e) => e.target.style.background = 'none'}
             onClick={async () => {
               const menuGame = contextMenu.game;
@@ -1210,7 +1322,7 @@ const GameLibrary = ({ onGameSelect, onNavigate }) => {
           </button>
           <button
             style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '10px 16px', background: 'none', border: 'none', color: '#e2e8f0', cursor: 'pointer', fontSize: '14px', textAlign: 'left' }}
-            onMouseEnter={(e) => e.target.style.background = 'rgba(139,92,246,0.15)'}
+            onMouseEnter={(e) => e.target.style.background = 'rgba(16,124,16,0.2)'}
             onMouseLeave={(e) => e.target.style.background = 'none'}
             onClick={() => { setContextMenu({ visible: false, x: 0, y: 0, game: null }); onGameSelect(contextMenu.game); onNavigate('config'); }}
           >
@@ -1234,7 +1346,7 @@ const GameLibrary = ({ onGameSelect, onNavigate }) => {
           fontSize: '32px',
           fontWeight: 'bold',
           marginBottom: '8px',
-          background: 'linear-gradient(135deg, #8b5cf6, #3b82f6)',
+          background: 'linear-gradient(180deg, #7bbf32, #107c10)',
           WebkitBackgroundClip: 'text',
           WebkitTextFillColor: 'transparent'
         }}>
@@ -1298,19 +1410,35 @@ const GameLibrary = ({ onGameSelect, onNavigate }) => {
 
           {/* Bottom Row: Actions and View Mode */}
           <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'space-between' }}>
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-              <button className="btn btn-success" onClick={handleAddGame} style={{ padding: '8px 16px' }}>
-                <Plus size={16} /> Add Games
-              </button>
-              <button className="btn btn-primary" onClick={handleScanDirectory} disabled={isScanning} style={{ padding: '8px 16px' }}>
-                <FolderOpen size={16} /> {isScanning ? 'Scanning...' : 'Scan Directory'}
-              </button>
-              <button className="btn btn-warning" onClick={syncAllCovers} disabled={isScanning} style={{ padding: '8px 16px' }}>
-                <Globe size={16} /> {isScanning ? 'Syncing...' : 'Sync Covers'}
-              </button>
-              <button className="btn btn-info" onClick={syncMissingCovers} disabled={isScanning} style={{ padding: '8px 16px', backgroundColor: '#3b82f6' }}>
-                <Globe size={16} /> {isScanning ? 'Syncing...' : 'Sync Missing Covers'}
-              </button>
+            <div className="library-toolbar">
+              <div className="library-toolbar-group" role="group" aria-label="Library actions">
+                <button type="button" className="btn-toolbar btn-toolbar--accent" onClick={handleAddGame}>
+                  <Plus size={15} strokeWidth={2.5} /> Add Games
+                </button>
+                <button type="button" className="btn-toolbar" onClick={handleScanDirectory} disabled={isScanning}>
+                  <FolderOpen size={15} /> {isScanning ? 'Scanning…' : 'Scan Directory'}
+                </button>
+              </div>
+              <span className="library-toolbar-label">Covers</span>
+              <div className="library-toolbar-group" role="group" aria-label="Cover sync">
+                <button type="button" className="btn-toolbar" onClick={syncAllCovers} disabled={isScanning}>
+                  <Globe size={15} /> {isScanning ? 'Syncing…' : 'Sync All'}
+                </button>
+                <button type="button" className="btn-toolbar" onClick={syncMissingCovers} disabled={isScanning}>
+                  <Globe size={15} /> Sync Missing
+                </button>
+                <button type="button" className="btn-toolbar btn-toolbar--caution" onClick={handleResetWrongCovers} disabled={isScanning}>
+                  <RefreshCw size={15} /> Fix Wrong
+                </button>
+                <button type="button" className="btn-toolbar" onClick={handleClearCoverCache} disabled={isScanning} title="Delete downloaded cover images and re-fetch">
+                  <Eraser size={15} /> Clear cache
+                </button>
+              </div>
+              {onEnterConsoleMode && (
+                <button type="button" className="btn-toolbar btn-toolbar--console" onClick={onEnterConsoleMode}>
+                  <Maximize2 size={15} /> Console Mode
+                </button>
+              )}
             </div>
 
             <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
@@ -1326,7 +1454,7 @@ const GameLibrary = ({ onGameSelect, onNavigate }) => {
                     style={{
                       flex: 1,
                       height: '4px',
-                      background: 'rgba(139, 92, 246, 0.3)',
+                      background: 'rgba(16, 124, 16, 0.3)',
                       borderRadius: '2px',
                       outline: 'none',
                       cursor: 'pointer'
@@ -1335,32 +1463,22 @@ const GameLibrary = ({ onGameSelect, onNavigate }) => {
                 </div>
               )}
 
-              <div style={{ display: 'flex', gap: '4px', background: 'rgba(30, 30, 60, 0.8)', padding: '4px', borderRadius: '8px', border: '1px solid rgba(139, 92, 246, 0.2)' }}>
+              <div className="view-toggle" role="group" aria-label="View mode">
                 <button
-                  className="btn"
-                  style={{
-                    padding: '6px 10px',
-                    background: viewMode === 'grid' ? '#8b5cf6' : 'transparent',
-                    color: viewMode === 'grid' ? 'white' : '#94a3b8',
-                    border: 'none',
-                    borderRadius: '6px',
-                    margin: 0
-                  }}
+                  type="button"
+                  className={`view-toggle-btn${viewMode === 'grid' ? ' is-active' : ''}`}
                   onClick={() => setViewMode('grid')}
+                  aria-pressed={viewMode === 'grid'}
+                  title="Grid view"
                 >
                   <Grid size={16} />
                 </button>
                 <button
-                  className="btn"
-                  style={{
-                    padding: '6px 10px',
-                    background: viewMode === 'list' ? '#8b5cf6' : 'transparent',
-                    color: viewMode === 'list' ? 'white' : '#94a3b8',
-                    border: 'none',
-                    borderRadius: '6px',
-                    margin: 0
-                  }}
+                  type="button"
+                  className={`view-toggle-btn${viewMode === 'list' ? ' is-active' : ''}`}
                   onClick={() => setViewMode('list')}
+                  aria-pressed={viewMode === 'list'}
+                  title="List view"
                 >
                   <List size={16} />
                 </button>
@@ -1374,21 +1492,25 @@ const GameLibrary = ({ onGameSelect, onNavigate }) => {
       {/* Games Display */}
       {filteredGames.length > 0 ? (
         <div
+          ref={gamesGridRef}
           className={viewMode === 'grid' ? 'grid-dynamic' : ''}
           style={viewMode === 'grid' ? {
             '--card-min-width': `${Math.max(150, cardSize * 1.5)}px`
           } : {}}
         >
-          {filteredGames.map(game =>
+          {filteredGames.map((game, index) =>
             viewMode === 'grid' ? (
               <GameCard
                 key={game.id}
+                ref={(el) => { gameCardRefs.current[index] = el; }}
                 game={game}
                 cardSize={cardSize}
+                isFocused={index === padFocusIdx}
                 onLaunch={handleLaunchGame}
                 onContextMenu={handleContextMenuCallback}
                 onToggleFavorite={handleToggleFavorite}
                 onConfigure={handleConfigure}
+                onCoverFailed={handleCoverFailed}
               />
             ) : (
               <GameListItem
@@ -1610,6 +1732,14 @@ const GameLibrary = ({ onGameSelect, onNavigate }) => {
           settings={settings}
           onClose={() => setSelectedGameForPatches(null)}
           updateGame={updateGame}
+        />
+      )}
+
+      {coverPickerGame && (
+        <CoverPickerModal
+          game={games.find((g) => g.id === coverPickerGame.id) || coverPickerGame}
+          onClose={() => setCoverPickerGame(null)}
+          onSelect={handleCoverPickerSelect}
         />
       )}
     </div>
