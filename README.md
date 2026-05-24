@@ -3,7 +3,7 @@
   <h1>X360 Manager</h1>
   <p><strong>The Ultimate Premium Frontend for Xbox 360 Emulation</strong></p>
 
-  [![Version](https://img.shields.io/badge/version-1.5.0-8b5cf6.svg?style=for-the-badge)](https://github.com/Supermedo/x360-manager)
+  [![Version](https://img.shields.io/badge/version-1.6.0-8b5cf6.svg?style=for-the-badge)](https://github.com/Supermedo/x360-manager/releases)
   [![License](https://img.shields.io/badge/license-MIT-green.svg?style=for-the-badge)](LICENSE)
   [![Platform](https://img.shields.io/badge/platform-Windows_10%2F11-lightgrey.svg?style=for-the-badge)]()
 </div>
@@ -14,9 +14,19 @@
 
 **X360 Manager** is a state-of-the-art, high-performance game management solution designed specifically for the Xbox 360 emulation community. It bridges the gap between raw emulation and a console-like experience, offering a beautiful glassmorphism-inspired UI, automated library management, and native support for **XBLA (Xbox Live Arcade)** and digital media.
 
-## 🚀 What's New in v1.5.0?
+## 🚀 What's New in v1.6.0?
 
-Version 1.5.0 is our biggest update yet, focusing on **customization**, **integration**, and a **premium visual overhaul**.
+Version 1.6.0 focuses on **stability**, **profiles**, and **digital/XBLA games**. See the full notes in [RELEASE_v1.6.0.md](RELEASE_v1.6.0.md) or [GitHub Releases](https://github.com/Supermedo/x360-manager/releases).
+
+- **Profiles & PIN** — Xbox Live–style accounts with avatars and profile picker on startup  
+- **Settings that stick** — emulator path, games folder, and library saved to disk  
+- **Cover art fixes** — reliable images, cache clear button, better matching  
+- **XBLA launch fixes** — arcade/digital titles launch like Xenia directly  
+- **Onboarding wizard**, **console mode**, **per-game config**, and **graphics preset toggle**
+
+## Previous: v1.5.0
+
+Version 1.5.0 focused on **customization**, **integration**, and a **premium visual overhaul**.
 
 ### 🛠️ Professional Game Patching System
 Take your games beyond their original limits. Our new Patching Engine allows you to:
@@ -56,7 +66,7 @@ Make your emulation library part of your Windows ecosystem:
 
 ## 🛠️ Installation & Setup
 
-1. **Download**: Grab the latest `X360-Manager-Setup-1.5.0.exe` from the [Releases](https://github.com/Supermedo/x360-manager/releases) page.
+1. **Download**: Grab the latest `X360-Manager-Setup-1.6.0.exe` from the [Releases](https://github.com/Supermedo/x360-manager/releases) page.
 2. **Setup**: Run the installer. It will create a desktop shortcut and add the app to your Start Menu.
 3. **Configure**:
     - Open **Settings**.

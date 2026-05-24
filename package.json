@@ -1,6 +1,6 @@
 {
   "name": "x360-manager",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "description": "A modern game manager for Xbox 360 emulation with download and configuration features",
   "author": "X360 Team",
   "main": "electron.js",
