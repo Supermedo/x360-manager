@@ -1,3 +1,5 @@
+import { mapLanguageToXeniaId } from '../constants/xeniaLanguages';
+
 export const PROFILES_STORAGE_KEY = 'x360-xenia-profiles';
 
 export const BUILTIN_PROFILES = [
@@ -165,34 +167,85 @@ export const createCustomProfile = (name, settings, description = '') => ({
   createdAt: new Date().toISOString()
 });
 
+const LAUNCH_CONFIG_SKIP = new Set([
+  'xeniaProfileId',
+  'dlcFiles',
+  'saveFiles',
+  'saveBackupPath',
+  'autoBackupEnabled'
+]);
+
+export const normalizeRenderer = (renderer) => {
+  if (!renderer || renderer === 'auto') return 'auto';
+  const value = String(renderer).toLowerCase();
+  if (value === 'directx12' || value === 'd3d12') return 'd3d12';
+  if (value === 'directx11' || value === 'd3d11') return 'd3d11';
+  return value;
+};
+
+const isMeaningfulGameOverride = (key, value) => {
+  if (value === undefined || value === null) return false;
+  if (typeof value === 'boolean') return true;
+  if (value === 'auto' || value === 'default' || value === '') return false;
+  if (key === 'customArgs' && !String(value).trim()) return false;
+  return true;
+};
+
+export const resolutionFromScale = (scale) => {
+  const map = { '1': '1280x720', '1x': '1280x720', '2': '1920x1080', '2x': '1920x1080', '3': '2560x1440', '3x': '2560x1440' };
+  return map[String(scale || '').toLowerCase()] || null;
+};
+
 export const buildLaunchConfig = (profile, gameConfig = {}, settings = {}) => {
   const presetsOn = settings?.xeniaPresetsEnabled !== false;
-  const base = presetsOn && profile?.settings ? profile.settings : {};
-  const game = gameConfig || {};
+  const base = presetsOn && profile?.settings ? { ...profile.settings } : {};
+  const game = { ...(gameConfig || {}) };
+  const merged = { ...base };
+
+  for (const [key, value] of Object.entries(game)) {
+    if (LAUNCH_CONFIG_SKIP.has(key)) continue;
+    if (isMeaningfulGameOverride(key, value)) {
+      merged[key] = key === 'renderer' ? normalizeRenderer(value) : value;
+    }
+  }
+
+  const defaultResolution =
+    settings.defaultResolution || resolutionFromScale(settings.defaultResolutionScale) || 'auto';
 
   return {
-    ...base,
-    ...game,
+    ...merged,
     xeniaPresetsEnabled: presetsOn,
-    fullscreen: game.fullscreen !== undefined && game.fullscreen !== null
-      ? game.fullscreen
-      : (base.fullscreen ?? settings.defaultFullscreen ?? false),
-    vsync: game.vsync !== undefined && game.vsync !== null
-      ? game.vsync
-      : (base.vsync ?? settings.defaultVsync ?? true),
-    resolution: game.resolution || base.resolution || settings.defaultResolution || 'auto',
-    resolutionScale: game.resolutionScale || base.resolutionScale || settings.defaultResolutionScale,
-    renderer: game.renderer || base.renderer || settings.defaultRenderer || 'auto',
-    frameLimit: game.frameLimit || base.frameLimit || 'auto',
-    textureCache: game.textureCache ?? base.textureCache ?? settings.textureCache ?? false,
-    gpuReadback: game.gpuReadback ?? base.gpuReadback ?? settings.gpuReadback ?? false,
-    asyncShaderCompilation: game.asyncShaderCompilation ?? base.asyncShaderCompilation ?? true,
-    showFPS: game.showFPS ?? base.showFPS ?? settings.showFPS ?? false,
-    showStats: game.showStats ?? base.showStats ?? false,
-    debugMode: game.debugMode ?? base.debugMode ?? false,
-    logLevel: game.logLevel || base.logLevel || 'info',
-    languageOverride: game.languageOverride || base.languageOverride || 'auto',
-    customArgs: game.customArgs || base.customArgs || settings.customEmulatorArgs || ''
+    fullscreen:
+      merged.fullscreen !== undefined && merged.fullscreen !== null
+        ? merged.fullscreen
+        : (settings.defaultFullscreen ?? false),
+    vsync:
+      merged.vsync !== undefined && merged.vsync !== null
+        ? merged.vsync
+        : (settings.defaultVsync ?? true),
+    resolution: merged.resolution || defaultResolution,
+    resolutionScale: merged.resolutionScale || settings.defaultResolutionScale,
+    renderer: normalizeRenderer(merged.renderer || settings.defaultRenderer || 'auto'),
+    frameLimit: merged.frameLimit || 'auto',
+    textureCache: merged.textureCache ?? false,
+    gpuReadback: merged.gpuReadback ?? false,
+    asyncShaderCompilation: merged.asyncShaderCompilation ?? true,
+    showFPS: merged.showFPS ?? settings.showFPS ?? false,
+    showStats: merged.showStats ?? false,
+    debugMode: merged.debugMode ?? false,
+    logLevel: merged.logLevel || 'info',
+    languageOverride: merged.languageOverride || 'auto',
+    userLanguage: mapLanguageToXeniaId(
+      merged.languageOverride && merged.languageOverride !== 'auto' ? merged.languageOverride : null
+    ) ?? undefined,
+    keyboardMode:
+      merged.keyboardMode != null && merged.keyboardMode !== ''
+        ? Number(merged.keyboardMode)
+        : merged.keyboardSupport === true
+          ? 1
+          : 0,
+    keyboardSupport: (merged.keyboardMode != null && Number(merged.keyboardMode) > 0) || merged.keyboardSupport === true,
+    customArgs: merged.customArgs || settings.customEmulatorArgs || settings.defaultCustomArgs || ''
   };
 };
 

@@ -1,7 +1,10 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { resolveAllXeniaConfigPaths, upsertTomlKey } = require('./xeniaConfig');
+const {
+  resolveWritableXeniaConfigPaths,
+  sanitizeXeniaToml
+} = require('./xeniaConfig');
 const {
   loadAccount,
   saveAccount,
@@ -589,25 +592,22 @@ const upsertProfilesSection = (content, key, value) => {
   const valStr = isString ? value : typeof value === 'boolean' ? (value ? 'true' : 'false') : String(value);
   const sectionHeader = '[Profiles]';
   const keyLine = `${key} = ${valStr}`;
+  let body = sanitizeXeniaToml(content || '');
 
-  if (!content.includes(sectionHeader)) {
-    return `${content.trimEnd()}\n\n${sectionHeader}\n${keyLine}\n`;
+  if (!body.includes(sectionHeader)) {
+    return `${body.trimEnd()}\n\n${sectionHeader}\n${keyLine}\n`;
   }
 
-  const sectionRegex = /(\[Profiles\][^\[]*)/i;
-  const match = content.match(sectionRegex);
+  const sectionRegex = /(\[Profiles\])([\t ]*(?:\r?\n)[^\[]*)/i;
+  const match = body.match(sectionRegex);
   if (!match) {
-    return `${content.trimEnd()}\n\n${sectionHeader}\n${keyLine}\n`;
+    return `${body.trimEnd()}\n\n${sectionHeader}\n${keyLine}\n`;
   }
 
-  let section = match[1];
+  let block = match[2];
   const keyRegex = new RegExp(`^\\s*${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*=.*$`, 'm');
-  if (keyRegex.test(section)) {
-    section = section.replace(keyRegex, keyLine);
-  } else {
-    section = `${section.trimEnd()}\n${keyLine}\n`;
-  }
-  return content.replace(sectionRegex, section);
+  block = keyRegex.test(block) ? block.replace(keyRegex, keyLine) : `${block.trimEnd()}\n${keyLine}\n`;
+  return sanitizeXeniaToml(body.replace(sectionRegex, `${match[1]}${block}`));
 };
 
 const syncCanaryProfileFile = (contentRoot, profile) => {
@@ -637,9 +637,10 @@ const applyXboxLiveProfileToConfig = (emulatorPath, documentsPath, profile, opti
   const gamertag = (profile.gamertag || 'User').replace(/"/g, '');
   const xuidLiteral = `'${pathXuid}'`;
 
-  const configPaths = resolveAllXeniaConfigPaths(emulatorPath, documentsPath);
+  const configPaths = resolveWritableXeniaConfigPaths(emulatorPath, documentsPath);
   for (const configPath of configPaths) {
     let content = fs.existsSync(configPath) ? fs.readFileSync(configPath, 'utf8') : '';
+    content = sanitizeXeniaToml(content);
     content = upsertProfilesSection(content, 'user_profile', `"${gamertag}"`);
     content = upsertProfilesSection(content, `user_${slot}_state`, signState);
     content = upsertProfilesSection(content, `user_${slot}_xuid`, xuidLiteral);
@@ -658,6 +659,7 @@ const applyXboxLiveProfileToConfig = (emulatorPath, documentsPath, profile, opti
       }
     }
 
+    content = sanitizeXeniaToml(content);
     fs.mkdirSync(path.dirname(configPath), { recursive: true });
     fs.writeFileSync(configPath, content, 'utf8');
   }
@@ -732,9 +734,10 @@ const applyActiveProfileForLaunch = (emulatorPath, documentsPath, userDataPath, 
 
 /** Arcade/XBLA titles often crash if Xenia loads a signed-in profile from config. */
 const clearXeniaProfilesForArcadeLaunch = (emulatorPath, documentsPath) => {
-  const configPaths = resolveAllXeniaConfigPaths(emulatorPath, documentsPath);
+  const configPaths = resolveWritableXeniaConfigPaths(emulatorPath, documentsPath);
   for (const configPath of configPaths) {
     let content = fs.existsSync(configPath) ? fs.readFileSync(configPath, 'utf8') : '';
+    content = sanitizeXeniaToml(content);
     content = upsertProfilesSection(content, 'user_profile', '""');
     content = upsertProfilesSection(content, 'max_signed_profiles', 0);
     for (let i = 0; i < 4; i += 1) {
@@ -742,6 +745,7 @@ const clearXeniaProfilesForArcadeLaunch = (emulatorPath, documentsPath) => {
       content = upsertProfilesSection(content, `user_${i}_xuid`, "''");
       content = upsertProfilesSection(content, `logged_profile_slot_${i}_xuid`, "''");
     }
+    content = sanitizeXeniaToml(content);
     fs.mkdirSync(path.dirname(configPath), { recursive: true });
     fs.writeFileSync(configPath, content, 'utf8');
   }

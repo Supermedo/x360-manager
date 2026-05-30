@@ -84,6 +84,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   installGamePatch: (params) => ipcRenderer.invoke('install-game-patch', params),
   deletePatchFile: (patchFilePath) => ipcRenderer.invoke('delete-patch-file', patchFilePath),
   scrapeScreenScraper: (params) => ipcRenderer.invoke('scrape-screenscraper', params),
+  getGameSupportedLanguages: (params) => ipcRenderer.invoke('get-game-supported-languages', params),
 
   // Event listeners
   onDownloadProgress: (callback) => {

@@ -23,14 +23,25 @@ import {
   Zap
 } from 'lucide-react';
 import { GameContext } from '../context/GameContext';
+import { XENIA_LANGUAGE_OPTIONS } from '../constants/xeniaLanguages';
+import {
+  formatSupportedLanguageList,
+  resolveGameSupportedLanguages
+} from '../services/gameLanguages';
 import { SettingsContext } from '../context/SettingsContext';
-import { loadAllProfiles, getProfileById } from '../services/xeniaProfiles';
+import {
+  loadAllProfiles,
+  getProfileById,
+  normalizeRenderer,
+  resolutionFromScale
+} from '../services/xeniaProfiles';
+import { KEYBOARD_MODE_OPTIONS, XENIA_KEYBOARD_DEFAULT_BINDINGS } from '../constants/xeniaInputHelp';
 import { buildGameLaunchConfig } from '../services/launchConfig';
 
 const CUSTOM_PROFILE_ID = 'custom';
 
 const GameConfig = ({ game, onNavigate }) => {
-  const { updateGame } = useContext(GameContext);
+  const { updateGame, xbox360DB } = useContext(GameContext);
   const { settings } = useContext(SettingsContext);
   const [config, setConfig] = useState({
     resolution: 'auto',
@@ -58,6 +69,7 @@ const GameConfig = ({ game, onNavigate }) => {
     // Input Settings
     inputDeadzone: '0.2',
     vibrationEnabled: true,
+    keyboardMode: '0',
     keyboardSupport: false,
     mouseSupport: false,
     // Audio Enhancement
@@ -78,18 +90,83 @@ const GameConfig = ({ game, onNavigate }) => {
   });
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [profileId, setProfileId] = useState('');
+  const [supportedLanguages, setSupportedLanguages] = useState([]);
+  const [supportedLangSource, setSupportedLangSource] = useState('');
+  const [languagesLoading, setLanguagesLoading] = useState(false);
   const profiles = React.useMemo(() => loadAllProfiles(), []);
+
+  const languageSelectOptions = React.useMemo(() => {
+    const autoOpt = XENIA_LANGUAGE_OPTIONS.filter((o) => o.value === 'auto');
+    if (!supportedLanguages.length) return XENIA_LANGUAGE_OPTIONS;
+    const supported = XENIA_LANGUAGE_OPTIONS.filter(
+      (o) => o.value !== 'auto' && supportedLanguages.includes(o.value)
+    );
+    return [...autoOpt, ...supported];
+  }, [supportedLanguages]);
+
+  useEffect(() => {
+    if (!game) return undefined;
+    let cancelled = false;
+
+    const loadLanguages = async () => {
+      setLanguagesLoading(true);
+      try {
+        const { codes, source } = await resolveGameSupportedLanguages({ game, xbox360DB });
+        if (cancelled) return;
+        setSupportedLanguages(codes || []);
+        setSupportedLangSource(source || '');
+        if (codes?.length) {
+          const prev = game.supportedLanguages || [];
+          const same =
+            prev.length === codes.length && prev.every((c, i) => c === codes[i]);
+          if (!same || game.supportedLanguagesSource !== source) {
+            updateGame(game.id, {
+              supportedLanguages: codes,
+              supportedLanguagesSource: source
+            });
+          }
+        }
+      } finally {
+        if (!cancelled) setLanguagesLoading(false);
+      }
+    };
+
+    if (game.supportedLanguages?.length) {
+      setSupportedLanguages(game.supportedLanguages);
+      setSupportedLangSource(game.supportedLanguagesSource || 'cached');
+      setLanguagesLoading(false);
+      loadLanguages();
+    } else {
+      loadLanguages();
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- refresh when identity/path changes only
+  }, [game?.id, game?.titleId, game?.name, game?.path, xbox360DB]);
 
   useEffect(() => {
     if (!game) return;
 
     if (game.config && Object.keys(game.config).length > 0) {
-      setConfig((prev) => ({ ...prev, ...game.config }));
+      const kbMode = game.config.keyboardMode ?? (game.config.keyboardSupport ? 1 : 0);
+      setConfig((prev) => ({
+        ...prev,
+        ...game.config,
+        renderer: normalizeRenderer(game.config.renderer || prev.renderer),
+        keyboardMode: String(kbMode),
+        keyboardSupport: Number(kbMode) > 0
+      }));
       setProfileId(game.config.xeniaProfileId || CUSTOM_PROFILE_ID);
     } else {
       setConfig({
-        resolution: settings.defaultResolution || 'auto',
-        renderer: settings.defaultRenderer || 'auto',
+        resolution:
+          settings.defaultResolution ||
+          resolutionFromScale(settings.defaultResolutionScale) ||
+          'auto',
+        resolutionScale: settings.defaultResolutionScale || '1x',
+        renderer: normalizeRenderer(settings.defaultRenderer || 'auto'),
         audioDriver: settings.defaultAudioDriver || 'auto',
         fullscreen: settings.defaultFullscreen || false,
         vsync: settings.defaultVsync !== false,
@@ -98,11 +175,15 @@ const GameConfig = ({ game, onNavigate }) => {
         frameLimit: 'auto',
         audioLatency: 'auto',
         controllerProfile: 'default',
-        customArgs: settings.customEmulatorArgs || '',
+        customArgs: settings.customEmulatorArgs || settings.defaultCustomArgs || '',
+        textureCache: false,
+        gpuReadback: false,
+        asyncShaderCompilation: true,
         showFPS: settings.showFPS || false,
         showStats: false,
         debugMode: false,
         logLevel: 'info',
+        languageOverride: 'auto',
         dlcFiles: [],
         saveFiles: [],
         saveBackupPath: '',
@@ -116,6 +197,16 @@ const GameConfig = ({ game, onNavigate }) => {
   const handleProfileSelect = (id) => {
     setProfileId(id);
     setHasUnsavedChanges(true);
+    if (id && id !== CUSTOM_PROFILE_ID) {
+      const profile = getProfileById(profiles, id);
+      if (profile?.settings) {
+        setConfig((prev) => ({
+          ...prev,
+          ...profile.settings,
+          renderer: normalizeRenderer(profile.settings.renderer)
+        }));
+      }
+    }
   };
 
   const handleLoadPresetValues = () => {
@@ -354,11 +445,17 @@ const GameConfig = ({ game, onNavigate }) => {
     }
   };
 
-  const getConfigToSave = () => ({
-    ...(game?.config || {}),
-    ...config,
-    xeniaProfileId: profileId === CUSTOM_PROFILE_ID ? null : profileId
-  });
+  const getConfigToSave = () => {
+    const keyboardMode = String(config.keyboardMode ?? (config.keyboardSupport ? '1' : '0'));
+    return {
+      ...(game?.config || {}),
+      ...config,
+      renderer: normalizeRenderer(config.renderer),
+      keyboardMode,
+      keyboardSupport: keyboardMode !== '0',
+      xeniaProfileId: profileId === CUSTOM_PROFILE_ID ? null : profileId
+    };
+  };
 
   const handleSaveConfig = () => {
     console.log('Save config button clicked');
@@ -617,18 +714,6 @@ const GameConfig = ({ game, onNavigate }) => {
     { value: 'disabled', label: 'Disabled' }
   ];
 
-  const languageOptions = [
-    { value: 'auto', label: 'Auto' },
-    { value: 'en', label: 'English' },
-    { value: 'ja', label: 'Japanese' },
-    { value: 'de', label: 'German' },
-    { value: 'fr', label: 'French' },
-    { value: 'es', label: 'Spanish' },
-    { value: 'it', label: 'Italian' },
-    { value: 'ko', label: 'Korean' },
-    { value: 'zh', label: 'Chinese' }
-  ];
-
   // Audio Enhancement Options
   const audioChannelsOptions = [
     { value: 'auto', label: 'Auto' },
@@ -713,6 +798,11 @@ const GameConfig = ({ game, onNavigate }) => {
         <p style={{ color: '#94a3b8', fontSize: '16px' }}>
           Configure settings for <strong style={{ color: '#e2e8f0' }}>{game.name}</strong>
         </p>
+        {supportedLanguages.length > 0 && (
+          <p style={{ color: '#64748b', fontSize: '13px', marginTop: '6px' }}>
+            Supported languages: {formatSupportedLanguageList(supportedLanguages)}
+          </p>
+        )}
       </div>
 
       <div className="card game-config-preset-card" style={{ marginBottom: '24px', padding: '16px' }}>
@@ -745,8 +835,8 @@ const GameConfig = ({ game, onNavigate }) => {
         </div>
         <p style={{ color: '#64748b', fontSize: '12px', marginTop: '10px' }}>
           {profileId === CUSTOM_PROFILE_ID
-            ? 'Only the Display settings below are used on launch. The preset dropdown does not change your values unless you click Load preset values.'
-            : 'This game is linked to a preset for launch. Edit fields below anytime — they override the preset. Switch to Custom to ignore presets completely.'}
+            ? 'Custom mode uses only the settings below. Display, renderer, VSync, resolution, and debug options are applied when you launch.'
+            : 'Choosing a preset loads its values into the form. Change any field below to override that preset for this game. Use Save or Launch Game to keep changes.'}
         </p>
       </div>
 
@@ -867,10 +957,11 @@ const GameConfig = ({ game, onNavigate }) => {
       </div>
 
       <div className="grid grid-2">
-        <p style={{ color: '#94a3b8', fontSize: '13px', marginBottom: '16px' }}>
-        <strong style={{ color: '#c8e4ff' }}>Display</strong> (resolution, renderer, fullscreen, VSync) is applied when you launch.
-        Other sections are saved per game for your reference; only custom launch arguments are passed to Xenia today.
-      </p>
+        <p style={{ color: '#94a3b8', fontSize: '13px', marginBottom: '16px', lineHeight: 1.5 }}>
+          <strong style={{ color: '#c8e4ff' }}>Applied on launch (Xenia):</strong> resolution, renderer, fullscreen,
+          VSync, frame limit, texture cache, FPS overlay, debug logging, language override, keyboard mode, and custom arguments.
+          Save configuration before launching from the library, or use <strong>Launch Game</strong> here.
+        </p>
 
       {/* Display Settings */}
         <div className="card">
@@ -940,6 +1031,9 @@ const GameConfig = ({ game, onNavigate }) => {
               Graphics Settings
             </h3>
           </div>
+          <p style={{ color: '#64748b', fontSize: '12px', marginBottom: '12px' }}>
+            Frame limit is applied (unlimited/high FPS turns VSync off). Anti-aliasing and texture filtering are not supported by Xenia yet.
+          </p>
 
           <div className="form-group">
             <label className="form-label">Anti-aliasing</label>
@@ -989,6 +1083,9 @@ const GameConfig = ({ game, onNavigate }) => {
               Audio Settings
             </h3>
           </div>
+          <p style={{ color: '#64748b', fontSize: '12px', marginBottom: '12px' }}>
+            Saved per game for now — Xenia Canary does not expose these audio options via launch flags.
+          </p>
 
           <div className="form-group">
             <label className="form-label">Audio Driver</label>
@@ -1062,6 +1159,9 @@ const GameConfig = ({ game, onNavigate }) => {
               Performance Settings
             </h3>
           </div>
+          <p style={{ color: '#64748b', fontSize: '12px', marginBottom: '12px' }}>
+            Only <strong>Texture cache</strong> is applied on launch. Other options are saved for a future update.
+          </p>
 
           <div className="form-group">
             <label className="form-label">CPU Threads</label>
@@ -1176,15 +1276,40 @@ const GameConfig = ({ game, onNavigate }) => {
 
           <div className="form-group">
             <label className="form-label">Language Override</label>
+            {languagesLoading ? (
+              <p style={{ color: '#64748b', fontSize: '12px', marginBottom: '8px' }}>Detecting supported languages…</p>
+            ) : supportedLanguages.length > 0 ? (
+              <p style={{ color: '#94a3b8', fontSize: '12px', marginBottom: '8px', lineHeight: 1.5 }}>
+                <strong>Supported by this game:</strong>{' '}
+                {formatSupportedLanguageList(supportedLanguages)}
+                {supportedLangSource ? ` (${supportedLangSource})` : ''}
+              </p>
+            ) : (
+              <p style={{ color: '#64748b', fontSize: '12px', marginBottom: '8px', lineHeight: 1.5 }}>
+                Could not detect per-game languages — showing all Xenia languages. Set a Title ID for better results.
+              </p>
+            )}
             <select
               className="form-select"
               value={config.languageOverride}
               onChange={(e) => handleConfigChange('languageOverride', e.target.value)}
             >
-              {languageOptions.map(option => (
+              {languageSelectOptions.map((option) => (
                 <option key={option.value} value={option.value}>{option.label}</option>
               ))}
             </select>
+            {config.languageOverride !== 'auto'
+              && supportedLanguages.length > 0
+              && !supportedLanguages.includes(config.languageOverride) && (
+              <p style={{ color: '#f59e0b', fontSize: '12px', marginTop: '6px' }}>
+                This language may not be included in the game — it might still use the default audio/text.
+              </p>
+            )}
+            <p style={{ color: '#64748b', fontSize: '12px', marginTop: '6px', lineHeight: 1.5 }}>
+              On launch, writes <code>user_language</code> into your main <code>xenia-canary.config.toml</code> (close Xenia first).
+              Many games only change menus/system text — voice acting may stay English if the disc has one audio language.
+              Save, then launch from here or the library.
+            </p>
           </div>
         </div>
 
@@ -1196,19 +1321,53 @@ const GameConfig = ({ game, onNavigate }) => {
               Input Settings
             </h3>
           </div>
+          <p style={{ color: '#64748b', fontSize: '12px', marginBottom: '12px', lineHeight: 1.5 }}>
+            Xenia does not support remapping keys in the app. Mode <strong>Keyboard as gamepad</strong> uses
+            Xenia&apos;s built-in layout below. Mouse-as-camera needs a separate tool (e.g. Xenia MouseHook), not this app.
+          </p>
 
           <div className="form-group">
-            <label className="form-label">Input Deadzone: {config.inputDeadzone}</label>
-            <input
-              type="range"
-              className="form-range"
-              min="0"
-              max="1"
-              step="0.1"
-              value={config.inputDeadzone}
-              onChange={(e) => handleConfigChange('inputDeadzone', e.target.value)}
-            />
+            <label className="form-label">Keyboard mode</label>
+            <select
+              className="form-select"
+              value={String(config.keyboardMode ?? (config.keyboardSupport ? '1' : '0'))}
+              onChange={(e) => {
+                const mode = e.target.value;
+                handleConfigChange('keyboardMode', mode);
+                handleConfigChange('keyboardSupport', mode !== '0');
+              }}
+            >
+              {KEYBOARD_MODE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
           </div>
+
+          {String(config.keyboardMode ?? (config.keyboardSupport ? '1' : '0')) === '1' && (
+            <div
+              style={{
+                marginBottom: '16px',
+                padding: '12px',
+                borderRadius: '8px',
+                background: 'rgba(0,0,0,0.25)',
+                fontSize: '12px',
+                color: '#cbd5e1'
+              }}
+            >
+              <div style={{ fontWeight: 600, color: '#7bbf32', marginBottom: '8px' }}>Default keyboard layout</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 12px' }}>
+                {XENIA_KEYBOARD_DEFAULT_BINDINGS.map((row) => (
+                  <React.Fragment key={row.action}>
+                    <span style={{ color: '#94a3b8' }}>{row.action}</span>
+                    <span style={{ fontFamily: 'monospace' }}>{row.keys}</span>
+                  </React.Fragment>
+                ))}
+              </div>
+              <p style={{ marginTop: '8px', color: '#64748b' }}>
+                Click the Xenia window so it has focus. Keys cannot be changed without editing Xenia&apos;s config manually.
+              </p>
+            </div>
+          )}
 
           <div className="form-group">
             <label className="form-label">
@@ -1218,31 +1377,7 @@ const GameConfig = ({ game, onNavigate }) => {
                 onChange={(e) => handleConfigChange('vibrationEnabled', e.target.checked)}
                 style={{ marginRight: '8px' }}
               />
-              Controller Vibration
-            </label>
-          </div>
-
-          <div className="form-group">
-            <label className="form-label">
-              <input
-                type="checkbox"
-                checked={config.keyboardSupport}
-                onChange={(e) => handleConfigChange('keyboardSupport', e.target.checked)}
-                style={{ marginRight: '8px' }}
-              />
-              Keyboard Support
-            </label>
-          </div>
-
-          <div className="form-group">
-            <label className="form-label">
-              <input
-                type="checkbox"
-                checked={config.mouseSupport}
-                onChange={(e) => handleConfigChange('mouseSupport', e.target.checked)}
-                style={{ marginRight: '8px' }}
-              />
-              Mouse Support
+              Controller Vibration (saved only; Xenia does not use this flag yet)
             </label>
           </div>
         </div>

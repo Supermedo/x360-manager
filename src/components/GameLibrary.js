@@ -1,4 +1,5 @@
-import React, { useState, useContext, useCallback, useMemo } from 'react';
+import React, { useState, useContext, useCallback, useMemo, useLayoutEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Plus,
   Search,
@@ -39,6 +40,10 @@ import {
 } from '../services/coverService';
 import useGamepad from '../hooks/useGamepad';
 import { buildGameLaunchConfig } from '../services/launchConfig';
+import { clampContextMenuPosition } from '../utils/contextMenuPosition';
+
+const CONTEXT_MENU_WIDTH = 220;
+const CONTEXT_MENU_EST_HEIGHT = 400;
 
 const gameNeedsCoverFetch = (game) =>
   !game.coverUrl && !game.coverHttpUrl;
@@ -112,10 +117,9 @@ const GameCard = React.memo(React.forwardRef(({ game, cardSize = 180, isFocused 
           <button
             className="btn-icon danger-icon"
             onClick={(e) => {
-              e.preventDefault(); e.stopPropagation();
-              // This is a bit tricky as removeGame is not passed here directly, 
-              // but we can handle it via the context menu or pass another prop
-              onContextMenu(e, game); // Show context menu as alternative for delete in card
+              e.preventDefault();
+              e.stopPropagation();
+              onContextMenu(e, game);
             }}
             title="Options"
           >
@@ -247,6 +251,8 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode }) => {
   const [selectedGameForPatches, setSelectedGameForPatches] = useState(null);
   const [coverPickerGame, setCoverPickerGame] = useState(null);
   const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, game: null });
+  const contextMenuAnchor = useRef({ x: 0, y: 0 });
+  const contextMenuRef = useRef(null);
   const [padFocusIdx, setPadFocusIdx] = useState(0);
   const gamesGridRef = React.useRef(null);
   const gameCardRefs = React.useRef([]);
@@ -329,33 +335,48 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode }) => {
     return null;
   }, [fetchGameDetails, updateGame]);
 
-  // Auto-fetch covers for games missing artwork once the database is ready
-  const missingCoverCount = games.filter(gameNeedsCoverFetch).length;
+  // Auto-fetch missing covers once per library load (avoid re-sync loop on each cover update)
+  const coverAutoSyncInFlight = React.useRef(false);
 
   React.useEffect(() => {
-    if (!isDbLoaded || !gamesHydrated || games.length === 0 || missingCoverCount === 0) {
+    if (!isDbLoaded || !gamesHydrated || games.length === 0 || coverAutoSyncInFlight.current) {
       return undefined;
     }
 
+    const missing = games.filter(gameNeedsCoverFetch);
+    if (missing.length === 0) return undefined;
+
     let cancelled = false;
+    coverAutoSyncInFlight.current = true;
 
     const syncMissing = async () => {
-      const missing = games.filter(gameNeedsCoverFetch);
-      for (const game of missing) {
-        if (cancelled) break;
-        const filename = game.path ? game.path.split(/[\\/]/).pop() : game.name;
-        const details = await fetchGameCoverDetails(filename, game.titleId, xbox360DB, {
-          lenient: true,
-          allowPlaceholder: false
-        });
-        if (details?.coverUrl) {
-          updateGame(game.id, {
-            ...coverFieldsFromDetails(details),
-            description: details.description || game.description,
-            genre: details.genre || game.genre
+      const updatesMap = {};
+      try {
+        for (const game of missing) {
+          if (cancelled) break;
+          const filename = game.path ? game.path.split(/[\\/]/).pop() : game.name;
+          const details = await fetchGameCoverDetails(filename, game.titleId, xbox360DB, {
+            lenient: true,
+            allowPlaceholder: false
           });
+          if (details?.coverUrl) {
+            updatesMap[game.id] = {
+              ...coverFieldsFromDetails(details),
+              description: details.description || game.description,
+              genre: details.genre || game.genre
+            };
+          }
+          if (Object.keys(updatesMap).length >= 5) {
+            batchUpdateGames({ ...updatesMap });
+            Object.keys(updatesMap).forEach((id) => delete updatesMap[id]);
+          }
+          await new Promise((resolve) => setTimeout(resolve, 350));
         }
-        await new Promise((resolve) => setTimeout(resolve, 350));
+        if (Object.keys(updatesMap).length > 0) {
+          batchUpdateGames(updatesMap);
+        }
+      } finally {
+        coverAutoSyncInFlight.current = false;
       }
     };
 
@@ -363,7 +384,7 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode }) => {
     return () => {
       cancelled = true;
     };
-  }, [isDbLoaded, gamesHydrated, missingCoverCount, xbox360DB, updateGame]);
+  }, [isDbLoaded, gamesHydrated, games.length, xbox360DB, batchUpdateGames]);
 
   const coverFetchQueue = React.useRef([]);
   const isFetchingCovers = React.useRef(false);
@@ -584,8 +605,32 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode }) => {
   const handleContextMenuCallback = useCallback((e, game) => {
     e.preventDefault();
     e.stopPropagation();
-    setContextMenu({ visible: true, x: e.clientX, y: e.clientY, game });
+    contextMenuAnchor.current = { x: e.clientX, y: e.clientY };
+    const { left, top } = clampContextMenuPosition(
+      e.clientX,
+      e.clientY,
+      CONTEXT_MENU_WIDTH,
+      CONTEXT_MENU_EST_HEIGHT
+    );
+    setContextMenu({ visible: true, x: left, y: top, game });
   }, []);
+
+  useLayoutEffect(() => {
+    if (!contextMenu.visible || !contextMenuRef.current) return undefined;
+    const rect = contextMenuRef.current.getBoundingClientRect();
+    const { left, top } = clampContextMenuPosition(
+      contextMenuAnchor.current.x,
+      contextMenuAnchor.current.y,
+      rect.width,
+      rect.height
+    );
+    setContextMenu((prev) => {
+      if (!prev.visible) return prev;
+      if (prev.x === left && prev.y === top) return prev;
+      return { ...prev, x: left, y: top };
+    });
+    return undefined;
+  }, [contextMenu.visible, contextMenu.game?.id]);
 
   const handleToggleFavorite = useCallback((id) => {
     toggleFavorite(id);
@@ -613,6 +658,27 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode }) => {
 
   useGamepad(
     {
+      back: () => {
+        if (contextMenu.visible) {
+          setContextMenu({ visible: false, x: 0, y: 0, game: null });
+          return;
+        }
+        if (coverPickerGame) {
+          setCoverPickerGame(null);
+          return;
+        }
+        if (selectedGameForPatches) {
+          setSelectedGameForPatches(null);
+          return;
+        }
+        if (showAddGameModal) {
+          setShowAddGameModal(false);
+          return;
+        }
+        if (showBulkAddModal) {
+          setShowBulkAddModal(false);
+        }
+      },
       left: () => setPadFocusIdx((index) => Math.max(0, index - 1)),
       right: () => setPadFocusIdx((index) => Math.min(filteredGames.length - 1, index + 1)),
       up: () => {
@@ -1136,33 +1202,57 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode }) => {
     }
   };
 
-  // Close context menu on click anywhere
+  // Close context menu on outside click / Escape
   React.useEffect(() => {
-    const handleClick = () => setContextMenu(prev => prev.visible ? { ...prev, visible: false } : prev);
-    window.addEventListener('click', handleClick);
-    return () => window.removeEventListener('click', handleClick);
+    const closeMenu = () => setContextMenu((prev) => (prev.visible ? { ...prev, visible: false, game: null } : prev));
+
+    const handlePointerDown = (e) => {
+      if (!e.target.closest?.('.game-context-menu')) {
+        closeMenu();
+      }
+    };
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        closeMenu();
+      }
+    };
+
+    window.addEventListener('mousedown', handlePointerDown);
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => {
+      window.removeEventListener('mousedown', handlePointerDown);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
   }, []);
 
 
   return (
     <div className="fade-in">
-      {/* Right-click context menu */}
-      {contextMenu.visible && contextMenu.game && (
+      {/* Right-click context menu (portal so it is not clipped by the scrollable library) */}
+      {contextMenu.visible && contextMenu.game && createPortal(
         <div
+          ref={contextMenuRef}
+          className="game-context-menu"
           style={{
             position: 'fixed',
             top: contextMenu.y,
             left: contextMenu.x,
-            zIndex: 10000,
+            zIndex: 20000,
             background: 'rgba(15, 23, 42, 0.98)',
             border: '1px solid rgba(16, 124, 16, 0.3)',
             borderRadius: '12px',
             padding: '6px 0',
-            minWidth: '200px',
+            minWidth: `${CONTEXT_MENU_WIDTH}px`,
+            maxHeight: `calc(100vh - 16px)`,
+            overflowY: 'auto',
             boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
             backdropFilter: 'blur(20px)',
           }}
           onClick={(e) => e.stopPropagation()}
+          onContextMenu={(e) => e.preventDefault()}
         >
           <div style={{ padding: '8px 16px', color: '#7bbf32', fontSize: '12px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid rgba(139,92,246,0.15)', marginBottom: '4px' }}>
             {contextMenu.game.name}
@@ -1339,7 +1429,8 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode }) => {
           >
             <Trash2 size={16} color="#ef4444" /> Remove Game
           </button>
-        </div>
+        </div>,
+        document.body
       )}
       <div style={{ marginBottom: '32px' }}>
         <h1 style={{

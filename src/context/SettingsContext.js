@@ -1,5 +1,6 @@
 import React, { createContext, useState, useEffect, useRef } from 'react';
 import { loadPersisted, savePersisted } from '../utils/persistentStorage';
+import { createDebouncedPersist } from '../utils/debouncePersist';
 
 export const SettingsContext = createContext();
 
@@ -54,6 +55,7 @@ export const SettingsProvider = ({ children }) => {
   const [settings, setSettings] = useState(defaultSettings);
   const [hydrated, setHydrated] = useState(false);
   const canPersist = useRef(false);
+  const debouncedSaveSettings = useRef(createDebouncedPersist(600));
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
 
@@ -83,7 +85,7 @@ export const SettingsProvider = ({ children }) => {
 
   useEffect(() => {
     if (!hydrated || !canPersist.current) return;
-    savePersisted('settings', settings);
+    debouncedSaveSettings.current('settings', settings);
   }, [settings, hydrated]);
 
   useEffect(() => {

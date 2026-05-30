@@ -60,8 +60,16 @@ const {
   wantsFpsOverlay,
   mapLogLevel,
   getResolutionLaunchArgs,
-  isTruthy
+  isTruthy,
+  mapLanguageToXeniaCode,
+  resolveKeyboardMode,
+  repairXeniaConfigFiles,
+  resolveLaunchLanguageCode
 } = require('./xeniaConfig');
+const {
+  inferLanguagesFromTitle,
+  languagesFromScreenScraperJeu
+} = require('./gameLanguageProbe');
 const { detectArcadeGame, resolveXeniaLaunchTarget } = require('./xeniaLaunch');
 const {
   listXboxLiveProfiles,
@@ -242,6 +250,7 @@ const trackEmulatorPid = (pid) => {
 
 const resolveAppIconPath = () => {
   const candidates = [
+    path.join(process.resourcesPath, 'icon.ico'),
     path.join(__dirname, 'resources', 'icon.ico'),
     path.join(__dirname, 'resources', 'icon.png'),
     path.join(__dirname, 'build', 'icon.ico'),
@@ -338,22 +347,28 @@ const setAppFullscreen = (enabled) => {
   if (!mainWindow || mainWindow.isDestroyed()) return false;
   const want = Boolean(enabled);
 
+  // Keep overlay height > 0 so Windows close/minimize/maximize stay clickable in fullscreen.
   if (process.platform === 'win32' && typeof mainWindow.setTitleBarOverlay === 'function') {
     try {
-      if (want) {
-        mainWindow.setTitleBarOverlay({ color: '#000000', symbolColor: '#e8e8e8', height: 0 });
-      } else {
-        mainWindow.setTitleBarOverlay(DEFAULT_TITLE_BAR_OVERLAY);
-      }
+      mainWindow.setTitleBarOverlay(
+        want
+          ? { color: '#1a1a1a', symbolColor: '#e8e8e8', height: 48 }
+          : DEFAULT_TITLE_BAR_OVERLAY
+      );
     } catch (err) {
       console.warn('[fullscreen] titleBarOverlay:', err.message);
     }
   }
 
-  mainWindow.setFullScreen(want);
-
-  if (want && process.platform === 'win32' && !mainWindow.isFullScreen()) {
-    mainWindow.maximize();
+  if (want) {
+    mainWindow.setFullScreen(true);
+  } else {
+    if (mainWindow.isFullScreen()) {
+      mainWindow.setFullScreen(false);
+    }
+    if (mainWindow.isMaximized()) {
+      mainWindow.unmaximize();
+    }
   }
 
   const isFs = mainWindow.isFullScreen();
@@ -365,6 +380,17 @@ const setAppFullscreen = (enabled) => {
 
 app.whenReady().then(() => {
   console.log('[app] Settings and library data folder:', app.getPath('userData'));
+  try {
+    const settings = readAppStorage(app.getPath('userData'), 'settings', null);
+    if (settings?.emulatorPath && fs.existsSync(settings.emulatorPath)) {
+      const repaired = repairXeniaConfigFiles(settings.emulatorPath, app.getPath('documents'));
+      if (repaired.length) {
+        console.log('[app] Repaired Xenia config file(s):', repaired.join(', '));
+      }
+    }
+  } catch (err) {
+    console.warn('[app] Xenia config repair skipped:', err.message);
+  }
   const coverCacheUrlToPath = (url) => {
     const parsed = new URL(url);
     let filePath = decodeURIComponent(parsed.pathname.replace(/^\//, ''));
@@ -687,13 +713,19 @@ ipcMain.handle('launch-game', async (event, emulatorPath, gamePath, config) => {
     const launchConfig = config || {};
 
     if (emulatorName.includes('xenia') && !isArcade) {
-      const presetsEnabled = launchConfig.xeniaPresetsEnabled !== false;
       const titleId = launchConfig.titleId || launchConfig.xeniaTitleId || null;
       try {
-        if (presetsEnabled) {
-          applyXeniaProfile(emulatorPath, app.getPath('documents'), launchConfig, titleId);
+        const profileResult = applyXeniaProfile(
+          emulatorPath,
+          app.getPath('documents'),
+          launchConfig,
+          titleId
+        );
+        if (profileResult?.languageResult?.applied) {
+          console.log(
+            `[launch-game] Xenia language: user_language=${profileResult.languageResult.langCode} → ${profileResult.languageResult.configPaths?.join(', ')}`
+          );
         }
-        applyLaunchDisplaySettings(emulatorPath, app.getPath('documents'), launchConfig, titleId);
       } catch (err) {
         console.warn('[launch-game] Xenia profile/config patch failed:', err.message);
       }
@@ -734,13 +766,16 @@ ipcMain.handle('launch-game', async (event, emulatorPath, gamePath, config) => {
         spawnArgs.push(
           ...getResolutionLaunchArgs(launchConfig.resolution, launchConfig.resolutionScale)
         );
-        if (launchConfig.renderer && launchConfig.renderer !== 'auto') {
-          if (launchConfig.renderer === 'directx12' || launchConfig.renderer === 'd3d12') {
+        const gpu = String(launchConfig.renderer || 'auto').toLowerCase();
+        if (gpu !== 'auto') {
+          if (gpu === 'directx12' || gpu === 'd3d12') {
             spawnArgs.push('--gpu=d3d12');
-          } else if (launchConfig.renderer === 'vulkan') {
+          } else if (gpu === 'vulkan') {
             spawnArgs.push('--gpu=vulkan');
-          } else if (launchConfig.renderer === 'opengl') {
-            spawnArgs.push(`--gpu=opengl`);
+          } else if (gpu === 'opengl') {
+            spawnArgs.push('--gpu=opengl');
+          } else if (gpu === 'directx11' || gpu === 'd3d11') {
+            spawnArgs.push('--gpu=d3d11');
           }
         }
 
@@ -772,23 +807,23 @@ ipcMain.handle('launch-game', async (event, emulatorPath, gamePath, config) => {
         // Ensure patches are actually applied by the emulator
         spawnArgs.push('--apply_patches=true');
 
-        // Handle User Language (Language Override)
-        let langCode = 1; // Default to English
-        const langMap = { 'en': 1, 'ja': 2, 'de': 3, 'fr': 4, 'es': 5, 'it': 6, 'ko': 7, 'zh': 8 };
-        if (launchConfig.languageOverride && launchConfig.languageOverride !== 'auto' && langMap[launchConfig.languageOverride]) {
-          langCode = langMap[launchConfig.languageOverride];
-        } else if (launchConfig.userLanguage) {
-          langCode = launchConfig.userLanguage;
+        const langCode = resolveLaunchLanguageCode(launchConfig);
+        if (langCode != null) {
+          spawnArgs.push(`--user_language=${langCode}`);
         }
-        spawnArgs.push(`--user_language=${langCode}`);
+
+        const keyboardMode = resolveKeyboardMode(launchConfig);
+        if (keyboardMode > 0) {
+          spawnArgs.push(`--keyboard_mode=${keyboardMode}`);
+          spawnArgs.push('--hid=winkey');
+        }
 
         // Add mount cache if needed (maps to textureCache in frontend)
         if (launchConfig.textureCache || launchConfig.mountCache) {
           spawnArgs.push('--mount_cache=true');
         }
 
-        const renderer = String(launchConfig.renderer || 'auto').toLowerCase();
-        const usesD3d12 = renderer === 'd3d12' || renderer === 'directx12';
+        const usesD3d12 = gpu === 'd3d12' || gpu === 'directx12';
         if (launchConfig.gpuReadback === true) {
           spawnArgs.push('--d3d12_readback_resolve=true');
         }
@@ -1006,7 +1041,8 @@ ipcMain.handle('apply-xenia-profile', async (event, emulatorPath, profileSetting
       emulatorPath,
       app.getPath('documents'),
       profileSettings || {},
-      titleId || null
+      titleId || null,
+      { patchGlobal: true }
     );
     return { ok: true, ...result };
   } catch (err) {
@@ -2072,61 +2108,94 @@ ipcMain.handle('add-to-steam', async (event, gameParams) => {
     return { success: false, error: String(error) };
   }
 });
-ipcMain.handle('scrape-screenscraper', async (event, { gameName, titleId }) => {
+const fetchScreenScraperJeu = async (gameName, titleId) => {
   const baseAuth = getScreenScraperAuthQuery();
-  if (!baseAuth) {
+  if (!baseAuth) return null;
+
+  const cleanedName = String(gameName || '').replace(/\.[^/.]+$/, '').trim();
+  const baseInfoUrl = `https://www.screenscraper.fr/api2/jeuInfos.php?dummy=1${baseAuth}`;
+  let data = null;
+
+  if (titleId) {
+    for (const param of ['serialnum', 'serial']) {
+      if (data) break;
+      const res = await fetch(`${baseInfoUrl}&${param}=${encodeURIComponent(titleId)}`);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.reponse?.jeu) data = json;
+      }
+    }
+  }
+
+  if (!data) {
+    for (const param of ['romnom', 'romname']) {
+      if (data) break;
+      const res = await fetch(`${baseInfoUrl}&${param}=${encodeURIComponent(gameName)}`);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.reponse?.jeu) data = json;
+      }
+    }
+  }
+
+  if (!data && cleanedName) {
+    const searchUrl = `https://www.screenscraper.fr/api2/jeuRecherche.php?recherche=${encodeURIComponent(cleanedName)}${baseAuth}`;
+    const searchRes = await fetch(searchUrl);
+    if (searchRes.ok) {
+      const searchData = await searchRes.json();
+      if (searchData.reponse?.jeux?.length > 0) {
+        const matchId = searchData.reponse.jeux[0].id;
+        const infoRes = await fetch(`${baseInfoUrl}&gameid=${matchId}`);
+        if (infoRes.ok) data = await infoRes.json();
+      }
+    }
+  }
+
+  return data?.reponse?.jeu || null;
+};
+
+ipcMain.handle('get-game-supported-languages', async (event, { gameName, titleId, gamePath } = {}) => {
+  try {
+    const collected = new Set();
+    let source = 'unknown';
+
+    for (const title of [gameName, gamePath ? path.basename(gamePath) : null]) {
+      for (const code of inferLanguagesFromTitle(title)) {
+        collected.add(code);
+        source = 'title';
+      }
+    }
+
+    const jeu = await fetchScreenScraperJeu(gameName, titleId);
+    if (jeu) {
+      const fromSs = languagesFromScreenScraperJeu(jeu);
+      if (fromSs.length) {
+        fromSs.forEach((code) => collected.add(code));
+        source = 'screenscraper';
+      }
+    }
+
+    return {
+      ok: true,
+      languages: [...collected],
+      source,
+      screenScraperAvailable: Boolean(getScreenScraperAuthQuery())
+    };
+  } catch (err) {
+    return { ok: false, error: err.message, languages: [] };
+  }
+});
+
+ipcMain.handle('scrape-screenscraper', async (event, { gameName, titleId }) => {
+  if (!getScreenScraperAuthQuery()) {
     console.warn('[ScreenScraper] Missing credentials — copy .env.example to .env');
     return null;
   }
 
   try {
-    const cleanedName = gameName.replace(/\.[^/.]+$/, '').trim();
     console.log(`[ScreenScraper] Scraping: "${gameName}" TitleID: ${titleId || 'None'}`);
-    const baseInfoUrl = `https://www.screenscraper.fr/api2/jeuInfos.php?dummy=1${baseAuth}`;
-    let data = null;
-
-    // 1. Try search by Title ID (Serial)
-    if (titleId) {
-      console.log(`[ScreenScraper] Trying TitleID variants: ${titleId}`);
-      // Variants: serialnum, serial
-      for (const param of ['serialnum', 'serial']) {
-        if (data) break;
-        const res = await fetch(`${baseInfoUrl}&${param}=${encodeURIComponent(titleId)}`);
-        if (res.ok) {
-          const json = await res.json();
-          if (json.reponse?.jeu) { data = json; console.log(`[ScreenScraper] Match found via ${param}!`); }
-        }
-      }
-    }
-
-    // 2. Try search by Filename (romnom)
-    if (!data) {
-      console.log(`[ScreenScraper] Trying Filename variants: "${gameName}"`);
-      for (const param of ['romnom', 'romname']) {
-        if (data) break;
-        const res = await fetch(`${baseInfoUrl}&${param}=${encodeURIComponent(gameName)}`);
-        if (res.ok) {
-          const json = await res.json();
-          if (json.reponse?.jeu) { data = json; console.log(`[ScreenScraper] Match found via ${param}!`); }
-        }
-      }
-    }
-
-    // 3. Fallback: Fuzzy Search
-    if (!data) {
-      console.log(`[ScreenScraper] Direct match failed, trying fuzzy search for: ${cleanedName}`);
-      const searchUrl = `https://www.screenscraper.fr/api2/jeuRecherche.php?recherche=${encodeURIComponent(cleanedName)}${baseAuth}`;
-      const searchRes = await fetch(searchUrl);
-      if (searchRes.ok) {
-        const searchData = await searchRes.json();
-        if (searchData.reponse?.jeux?.length > 0) {
-          const matchId = searchData.reponse.jeux[0].id;
-          console.log(`[ScreenScraper] Fuzzy match: ${searchData.reponse.jeux[0].nom}`);
-          const infoRes = await fetch(`${baseInfoUrl}&gameid=${matchId}`);
-          if (infoRes.ok) data = await infoRes.json();
-        }
-      }
-    }
+    const jeu = await fetchScreenScraperJeu(gameName, titleId);
+    const data = jeu ? { reponse: { jeu } } : null;
 
     if (data?.reponse?.jeu) {
       console.log(`[ScreenScraper] Found: ${data.reponse.jeu.noms?.[0]?.nom}`);

@@ -1,6 +1,7 @@
 import React, { createContext, useState, useEffect, useRef } from 'react';
 import { sanitizeStoredCoverUrl, coverUrlForPersistence, isEphemeralCoverUrl } from '../services/coverService';
-import { loadPersisted, savePersisted } from '../utils/persistentStorage';
+import { loadPersisted } from '../utils/persistentStorage';
+import { createDebouncedPersist } from '../utils/debouncePersist';
 
 export const GameContext = createContext();
 
@@ -52,6 +53,8 @@ export const GameProvider = ({ children }) => {
   const [isDbLoaded, setIsDbLoaded] = useState(false);
   const [gamesHydrated, setGamesHydrated] = useState(false);
   const canPersistGames = useRef(false);
+  const debouncedSaveGames = useRef(createDebouncedPersist(800));
+  const recentGamesTimer = useRef(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -102,12 +105,16 @@ export const GameProvider = ({ children }) => {
 
   useEffect(() => {
     if (!gamesHydrated || !canPersistGames.current) return;
-    savePersisted('games', gamesForPersistence(games));
-    const recent = games
-      .filter((game) => game.lastPlayed)
-      .sort((a, b) => new Date(b.lastPlayed) - new Date(a.lastPlayed))
-      .slice(0, 5);
-    setRecentGames(recent);
+    debouncedSaveGames.current('games', gamesForPersistence(games));
+
+    if (recentGamesTimer.current) clearTimeout(recentGamesTimer.current);
+    recentGamesTimer.current = setTimeout(() => {
+      const recent = games
+        .filter((game) => game.lastPlayed)
+        .sort((a, b) => new Date(b.lastPlayed) - new Date(a.lastPlayed))
+        .slice(0, 5);
+      setRecentGames(recent);
+    }, 300);
   }, [games, gamesHydrated]);
 
   const markGamesDirty = () => {

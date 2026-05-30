@@ -5,6 +5,41 @@ All notable changes to X360 Manager will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.2] - 2026-05-24
+
+### Fixed
+- **Xenia config corruption** — safe TOML patching (quoted strings, valid section headers); no longer rewrites the full RetroBat `xenia-canary.config.toml` on every launch
+- **Language override** — writes `user_language` to `[XConfig]` in the main config before launch plus `--user_language` CLI flag
+- **Game Properties settings** — launch config merges per-game overrides correctly (resolution, vsync, keyboard, language, presets)
+- **Context menu** — no longer clipped at the bottom of the library (portal + flip above cursor)
+- **Xbox Live profile patches** — only update existing config files; safer `[Profiles]` section handling
+
+### Added
+- **Supported languages per game** — detected from title/region hints, x360db, and ScreenScraper; shown in Game Configuration
+- **Config auto-repair** on app startup (fixes merged headers like `[Display]fullscreen`)
+- Debounced persistence for library/settings; batched cover sync improvements
+
+### Changed
+- FPS overlay and most display options use **CLI flags only** (no global config writes)
+- Explicit “Apply preset” still updates global Xenia config when you choose to
+
+## [1.6.1] - 2026-05-24
+
+### Fixed
+- Windows app icon embedded correctly in `.exe`, installer, and shortcuts (electron-builder paths + rcedit `afterPack`)
+- Fullscreen mode no longer traps users (title bar visible, system controls work, Esc / F11 exit)
+- Context menu and Game Properties navigation in fullscreen
+- Library lag during cover sync (debounced saves, single auto-sync pass, batched updates)
+- Cover images loading slowly when already cached locally
+
+### Changed
+- App data path documented as `%APPDATA%\x360-manager\`
+- Icons copied to `build/` after production build for dev and packaged window icon
+
+## [1.6.0] - 2026-05
+
+See [RELEASE_v1.6.0.md](RELEASE_v1.6.0.md) for full v1.6.0 notes (profiles, persistence, covers, XBLA, onboarding).
+
 ## [1.0.0] - 2024-12-19
 
 ### Added

@@ -98,12 +98,6 @@ const AppContent = () => {
   }, []);
 
   useEffect(() => {
-    if (!hydrated || !settings.appFullscreen) return undefined;
-    setFullscreen(true);
-    return undefined;
-  }, [hydrated, settings.appFullscreen, setFullscreen]);
-
-  useEffect(() => {
     const onKeyDown = (event) => {
       if (event.key === 'F11') {
         event.preventDefault();
@@ -120,13 +114,17 @@ const AppContent = () => {
       back: () => {
         if (activeView === 'config') {
           setActiveView('library');
+          return;
+        }
+        if (activeView !== 'library') {
+          setActiveView('library');
         }
       },
       prevTab: () => cycleView(-1),
       nextTab: () => cycleView(1),
       menu: () => toggleFullscreen()
     },
-    bootPhase === 'ready' && !consoleMode && activeView !== 'library'
+    bootPhase === 'ready' && !consoleMode
   );
 
   const handleLaunchGame = useCallback(async (game) => {

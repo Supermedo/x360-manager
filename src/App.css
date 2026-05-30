@@ -20,14 +20,11 @@ body {
 }
 
 body.app-fullscreen .app {
-  padding-top: 0;
+  padding-top: 48px;
   height: 100vh;
 }
 
-body.app-fullscreen .title-bar-host,
-body.app-fullscreen .titlebar-fullscreen-btn {
-  display: none;
-}
+/* Keep title bar visible in fullscreen so users can exit (F11 / Windowed button). */
 
 /* Sidebar Styles */
 .sidebar {

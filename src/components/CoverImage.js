@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Gamepad2 } from 'lucide-react';
 import {
   generatePlaceholderCover,
+  isXboxCdnUrl,
+  normalizeCoverUrl,
   normalizeLocalCoverUrl,
   resolveCoverUrlForDisplay
 } from '../services/coverService';
@@ -26,6 +28,22 @@ const CoverImage = ({
       setHasFailed(false);
       if (!coverUrl) {
         if (!cancelled) setDisplayUrl(null);
+        return;
+      }
+
+      const normalized = normalizeCoverUrl(coverUrl);
+      if (!normalized) {
+        if (!cancelled) setDisplayUrl(null);
+        return;
+      }
+
+      if (normalized.startsWith('file:') || normalized.startsWith('data:')) {
+        if (!cancelled) setDisplayUrl(normalizeLocalCoverUrl(normalized));
+        return;
+      }
+
+      if (normalized.startsWith('http') && !isXboxCdnUrl(normalized)) {
+        if (!cancelled) setDisplayUrl(normalized);
         return;
       }
 

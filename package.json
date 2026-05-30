@@ -1,6 +1,6 @@
 {
   "name": "x360-manager",
-  "version": "1.6.0",
+  "version": "1.6.2",
   "description": "A modern game manager for Xbox 360 emulation with download and configuration features",
   "author": "X360 Team",
   "main": "electron.js",
@@ -27,6 +27,7 @@
     "electron-builder": "^23.6.0",
     "electron-packager": "^17.1.2",
     "png-to-ico": "^2.1.8",
+    "rcedit": "^4.0.1",
     "sharp": "^0.34.5",
     "wait-on": "^9.0.10"
   },
@@ -35,7 +36,7 @@
     "prestart": "node scripts/ensure-utf8.cjs",
     "start": "react-scripts start",
     "icons": "node scripts/generate-icons.js",
-    "build": "npm run icons && react-scripts build",
+    "build": "npm run icons && react-scripts build && node scripts/copy-icons-to-build.js",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "electron": "node node_modules/electron/cli.js .",
@@ -43,7 +44,8 @@
     "dev": "node scripts/ensure-utf8.cjs && npm run icons && concurrently -k -n REACT,ELECTRON -c blue,magenta \"cross-env BROWSER=none npm start\" \"wait-on -d 1500 http://localhost:3000 && cross-env ELECTRON_IS_DEV=1 node node_modules/electron/cli.js .\"",
     "dev:built": "npm run build && cross-env ELECTRON_FORCE_BUILD=1 node node_modules/electron/cli.js .",
     "electron-build": "electron-builder",
-    "dist": "npm run icons && npm run build && electron-builder",
+    "dist": "npm run icons && npm run build && node scripts/electron-dist.js",
+    "dist:direct": "npm run icons && npm run build && electron-builder",
     "build-portable": "npm run build && electron-builder --win --dir --publish=never",
     "build-setup": "npm run build-portable && node scripts/create-setup.js",
     "build-all": "npm run build && electron-builder --win --mac --linux --publish=never"
@@ -73,14 +75,25 @@
       "output": "dist-setup",
       "buildResources": "resources"
     },
+    "afterPack": "scripts/afterPack.cjs",
+    "extraResources": [
+      {
+        "from": "resources/icon.ico",
+        "to": "icon.ico"
+      }
+    ],
     "files": [
       "build/**/*",
       "node_modules/**/*",
+      "resources/icon.ico",
+      "resources/icon.png",
       "electron.js",
       "preload.js",
       "appStorage.js",
       "xeniaLaunch.js",
       "xeniaConfig.js",
+      "xeniaLanguageShared.js",
+      "gameLanguageProbe.js",
       "xboxLiveProfiles.js",
       "accountFile.js",
       "!node_modules/.cache",
@@ -101,8 +114,8 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "installerIcon": "resources/icon.ico",
-      "uninstallerIcon": "resources/icon.ico",
+      "installerIcon": "icon.ico",
+      "uninstallerIcon": "icon.ico",
       "shortcutName": "X360 Manager",
       "deleteAppDataOnUninstall": false,
       "runAfterFinish": true,
@@ -117,7 +130,7 @@
           "x64"
         ]
       },
-      "icon": "resources/icon.ico",
+      "icon": "icon.ico",
       "executableName": "X360 Manager",
       "publisherName": "X360 Team",
       "requestedExecutionLevel": "asInvoker",

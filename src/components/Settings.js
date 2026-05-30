@@ -91,12 +91,6 @@ const Settings = ({ onSwitchProfile }) => {
   const handleSaveSettings = async () => {
     updateSettings(localSettings);
     setHasUnsavedChanges(false);
-    if (localSettings.emulatorPath && window.electronAPI?.applyXeniaUiSettings) {
-      await window.electronAPI.applyXeniaUiSettings(localSettings.emulatorPath, {
-        showFPS: localSettings.showFPS,
-        showStats: localSettings.showFPS
-      });
-    }
   };
 
   const handleSelectEmulatorPath = async () => {
