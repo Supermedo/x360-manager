@@ -3,8 +3,14 @@
 ## Highlights
 - **Fixes Xenia config corruption** on RetroBat / shared installs
 - **Language override works** — writes `user_language` to main config + CLI before start
-- **Supported languages per game** in Game Configuration
+- **Supported languages per game** in Game Configuration (all languages always selectable)
 - **Game Properties settings** apply correctly at launch
+
+## v1.6.2 update (language UI)
+- Removed false **"not supported"** warnings from weak title guesses
+- **All Xenia languages** always available in the dropdown
+- Better detection from **install folder path** (Europe, PAL, NTSC-J, etc.)
+- Improved ScreenScraper language name parsing
 
 ## Download
 Install **X360-Manager-Setup-1.6.2.exe** (Windows 10/11, 64-bit).
