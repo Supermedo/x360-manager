@@ -5,6 +5,7 @@ import useAppFullscreen from '../hooks/useAppFullscreen';
 
 const TitleBar = () => {
     const [iconSrc, setIconSrc] = useState(getPublicAssetUrl('icon.png'));
+    const [appVersion, setAppVersion] = useState('');
     const { isFullscreen, toggleFullscreen } = useAppFullscreen();
 
     useEffect(() => {
@@ -16,6 +17,9 @@ const TitleBar = () => {
             }
         };
         loadIcon();
+        window.electronAPI?.getAppVersion?.().then((v) => {
+            if (!cancelled && v) setAppVersion(v);
+        });
         return () => {
             cancelled = true;
         };
@@ -50,6 +54,19 @@ const TitleBar = () => {
                     onError={() => setIconSrc(getPublicAssetUrl('icon.png'))}
                 />
                 <span style={{ fontWeight: '700', color: '#7bbf32', fontSize: '15px', letterSpacing: '0.5px' }}>X360 Manager</span>
+                {appVersion && (
+                    <span style={{
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        color: '#64748b',
+                        padding: '2px 8px',
+                        borderRadius: '999px',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        background: 'rgba(255,255,255,0.04)'
+                    }}>
+                        v{appVersion}
+                    </span>
+                )}
             </div>
             <button
                 type="button"

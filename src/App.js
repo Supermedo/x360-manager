@@ -11,6 +11,7 @@ import GameConfig from './components/GameConfig';
 import Settings from './components/Settings';
 import Help from './components/Help';
 import TitleBar from './components/TitleBar';
+import UpdateNotifier from './components/UpdateNotifier';
 import ConsoleMode from './components/ConsoleMode';
 import OnboardingWizard from './components/OnboardingWizard';
 import ProfilePicker from './components/ProfilePicker';
@@ -246,6 +247,7 @@ const AppContent = () => {
   return (
     <>
       {!consoleMode && <TitleBar />}
+      {!consoleMode && <UpdateNotifier checkOnMount={false} />}
       <div className={`app theme-${settings.theme || 'dark'} ${consoleMode ? 'console-mode-active' : ''}`} data-language={settings.language || 'en'}>
         {!consoleMode && (
           <Sidebar

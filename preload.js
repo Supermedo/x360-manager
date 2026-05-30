@@ -29,6 +29,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
   showMessageBox: (options) => ipcRenderer.invoke('show-message-box', options),
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+  checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
+  downloadAppUpdate: () => ipcRenderer.invoke('download-app-update'),
+  installAppUpdate: () => ipcRenderer.invoke('install-app-update'),
+  onUpdateStatus: (callback) => {
+    const listener = (_event, payload) => callback(payload);
+    ipcRenderer.on('app-update-status', listener);
+    return () => ipcRenderer.removeListener('app-update-status', listener);
+  },
   getPlatform: () => ipcRenderer.invoke('get-platform'),
   storageGet: (key) => ipcRenderer.invoke('storage-get', key),
   storageSet: (key, data) => ipcRenderer.invoke('storage-set', key, data),

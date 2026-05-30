@@ -89,6 +89,13 @@ const {
   getProfileStorageDir,
   resolveXContentRoot
 } = require('./xboxLiveProfiles');
+const {
+  initAppUpdater,
+  checkForUpdates,
+  downloadUpdate,
+  installUpdate,
+  scheduleUpdateCheck
+} = require('./appUpdater');
 
 const toXboxCdnHttpUrl = (url) => {
   if (!url || typeof url !== 'string') return url;
@@ -321,6 +328,13 @@ function createWindow() {
 
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
+    initAppUpdater(mainWindow);
+    try {
+      const settings = readAppStorage(app.getPath('userData'), 'settings', null);
+      scheduleUpdateCheck(settings?.checkUpdates !== false);
+    } catch {
+      scheduleUpdateCheck(true);
+    }
   });
 
   if (useDevServer) {
@@ -916,6 +930,12 @@ ipcMain.handle('show-message-box', async (event, options) => {
 ipcMain.handle('get-app-version', () => {
   return app.getVersion();
 });
+
+ipcMain.handle('check-for-updates', async () => checkForUpdates({ silent: false }));
+
+ipcMain.handle('download-app-update', async () => downloadUpdate());
+
+ipcMain.handle('install-app-update', async () => installUpdate());
 
 ipcMain.handle('get-platform', () => {
   return process.platform;

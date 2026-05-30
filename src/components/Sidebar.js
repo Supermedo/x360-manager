@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Library,
   Download,
@@ -11,6 +11,13 @@ import ProfileAvatar from './ProfileAvatar';
 
 const Sidebar = ({ activeView, onNavigate, onSwitchProfile, sessionGamertag, sessionAvatar }) => {
   const { t } = useTranslation();
+  const [appVersion, setAppVersion] = useState('');
+
+  useEffect(() => {
+    window.electronAPI?.getAppVersion?.().then((v) => {
+      if (v) setAppVersion(v);
+    });
+  }, []);
 
   const navItems = [
     { id: 'library', label: t('library'), icon: Library },
@@ -70,7 +77,7 @@ const Sidebar = ({ activeView, onNavigate, onSwitchProfile, sessionGamertag, ses
           textAlign: 'center'
         }}>
           <div style={{ fontSize: '12px', color: '#94a3b8', marginBottom: '4px' }}>
-            Version 1.5.0
+            Version {appVersion || '…'}
           </div>
           <div style={{ fontSize: '10px', color: '#64748b', marginBottom: '8px' }}>
             X360 Manager

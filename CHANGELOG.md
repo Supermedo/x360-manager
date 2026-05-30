@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Xbox Live profile patches** — only update existing config files; safer `[Profiles]` section handling
 
 ### Added
+- **Auto-update notifications** — checks GitHub Releases on startup; banner + Settings → System → App updates
+- **Version display** — current version shown in title bar, sidebar, and Settings
 - **Supported languages per game** — detected from title/region hints, x360db, and ScreenScraper; shown in Game Configuration
 - **Language UI** — all Xenia languages always selectable; false “not supported” warnings removed; path/folder detection and ScreenScraper name parsing improved
 - **Config auto-repair** on app startup (fixes merged headers like `[Display]fullscreen`)

@@ -1857,3 +1857,87 @@ input[type="range"]::-moz-range-thumb:hover {
     font-size: 1.5rem;
   }
 }
+
+body.has-update-banner .app {
+  padding-top: 92px;
+}
+
+.update-notifier {
+  position: fixed;
+  top: 48px;
+  left: 0;
+  right: 0;
+  z-index: 9998;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 16px;
+  background: linear-gradient(90deg, rgba(16, 124, 16, 0.22), rgba(22, 22, 22, 0.95));
+  border-bottom: 1px solid rgba(123, 191, 50, 0.35);
+  backdrop-filter: blur(12px);
+}
+
+.update-notifier__content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  color: #e2e8f0;
+  font-size: 13px;
+}
+
+.update-notifier__content strong {
+  color: #9bc848;
+}
+
+.update-notifier__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.update-notifier__dismiss {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+.update-notifier__dismiss:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #e2e8f0;
+}
+
+.update-notifier__error {
+  width: 100%;
+  margin: 0;
+  font-size: 12px;
+  color: #f59e0b;
+}
+
+.btn-sm {
+  padding: 6px 12px !important;
+  font-size: 12px !important;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+.app:has(.update-notifier) .main-content,
+.app:has(.update-notifier) .sidebar {
+  margin-top: 0;
+}

@@ -33,6 +33,7 @@ const targets = [
   path.join(ROOT, 'xeniaConfig.js'),
   path.join(ROOT, 'xeniaLaunch.js'),
   path.join(ROOT, 'appStorage.js'),
+  path.join(ROOT, 'appUpdater.js'),
   path.join(ROOT, 'electron.js'),
   path.join(ROOT, 'preload.js')
 ].filter((p, i, a) => fs.existsSync(p) && a.indexOf(p) === i);

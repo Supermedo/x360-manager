@@ -10,6 +10,7 @@ import {
 import { localCoverResetPatch } from '../services/coverService';
 import XeniaProfilesPanel from './XeniaProfilesPanel';
 import XboxLiveProfilesPanel from './XboxLiveProfilesPanel';
+import { AppVersionSettings } from './UpdateNotifier';
 
 const Settings = ({ onSwitchProfile }) => {
   const { settings, updateSettings, resetSettings } = useContext(SettingsContext);
@@ -245,6 +246,14 @@ const Settings = ({ onSwitchProfile }) => {
           />
           Ask who&apos;s playing when the app opens (multiple profiles)
         </label>
+        <label className="checkbox-label">
+          <input
+            type="checkbox"
+            checked={localSettings.checkUpdates !== false}
+            onChange={(e) => handleSettingChange('checkUpdates', e.target.checked)}
+          />
+          Check for app updates on startup
+        </label>
         <div className="settings-group">
           <label>Game Language Override</label>
           <select value={localSettings.defaultLanguage || '1'} onChange={(e) => handleSettingChange('defaultLanguage', e.target.value)}>
@@ -257,6 +266,7 @@ const Settings = ({ onSwitchProfile }) => {
           </select>
         </div>
       </div>
+      <AppVersionSettings />
     </div>
   );
 
