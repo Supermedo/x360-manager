@@ -68,7 +68,10 @@ const {
 } = require('./xeniaConfig');
 const {
   inferLanguagesFromTitle,
-  languagesFromScreenScraperJeu
+  inferLanguagesFromPath,
+  languagesFromScreenScraperJeu,
+  normalizeLanguageCodes,
+  resolveLanguageSourceMeta
 } = require('./gameLanguageProbe');
 const { detectArcadeGame, resolveXeniaLaunchTarget } = require('./xeniaLaunch');
 const {
@@ -2156,33 +2159,40 @@ const fetchScreenScraperJeu = async (gameName, titleId) => {
 
 ipcMain.handle('get-game-supported-languages', async (event, { gameName, titleId, gamePath } = {}) => {
   try {
-    const collected = new Set();
-    let source = 'unknown';
+    const fromTitle = normalizeLanguageCodes(
+      inferLanguagesFromTitle(gameName)
+        .concat(inferLanguagesFromTitle(gamePath ? path.basename(gamePath) : null))
+    );
+    const fromPath = normalizeLanguageCodes(inferLanguagesFromPath(gamePath));
 
-    for (const title of [gameName, gamePath ? path.basename(gamePath) : null]) {
-      for (const code of inferLanguagesFromTitle(title)) {
-        collected.add(code);
-        source = 'title';
-      }
-    }
+    let fromScraper = [];
+    let synopsisCount = 0;
 
     const jeu = await fetchScreenScraperJeu(gameName, titleId);
     if (jeu) {
-      const fromSs = languagesFromScreenScraperJeu(jeu);
-      if (fromSs.length) {
-        fromSs.forEach((code) => collected.add(code));
-        source = 'screenscraper';
-      }
+      const ss = languagesFromScreenScraperJeu(jeu);
+      fromScraper = ss.codes;
+      synopsisCount = ss.synopsisCount;
     }
+
+    const languages = normalizeLanguageCodes([...fromScraper, ...fromPath, ...fromTitle]);
+    const { source, confidence } = resolveLanguageSourceMeta({
+      fromScraper,
+      synopsisCount,
+      fromPath,
+      fromTitle,
+      fromDb: []
+    });
 
     return {
       ok: true,
-      languages: [...collected],
+      languages,
       source,
+      confidence,
       screenScraperAvailable: Boolean(getScreenScraperAuthQuery())
     };
   } catch (err) {
-    return { ok: false, error: err.message, languages: [] };
+    return { ok: false, error: err.message, languages: [], confidence: 'low' };
   }
 });
 

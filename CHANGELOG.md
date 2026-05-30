@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **Supported languages per game** — detected from title/region hints, x360db, and ScreenScraper; shown in Game Configuration
+- **Language UI** — all Xenia languages always selectable; false “not supported” warnings removed; path/folder detection and ScreenScraper name parsing improved
 - **Config auto-repair** on app startup (fixes merged headers like `[Display]fullscreen`)
 - Debounced persistence for library/settings; batched cover sync improvements
 

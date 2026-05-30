@@ -44,6 +44,38 @@ export const mapLanguageToXeniaId = (languageOverride) => {
 };
 
 export const languageLabelForCode = (code) => {
-  const opt = XENIA_LANGUAGE_OPTIONS.find((o) => o.value === code);
-  return opt ? opt.label : code;
+  const normalized = normalizeLanguageCode(code);
+  const opt = XENIA_LANGUAGE_OPTIONS.find((o) => o.value === normalized);
+  return opt ? opt.label : (normalized || code);
 };
+
+const XENIA_ID_TO_CODE = {
+  1: 'en', 2: 'ja', 3: 'de', 4: 'fr', 5: 'es', 6: 'it', 7: 'ko',
+  8: 'zh-TW', 9: 'pt', 11: 'pl', 12: 'ru', 13: 'sv', 14: 'tr', 15: 'nb', 16: 'nl', 17: 'zh-CN'
+};
+
+export const normalizeLanguageCode = (raw) => {
+  if (raw == null || raw === '') return null;
+  const trimmed = String(raw).trim();
+  const key = trimmed.toLowerCase();
+  if (/^\d+$/.test(key)) return XENIA_ID_TO_CODE[Number(key)] || null;
+  if (XENIA_LANGUAGE_OPTIONS.some((o) => o.value === trimmed)) return trimmed;
+  if (key === 'jp') return 'ja';
+  if (key === 'zh') return 'zh-CN';
+  if (key === 'cn') return 'zh-CN';
+  if (key === 'tw') return 'zh-TW';
+  return null;
+};
+
+export const normalizeLanguageCodes = (codes) => {
+  if (!Array.isArray(codes)) return [];
+  const out = new Set();
+  for (const raw of codes) {
+    const code = normalizeLanguageCode(raw);
+    if (code) out.add(code);
+  }
+  return [...out];
+};
+
+export const isReliableLanguageSource = (source) =>
+  source === 'screenscraper' || source === 'screenscraper-synopsis';

@@ -26,7 +26,8 @@ import { GameContext } from '../context/GameContext';
 import { XENIA_LANGUAGE_OPTIONS } from '../constants/xeniaLanguages';
 import {
   formatSupportedLanguageList,
-  resolveGameSupportedLanguages
+  resolveGameSupportedLanguages,
+  isReliableLanguageSource
 } from '../services/gameLanguages';
 import { SettingsContext } from '../context/SettingsContext';
 import {
@@ -92,17 +93,9 @@ const GameConfig = ({ game, onNavigate }) => {
   const [profileId, setProfileId] = useState('');
   const [supportedLanguages, setSupportedLanguages] = useState([]);
   const [supportedLangSource, setSupportedLangSource] = useState('');
+  const [supportedLangConfidence, setSupportedLangConfidence] = useState('low');
   const [languagesLoading, setLanguagesLoading] = useState(false);
   const profiles = React.useMemo(() => loadAllProfiles(), []);
-
-  const languageSelectOptions = React.useMemo(() => {
-    const autoOpt = XENIA_LANGUAGE_OPTIONS.filter((o) => o.value === 'auto');
-    if (!supportedLanguages.length) return XENIA_LANGUAGE_OPTIONS;
-    const supported = XENIA_LANGUAGE_OPTIONS.filter(
-      (o) => o.value !== 'auto' && supportedLanguages.includes(o.value)
-    );
-    return [...autoOpt, ...supported];
-  }, [supportedLanguages]);
 
   useEffect(() => {
     if (!game) return undefined;
@@ -111,20 +104,22 @@ const GameConfig = ({ game, onNavigate }) => {
     const loadLanguages = async () => {
       setLanguagesLoading(true);
       try {
-        const { codes, source } = await resolveGameSupportedLanguages({ game, xbox360DB });
+        const { codes, source, confidence } = await resolveGameSupportedLanguages({ game, xbox360DB });
         if (cancelled) return;
         setSupportedLanguages(codes || []);
         setSupportedLangSource(source || '');
-        if (codes?.length) {
-          const prev = game.supportedLanguages || [];
-          const same =
-            prev.length === codes.length && prev.every((c, i) => c === codes[i]);
-          if (!same || game.supportedLanguagesSource !== source) {
-            updateGame(game.id, {
-              supportedLanguages: codes,
-              supportedLanguagesSource: source
-            });
-          }
+        setSupportedLangConfidence(confidence || 'low');
+        const prev = game.supportedLanguages || [];
+        const same =
+          prev.length === (codes?.length || 0) && prev.every((c, i) => c === codes[i]);
+        if (!same
+          || game.supportedLanguagesSource !== source
+          || game.supportedLanguagesConfidence !== confidence) {
+          updateGame(game.id, {
+            supportedLanguages: codes || [],
+            supportedLanguagesSource: source,
+            supportedLanguagesConfidence: confidence
+          });
         }
       } finally {
         if (!cancelled) setLanguagesLoading(false);
@@ -134,11 +129,9 @@ const GameConfig = ({ game, onNavigate }) => {
     if (game.supportedLanguages?.length) {
       setSupportedLanguages(game.supportedLanguages);
       setSupportedLangSource(game.supportedLanguagesSource || 'cached');
-      setLanguagesLoading(false);
-      loadLanguages();
-    } else {
-      loadLanguages();
+      setSupportedLangConfidence(game.supportedLanguagesConfidence || 'low');
     }
+    loadLanguages();
 
     return () => {
       cancelled = true;
@@ -800,7 +793,7 @@ const GameConfig = ({ game, onNavigate }) => {
         </p>
         {supportedLanguages.length > 0 && (
           <p style={{ color: '#64748b', fontSize: '13px', marginTop: '6px' }}>
-            Supported languages: {formatSupportedLanguageList(supportedLanguages)}
+            Likely languages: {formatSupportedLanguageList(supportedLanguages)}
           </p>
         )}
       </div>
@@ -1280,13 +1273,21 @@ const GameConfig = ({ game, onNavigate }) => {
               <p style={{ color: '#64748b', fontSize: '12px', marginBottom: '8px' }}>Detecting supported languages…</p>
             ) : supportedLanguages.length > 0 ? (
               <p style={{ color: '#94a3b8', fontSize: '12px', marginBottom: '8px', lineHeight: 1.5 }}>
-                <strong>Supported by this game:</strong>{' '}
+                <strong>Likely supported:</strong>{' '}
                 {formatSupportedLanguageList(supportedLanguages)}
-                {supportedLangSource ? ` (${supportedLangSource})` : ''}
+                {supportedLangSource && supportedLangSource !== 'unknown'
+                  ? ` (${supportedLangSource.replace(/-/g, ' ')})`
+                  : ''}
+                {!isReliableLanguageSource(supportedLangSource) && (
+                  <span style={{ color: '#64748b' }}>
+                    {' '}— estimate from folder/title; you can still pick any language below.
+                  </span>
+                )}
               </p>
             ) : (
               <p style={{ color: '#64748b', fontSize: '12px', marginBottom: '8px', lineHeight: 1.5 }}>
-                Could not detect per-game languages — showing all Xenia languages. Set a Title ID for better results.
+                Could not verify languages for this title. All Xenia languages are available below.
+                Add a Title ID or ScreenScraper credentials in Settings for better detection.
               </p>
             )}
             <select
@@ -1294,15 +1295,16 @@ const GameConfig = ({ game, onNavigate }) => {
               value={config.languageOverride}
               onChange={(e) => handleConfigChange('languageOverride', e.target.value)}
             >
-              {languageSelectOptions.map((option) => (
+              {XENIA_LANGUAGE_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>{option.label}</option>
               ))}
             </select>
             {config.languageOverride !== 'auto'
               && supportedLanguages.length > 0
+              && isReliableLanguageSource(supportedLangSource)
               && !supportedLanguages.includes(config.languageOverride) && (
               <p style={{ color: '#f59e0b', fontSize: '12px', marginTop: '6px' }}>
-                This language may not be included in the game — it might still use the default audio/text.
+                ScreenScraper data does not list this language for the title. Menus or audio may stay on the default.
               </p>
             )}
             <p style={{ color: '#64748b', fontSize: '12px', marginTop: '6px', lineHeight: 1.5 }}>
