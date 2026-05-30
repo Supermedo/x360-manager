@@ -5,6 +5,16 @@ All notable changes to X360 Manager will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.3] - 2026-05-24
+
+### Added
+- **Full app UI translations** — Dashboard, Setup, Settings sections, Game Library, Game Configuration, Help, and update banner now use the translation system
+- **Arabic UI** — complete Arabic strings for all new UI keys (RTL layout supported)
+
+### Changed
+- App language picker applies across major screens (not just sidebar/title bar)
+- Version bump for testing auto-update notification from v1.6.2
+
 ## [1.6.2] - 2026-05-24
 
 ### Fixed

@@ -1,3 +1,5 @@
+import { EXTRA_EN, EXTRA_AR } from './localeExtra';
+
 const EN = {
   library: 'Game Library',
   setup: 'Emulator Setup',
@@ -61,7 +63,8 @@ const EN = {
   checkUpdates: 'Check for app updates on startup',
   installedVersion: 'Installed version',
   defaultGameLanguage: 'Default game language (Xenia)',
-  defaultGameLanguageDesc: 'In-game language for new games. Xenia does not support Arabic here — use App language above for Arabic menus. Per-game override is in Game Configuration.'
+  defaultGameLanguageDesc: 'In-game language for new games. Xenia does not support Arabic here — use App language above for Arabic menus. Per-game override is in Game Configuration.',
+  ...EXTRA_EN
 };
 
 const pack = (overrides) => ({ ...EN, ...overrides });
@@ -132,7 +135,8 @@ const translations = {
     checkUpdates: 'التحقق من التحديثات عند بدء التشغيل',
     installedVersion: 'الإصدار المثبت',
     defaultGameLanguage: 'لغة اللعبة الافتراضية (Xenia)',
-    defaultGameLanguageDesc: 'لغة اللعبة داخل Xenia. العربية غير مدعومة هنا — استخدم لغة التطبيق أعلاه لواجهة عربية. يمكن تغيير كل لعبة من إعدادات اللعبة.'
+    defaultGameLanguageDesc: 'لغة اللعبة داخل Xenia. العربية غير مدعومة هنا — استخدم لغة التطبيق أعلاه لواجهة عربية. يمكن تغيير كل لعبة من إعدادات اللعبة.',
+    ...EXTRA_AR
   }),
 
   es: pack({

@@ -51,6 +51,7 @@ const gameNeedsCoverFetch = (game) =>
 
 // Memoized sub-components moved outside to prevent re-definition and flashing
 const GameCard = React.memo(React.forwardRef(({ game, cardSize = 180, isFocused = false, onLaunch, onContextMenu, onToggleFavorite, onConfigure, onCoverFailed }, ref) => {
+  const { t } = useTranslation();
   const [isLaunching, setIsLaunching] = React.useState(false);
 
   // Dimensions: Modern 2:3 aspect ratio vertical posters
@@ -111,7 +112,7 @@ const GameCard = React.memo(React.forwardRef(({ game, cardSize = 180, isFocused 
             onClick={(e) => {
               e.preventDefault(); e.stopPropagation(); onConfigure(game);
             }}
-            title="Configure game"
+            title={t('configureGame')}
           >
             <Settings size={18} color="white" />
           </button>
@@ -122,7 +123,7 @@ const GameCard = React.memo(React.forwardRef(({ game, cardSize = 180, isFocused 
               e.stopPropagation();
               onContextMenu(e, game);
             }}
-            title="Options"
+            title={t('options')}
           >
             <Settings size={18} color="white" />
           </button>
@@ -136,7 +137,7 @@ const GameCard = React.memo(React.forwardRef(({ game, cardSize = 180, isFocused 
         </div>
         <div className="game-meta">
           <div className="game-meta-row">
-            <span>{game.genre !== 'Unknown' ? game.genre : 'Local Game'}</span>
+            <span>{game.genre !== 'Unknown' ? game.genre : t('localGame')}</span>
             {game.rating > 0 && (
               <span className="game-rating">
                 <Star size={10} color="#fbbf24" fill="#fbbf24" />
@@ -158,7 +159,9 @@ const GameCard = React.memo(React.forwardRef(({ game, cardSize = 180, isFocused 
 
 GameCard.displayName = 'GameCard';
 
-const GameListItem = React.memo(({ game, onLaunch, onToggleFavorite, onConfigure, onRemove }) => (
+const GameListItem = React.memo(({ game, onLaunch, onToggleFavorite, onConfigure, onRemove }) => {
+  const { t } = useTranslation();
+  return (
   <div className="card" style={{ padding: '16px', marginBottom: '8px' }}>
     <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
       <div style={{
@@ -176,7 +179,7 @@ const GameListItem = React.memo(({ game, onLaunch, onToggleFavorite, onConfigure
       <div style={{ flex: 1 }}>
         <h3 style={{ color: '#e2e8f0', marginBottom: '4px' }}>{game.name}</h3>
         <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '4px' }}>
-          {game.genre || 'Unknown Genre'} â€¢ {game.timesPlayed || 0} plays
+          {game.genre || t('unknownGenre')} • {game.timesPlayed || 0} plays
         </div>
         <div style={{ color: '#64748b', fontSize: '12px' }}>
           {game.path}
@@ -196,7 +199,7 @@ const GameListItem = React.memo(({ game, onLaunch, onToggleFavorite, onConfigure
           onClick={() => onLaunch(game)}
         >
           <Play size={16} />
-          Play
+          {t('play')}
         </button>
 
         <button
@@ -223,7 +226,8 @@ const GameListItem = React.memo(({ game, onLaunch, onToggleFavorite, onConfigure
       </div>
     </div>
   </div>
-));
+  );
+});
 const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode }) => {
   const { t } = useTranslation();
   const {
@@ -1265,7 +1269,7 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode }) => {
             onMouseLeave={(e) => e.target.style.background = 'none'}
             onClick={() => handlePickCover(contextMenu.game)}
           >
-            <ImageIcon size={16} color="#10b981" /> Pick Cover...
+            <ImageIcon size={16} color="#10b981" /> {t('pickCover')}
           </button>
           <button
             style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '10px 16px', background: 'none', border: 'none', color: '#e2e8f0', cursor: 'pointer', fontSize: '14px', textAlign: 'left' }}
@@ -1273,7 +1277,7 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode }) => {
             onMouseLeave={(e) => e.target.style.background = 'none'}
             onClick={() => handleSetManualCover(contextMenu.game)}
           >
-            <ImageIcon size={16} color="#7bbf32" /> Set Cover From File
+            <ImageIcon size={16} color="#7bbf32" /> {t('setCoverFromFile')}
           </button>
           <button
             style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '10px 16px', background: 'none', border: 'none', color: '#e2e8f0', cursor: 'pointer', fontSize: '14px', textAlign: 'left' }}
@@ -1281,7 +1285,7 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode }) => {
             onMouseLeave={(e) => e.target.style.background = 'none'}
             onClick={() => handleResyncCover(contextMenu.game)}
           >
-            <RefreshCw size={16} color="#3b82f6" /> Resync Cover (Auto)
+            <RefreshCw size={16} color="#3b82f6" /> {t('resyncCoverAuto')}
           </button>
           <button
             style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '10px 16px', background: 'none', border: 'none', color: '#e2e8f0', cursor: 'pointer', fontSize: '14px', textAlign: 'left' }}
@@ -1302,7 +1306,7 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode }) => {
               }
             }}
           >
-            <MonitorUp size={16} color="#f59e0b" /> Create Desktop Shortcut
+            <MonitorUp size={16} color="#f59e0b" /> {t('createDesktopShortcut')}
           </button>
           <button
             style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '10px 16px', background: 'none', border: 'none', color: '#e2e8f0', cursor: 'pointer', fontSize: '14px', textAlign: 'left' }}
@@ -1317,7 +1321,7 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode }) => {
               window.electronAPI && window.electronAPI.openPatchesFolder(settings.emulatorPath);
             }}
           >
-            <FolderOpen size={16} color="#7bbf32" /> Open Patches Folder
+            <FolderOpen size={16} color="#7bbf32" /> {t('openPatchesFolder')}
           </button>
           <button
             style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '10px 16px', background: 'none', border: 'none', color: '#e2e8f0', cursor: 'pointer', fontSize: '14px', textAlign: 'left' }}
@@ -1338,7 +1342,7 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode }) => {
               }
             }}
           >
-            <Download size={16} color="#14b8a6" /> Download All Patches
+            <Download size={16} color="#14b8a6" /> {t('downloadAllPatches')}
           </button>
           <button
             style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '10px 16px', background: 'none', border: 'none', color: '#e2e8f0', cursor: 'pointer', fontSize: '14px', textAlign: 'left' }}
@@ -1364,7 +1368,7 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode }) => {
               }
             }}
           >
-            <FilePlus size={16} color="#fbbf24" /> Install Patch...
+            <FilePlus size={16} color="#fbbf24" /> {t('installPatch')}
           </button>
           <button
             style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '10px 16px', background: 'none', border: 'none', color: '#e2e8f0', cursor: 'pointer', fontSize: '14px', textAlign: 'left' }}
@@ -1393,7 +1397,7 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode }) => {
               }
             }}
           >
-            <Gamepad2 size={16} color="#1a2b4c" fill="#e2e8f0" /> Add to Steam
+            <Gamepad2 size={16} color="#1a2b4c" fill="#e2e8f0" /> {t('addToSteam')}
           </button>
           <div style={{ height: '1px', background: 'rgba(139,92,246,0.15)', margin: '4px 0' }} />
           <button
@@ -1410,7 +1414,7 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode }) => {
               setSelectedGameForPatches(menuGame);
             }}
           >
-            <Zap size={16} color="#eab308" /> Configure Patches
+            <Zap size={16} color="#eab308" /> {t('configurePatches')}
           </button>
           <button
             style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '10px 16px', background: 'none', border: 'none', color: '#e2e8f0', cursor: 'pointer', fontSize: '14px', textAlign: 'left' }}
@@ -1418,7 +1422,7 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode }) => {
             onMouseLeave={(e) => e.target.style.background = 'none'}
             onClick={() => { setContextMenu({ visible: false, x: 0, y: 0, game: null }); onGameSelect(contextMenu.game); onNavigate('config'); }}
           >
-            <Settings size={16} color="#10b981" /> Game Properties
+            <Settings size={16} color="#10b981" /> {t('gameProperties')}
           </button>
           <button
             style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '10px 16px', background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '14px', textAlign: 'left' }}
@@ -1429,7 +1433,7 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode }) => {
               if (window.confirm(`Remove "${contextMenu.game.name}" from your library?`)) removeGame(contextMenu.game.id);
             }}
           >
-            <Trash2 size={16} color="#ef4444" /> Remove Game
+            <Trash2 size={16} color="#ef4444" /> {t('removeGame')}
           </button>
         </div>,
         document.body
@@ -1446,7 +1450,7 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode }) => {
           {t('gameLibrary')}
         </h1>
         <p style={{ color: '#94a3b8', fontSize: '16px' }}>
-          Manage your game collection and launch games with ease
+          {t('gameLibrarySubtitle')}
         </p>
       </div>
 
@@ -1482,7 +1486,7 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode }) => {
               onChange={(e) => setFilterGenre(e.target.value)}
               style={{ minWidth: '140px', width: 'auto', padding: '10px 16px' }}
             >
-              <option value="all">All Genres</option>
+              <option value="all">{t('allGenres')}</option>
               {genres.map(genre => (
                 <option key={genre} value={genre}>{genre}</option>
               ))}
@@ -1494,10 +1498,10 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode }) => {
               onChange={(e) => setSortBy(e.target.value)}
               style={{ minWidth: '140px', width: 'auto', padding: '10px 16px' }}
             >
-              <option value="name">Sort by Name</option>
-              <option value="genre">Sort by Genre</option>
-              <option value="rating">Sort by Rating</option>
-              <option value="lastPlayed">Sort by Last Played</option>
+              <option value="name">{t('sortByName')}</option>
+              <option value="genre">{t('sortByGenre')}</option>
+              <option value="rating">{t('sortByRating')}</option>
+              <option value="lastPlayed">{t('sortByLastPlayed')}</option>
             </select>
           </div>
 
@@ -1506,30 +1510,30 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode }) => {
             <div className="library-toolbar">
               <div className="library-toolbar-group" role="group" aria-label="Library actions">
                 <button type="button" className="btn-toolbar btn-toolbar--accent" onClick={handleAddGame}>
-                  <Plus size={15} strokeWidth={2.5} /> Add Games
+                  <Plus size={15} strokeWidth={2.5} /> {t('addGames')}
                 </button>
                 <button type="button" className="btn-toolbar" onClick={handleScanDirectory} disabled={isScanning}>
-                  <FolderOpen size={15} /> {isScanning ? 'Scanning…' : 'Scan Directory'}
+                  <FolderOpen size={15} /> {isScanning ? t('scanning') : t('scanDirectory')}
                 </button>
               </div>
-              <span className="library-toolbar-label">Covers</span>
+              <span className="library-toolbar-label">{t('coversLabel')}</span>
               <div className="library-toolbar-group" role="group" aria-label="Cover sync">
                 <button type="button" className="btn-toolbar" onClick={syncAllCovers} disabled={isScanning}>
-                  <Globe size={15} /> {isScanning ? 'Syncing…' : 'Sync All'}
+                  <Globe size={15} /> {isScanning ? t('syncing') : t('syncAll')}
                 </button>
                 <button type="button" className="btn-toolbar" onClick={syncMissingCovers} disabled={isScanning}>
-                  <Globe size={15} /> Sync Missing
+                  <Globe size={15} /> {t('syncMissing')}
                 </button>
                 <button type="button" className="btn-toolbar btn-toolbar--caution" onClick={handleResetWrongCovers} disabled={isScanning}>
-                  <RefreshCw size={15} /> Fix Wrong
+                  <RefreshCw size={15} /> {t('fixWrongCovers')}
                 </button>
                 <button type="button" className="btn-toolbar" onClick={handleClearCoverCache} disabled={isScanning} title="Delete downloaded cover images and re-fetch">
-                  <Eraser size={15} /> Clear cache
+                  <Eraser size={15} /> {t('clearCache')}
                 </button>
               </div>
               {onEnterConsoleMode && (
                 <button type="button" className="btn-toolbar btn-toolbar--console" onClick={onEnterConsoleMode}>
-                  <Maximize2 size={15} /> Console Mode
+                  <Maximize2 size={15} /> {t('consoleMode')}
                 </button>
               )}
             </div>
@@ -1537,7 +1541,7 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode }) => {
             <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
               {viewMode === 'grid' && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '120px' }}>
-                  <span style={{ fontSize: '11px', color: '#94a3b8', whiteSpace: 'nowrap' }}>Card Size:</span>
+                  <span style={{ fontSize: '11px', color: '#94a3b8', whiteSpace: 'nowrap' }}>{t('cardSize')}:</span>
                   <input
                     type="range"
                     min="80"
@@ -1562,7 +1566,7 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode }) => {
                   className={`view-toggle-btn${viewMode === 'grid' ? ' is-active' : ''}`}
                   onClick={() => setViewMode('grid')}
                   aria-pressed={viewMode === 'grid'}
-                  title="Grid view"
+                  title={t('gridView')}
                 >
                   <Grid size={16} />
                 </button>
@@ -1571,7 +1575,7 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode }) => {
                   className={`view-toggle-btn${viewMode === 'list' ? ' is-active' : ''}`}
                   onClick={() => setViewMode('list')}
                   aria-pressed={viewMode === 'list'}
-                  title="List view"
+                  title={t('listView')}
                 >
                   <List size={16} />
                 </button>
@@ -1621,12 +1625,12 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode }) => {
         <div className="card" style={{ textAlign: 'center', padding: '48px 24px' }}>
           <Gamepad2 size={64} style={{ color: '#64748b', marginBottom: '16px' }} />
           <h3 style={{ color: '#94a3b8', marginBottom: '8px' }}>
-            {searchTerm || filterGenre !== 'all' ? 'No Games Found' : 'No Games in Library'}
+            {searchTerm || filterGenre !== 'all' ? t('noGamesFound') : t('noGamesInLibrary')}
           </h3>
           <p style={{ color: '#64748b', fontSize: '14px', marginBottom: '24px' }}>
             {searchTerm || filterGenre !== 'all'
-              ? 'Try adjusting your search or filter criteria'
-              : 'Add games to your library to get started'
+              ? t('noGamesFilteredHint')
+              : t('noGamesEmptyHint')
             }
           </p>
           {!searchTerm && filterGenre === 'all' && (
@@ -1635,7 +1639,7 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode }) => {
               onClick={handleAddGame}
             >
               <Plus size={16} />
-              Add Your First Game
+              {t('addYourFirstGame')}
             </button>
           )}
         </div>
@@ -1659,29 +1663,29 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode }) => {
             <div className="card-header">
               <h3 className="card-title">
                 <Plus size={24} />
-                Add New Game
+                {t('addNewGame')}
               </h3>
             </div>
 
             <div className="form-group">
-              <label className="form-label">Game Name</label>
+              <label className="form-label">{t('gameName')}</label>
               <input
                 type="text"
                 className="form-input"
                 value={newGame.name}
                 onChange={(e) => setNewGame({ ...newGame, name: e.target.value })}
-                placeholder="Enter game name..."
+                placeholder={t('gameNamePlaceholder')}
               />
             </div>
 
             <div className="form-group">
-              <label className="form-label">Genre</label>
+              <label className="form-label">{t('genre')}</label>
               <select
                 className="form-select"
                 value={newGame.genre}
                 onChange={(e) => setNewGame({ ...newGame, genre: e.target.value })}
               >
-                <option value="">Select genre...</option>
+                <option value="">{t('selectGenrePlaceholder')}</option>
                 {genres.map(genre => (
                   <option key={genre} value={genre}>{genre}</option>
                 ))}
@@ -1689,7 +1693,7 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode }) => {
             </div>
 
             <div className="form-group">
-              <label className="form-label">Rating (1-5)</label>
+              <label className="form-label">{t('rating')}</label>
               <input
                 type="number"
                 className="form-input"
@@ -1701,24 +1705,24 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode }) => {
             </div>
 
             <div className="form-group">
-              <label className="form-label">Cover Image URL</label>
+              <label className="form-label">{t('coverImageUrl')}</label>
               <input
                 type="url"
                 className="form-input"
                 value={newGame.cover}
                 onChange={(e) => setNewGame({ ...newGame, cover: e.target.value })}
-                placeholder="Cover image URL (auto-fetched if available)..."
+                placeholder={t('coverUrlPlaceholder')}
               />
             </div>
 
             <div className="form-group">
-              <label className="form-label">Description</label>
+              <label className="form-label">{t('description')}</label>
               <textarea
                 className="form-input"
                 rows="3"
                 value={newGame.description}
                 onChange={(e) => setNewGame({ ...newGame, description: e.target.value })}
-                placeholder="Optional description..."
+                placeholder={t('descriptionPlaceholder')}
               />
             </div>
 
@@ -1728,7 +1732,7 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode }) => {
                 onClick={() => setShowAddGameModal(false)}
                 style={{ flex: 1 }}
               >
-                Cancel
+                {t('cancel')}
               </button>
               <button
                 className="btn btn-success"
@@ -1736,7 +1740,7 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode }) => {
                 disabled={!newGame.name || !newGame.path}
                 style={{ flex: 1 }}
               >
-                Add Game
+                {t('addGame')}
               </button>
             </div>
           </div>
@@ -1761,7 +1765,7 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode }) => {
             <div className="card-header">
               <h3 className="card-title">
                 <Plus size={24} />
-                Bulk Add Games
+                {t('bulkAddGames')}
               </h3>
             </div>
 
@@ -1789,7 +1793,7 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode }) => {
               </div>
 
               <p style={{ fontSize: '14px', color: '#9CA3AF' }}>
-                Game covers will be automatically fetched for each game.
+                {t('bulkAddCoversHint')}
               </p>
             </div>
 
@@ -1803,7 +1807,7 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode }) => {
                 style={{ flex: 1 }}
                 disabled={isProcessingBulk}
               >
-                Cancel
+                {t('cancel')}
               </button>
               <button
                 className="btn btn-success"
@@ -1811,7 +1815,7 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode }) => {
                 disabled={isProcessingBulk || selectedFiles.length === 0}
                 style={{ flex: 1 }}
               >
-                {isProcessingBulk ? 'Processing...' : `Add ${selectedFiles.length} Games`}
+                {isProcessingBulk ? t('processing') : `${t('addGames')} (${selectedFiles.length})`}
               </button>
             </div>
           </div>

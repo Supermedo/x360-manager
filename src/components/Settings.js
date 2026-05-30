@@ -199,33 +199,33 @@ const Settings = ({ onSwitchProfile }) => {
 
   const renderPaths = () => (
     <div className="settings-section">
-      <h3 className="section-title">Emulator Configuration</h3>
+      <h3 className="section-title">{t('emulatorConfigurationTitle')}</h3>
       <div className="settings-group">
-        <label>Xenia Executable Path</label>
+        <label>{t('xeniaExecutablePath')}</label>
         <div className="input-with-button">
           <input
             type="text"
             value={localSettings.emulatorPath || ''}
             onChange={(e) => handleSettingChange('emulatorPath', e.target.value)}
-            placeholder="Select or paste path to xenia.exe..."
+            placeholder={t('xeniaPathPlaceholder')}
           />
-          <button type="button" className="btn btn-secondary" onClick={handleSelectEmulatorPath}>Browse</button>
+          <button type="button" className="btn btn-secondary" onClick={handleSelectEmulatorPath}>{t('browse')}</button>
         </div>
       </div>
       <div className="settings-group mt-4">
-        <label>Default Games Directory</label>
+        <label>{t('defaultGamesDirectory')}</label>
         <div className="input-with-button">
           <input
             type="text"
             value={localSettings.gamesDirectory || ''}
             onChange={(e) => handleSettingChange('gamesDirectory', e.target.value)}
-            placeholder="Select or paste games folder path..."
+            placeholder={t('gamesDirectoryPlaceholder')}
           />
-          <button type="button" className="btn btn-secondary" onClick={handleSelectGamesDirectory}>Browse</button>
+          <button type="button" className="btn btn-secondary" onClick={handleSelectGamesDirectory}>{t('browse')}</button>
         </div>
         {localSettings.gamesDirectory && (
           <button className="btn btn-primary mt-2" onClick={handleScanGames} disabled={isScanning}>
-            <Search size={16} /> {isScanning ? 'Scanning...' : 'Scan Directory For Games'}
+            <Search size={16} /> {isScanning ? t('scanning') : t('scanDirectoryForGames')}
           </button>
         )}
       </div>
@@ -234,35 +234,35 @@ const Settings = ({ onSwitchProfile }) => {
 
   const renderGraphics = () => (
     <div className="settings-section">
-      <h3 className="section-title">Graphics Settings</h3>
+      <h3 className="section-title">{t('graphicsSettingsTitle')}</h3>
       <div className="grid grid-2 gap-4">
         <div className="settings-group">
-          <label>Renderer (GPU API)</label>
+          <label>{t('rendererGpuApi')}</label>
           <select value={localSettings.defaultRenderer || 'auto'} onChange={(e) => handleSettingChange('defaultRenderer', e.target.value)}>
-            <option value="auto">Auto (Recommended)</option>
-            <option value="d3d12">Direct3D 12</option>
-            <option value="vulkan">Vulkan</option>
+            <option value="auto">{t('rendererAutoRecommended')}</option>
+            <option value="d3d12">{t('rendererD3d12')}</option>
+            <option value="vulkan">{t('rendererVulkan')}</option>
           </select>
         </div>
         <div className="settings-group">
-          <label>Resolution Scale</label>
+          <label>{t('resolutionScale')}</label>
           <select value={localSettings.defaultResolutionScale || '1'} onChange={(e) => handleSettingChange('defaultResolutionScale', e.target.value)}>
-            <option value="1">1x (Native 720p)</option>
-            <option value="2">2x (1440p)</option>
-            <option value="3">3x (4K 2160p)</option>
+            <option value="1">{t('resolution1x')}</option>
+            <option value="2">{t('resolution2x')}</option>
+            <option value="3">{t('resolution3x')}</option>
           </select>
         </div>
         <label className="checkbox-label">
           <input type="checkbox" checked={localSettings.defaultFullscreen || false} onChange={e => handleSettingChange('defaultFullscreen', e.target.checked)} />
-          Launch games in fullscreen (Xenia)
+          {t('launchGamesFullscreen')}
         </label>
         <label className="checkbox-label">
           <input type="checkbox" checked={localSettings.defaultVsync !== false} onChange={e => handleSettingChange('defaultVsync', e.target.checked)} />
-          Enable VSync
+          {t('enableVsync')}
         </label>
         <label className="checkbox-label">
           <input type="checkbox" checked={localSettings.showFPS || false} onChange={e => handleSettingChange('showFPS', e.target.checked)} />
-          Show In-Game FPS Counter (press F3 in-game to toggle overlay)
+          {t('showInGameFpsCounter')}
         </label>
         <label className="checkbox-label">
           <input
@@ -274,7 +274,7 @@ const Settings = ({ onSwitchProfile }) => {
               await setFullscreen(enabled);
             }}
           />
-          Fullscreen app window (F11 or title bar button)
+          {t('fullscreenAppWindow')}
         </label>
       </div>
     </div>
@@ -335,12 +335,12 @@ const Settings = ({ onSwitchProfile }) => {
 
   const renderAudio = () => (
     <div className="settings-section">
-      <h3 className="section-title">Audio Settings</h3>
+      <h3 className="section-title">{t('audioSettingsTitle')}</h3>
       <div className="grid grid-2 gap-4">
         <div className="settings-group">
-          <label>Audio Backend</label>
+          <label>{t('audioBackend')}</label>
           <select value={localSettings.defaultAudioDriver || 'auto'} onChange={(e) => handleSettingChange('defaultAudioDriver', e.target.value)}>
-            <option value="auto">Auto (XAudio2)</option>
+            <option value="auto">{t('audioBackendAuto')}</option>
           </select>
         </div>
       </div>
@@ -349,26 +349,26 @@ const Settings = ({ onSwitchProfile }) => {
 
   const renderAdvanced = () => (
     <div className="settings-section">
-      <h3 className="section-title">Advanced Hacks</h3>
+      <h3 className="section-title">{t('advancedHacksTitle')}</h3>
       <div className="grid grid-2 gap-4">
         <label className="checkbox-label">
           <input type="checkbox" checked={localSettings.textureCache || false} onChange={e => handleSettingChange('textureCache', e.target.checked)} />
-          Mount Cache (Fixes textures in some games)
+          {t('mountCache')}
         </label>
         <label className="checkbox-label">
           <input type="checkbox" checked={localSettings.gpuReadback || false} onChange={e => handleSettingChange('gpuReadback', e.target.checked)} />
-          D3D12 Readback Resolve (Fixes physics/black screens)
+          {t('d3d12ReadbackResolve')}
         </label>
       </div>
 
-      <h3 className="section-title mt-6">Cover cache</h3>
+      <h3 className="section-title mt-6">{t('coverCacheTitle')}</h3>
       <p style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '12px' }}>
-        Downloaded box art is stored locally. Clear the cache if covers look broken or out of date.
+        {t('coverCacheDescription')}
       </p>
       <p style={{ color: '#64748b', fontSize: '13px', marginBottom: '12px' }}>
         {coverCacheStats
           ? `${coverCacheStats.fileCount} file(s), ${formatBytes(coverCacheStats.bytes)}`
-          : 'Loading cache info…'}
+          : t('loadingCacheInfo')}
       </p>
       <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '24px' }}>
         <button
@@ -377,7 +377,7 @@ const Settings = ({ onSwitchProfile }) => {
           onClick={loadCoverCacheStats}
           disabled={isClearingCoverCache}
         >
-          <RefreshCw size={16} /> Refresh
+          <RefreshCw size={16} /> {t('refresh')}
         </button>
         <button
           type="button"
@@ -385,13 +385,13 @@ const Settings = ({ onSwitchProfile }) => {
           onClick={handleClearCoverCache}
           disabled={isClearingCoverCache || !(coverCacheStats?.fileCount > 0)}
         >
-          <Eraser size={16} /> {isClearingCoverCache ? 'Clearing…' : 'Clear cover cache'}
+          <Eraser size={16} /> {isClearingCoverCache ? t('clearing') : t('clearCoverCache')}
         </button>
       </div>
 
-      <h3 className="section-title mt-6">Game Patches</h3>
+      <h3 className="section-title mt-6">{t('gamePatchesTitle')}</h3>
       <p style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '15px' }}>
-        Download the community game patches repository for Xenia Canary. Patches can be toggled by opening their TOML files.
+        {t('gamePatchesDescription')}
       </p>
       <div style={{ display: 'flex', gap: '10px' }}>
         <button
@@ -399,14 +399,14 @@ const Settings = ({ onSwitchProfile }) => {
           onClick={handleDownloadPatches}
           disabled={isDownloadingPatches || !localSettings.emulatorPath}
         >
-          <Download size={16} /> {isDownloadingPatches ? 'Downloading...' : 'Download Latest Patches'}
+          <Download size={16} /> {isDownloadingPatches ? t('downloading') : t('downloadLatestPatches')}
         </button>
         <button
           className="btn btn-secondary"
           onClick={handleOpenPatchesFolder}
           disabled={!localSettings.emulatorPath}
         >
-          <FolderOpen size={16} /> Open Patches Folder
+          <FolderOpen size={16} /> {t('openPatchesFolder')}
         </button>
       </div>
     </div>
@@ -414,8 +414,8 @@ const Settings = ({ onSwitchProfile }) => {
 
   const renderDanger = () => (
     <div className="settings-section border-danger">
-      <h3 className="section-title text-danger">Reset Everything</h3>
-      <p style={{ marginBottom: "15px" }}>This will remove your current settings and return to defaults.</p>
+      <h3 className="section-title text-danger">{t('resetEverythingTitle')}</h3>
+      <p style={{ marginBottom: "15px" }}>{t('resetEverythingDescription')}</p>
       <button
         className="btn btn-secondary"
         style={{ marginRight: 12 }}
@@ -424,12 +424,12 @@ const Settings = ({ onSwitchProfile }) => {
           window.location.reload();
         }}
       >
-        Run setup wizard again
+        {t('runSetupWizardAgain')}
       </button>
       <button className="btn btn-danger" onClick={() => {
         resetSettings();
         setLocalSettings({});
-      }}>Reset Configuration</button>
+      }}>{t('resetConfiguration')}</button>
     </div>
   );
 

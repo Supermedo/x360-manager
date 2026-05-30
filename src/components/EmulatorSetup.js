@@ -13,10 +13,12 @@ import {
 } from 'lucide-react';
 import { SettingsContext } from '../context/SettingsContext';
 import { GameContext } from '../context/GameContext';
+import useTranslation from '../hooks/useTranslation';
 
 const EmulatorSetup = ({ onNavigate }) => {
   const { settings, updateSettings } = useContext(SettingsContext);
   const { scanGamesDirectory, updateGame } = useContext(GameContext);
+  const { t } = useTranslation();
   const xbox360DBRef = React.useRef([]);
   const [setupStep, setSetupStep] = useState(1);
   const [downloadProgress, setDownloadProgress] = useState(0);
@@ -310,10 +312,10 @@ const EmulatorSetup = ({ onNavigate }) => {
         <div className="card-header">
           <h3 className="card-title">
             <Download size={24} />
-            Download Xenia Emulator
+            {t('downloadXeniaTitle')}
           </h3>
           <div className="card-subtitle">
-            Choose a version to download and install
+            {t('downloadXeniaSubtitle')}
           </div>
         </div>
 
@@ -327,7 +329,7 @@ const EmulatorSetup = ({ onNavigate }) => {
                   <h4 style={{ color: '#e2e8f0', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                     {version.name}
                     {version.recommended && (
-                      <span className="status status-success">Recommended</span>
+                      <span className="status status-success">{t('recommended')}</span>
                     )}
                   </h4>
                   <p style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '8px' }}>
@@ -346,7 +348,7 @@ const EmulatorSetup = ({ onNavigate }) => {
                   disabled={isDownloading}
                 >
                   <Download size={16} />
-                  Download
+                  {t('download')}
                 </button>
               </div>
             </div>
@@ -372,7 +374,7 @@ const EmulatorSetup = ({ onNavigate }) => {
           <div style={{ padding: '16px', background: 'rgba(59, 130, 246, 0.1)', borderRadius: '12px', border: '1px solid rgba(59, 130, 246, 0.2)', display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
               <ExternalLink size={16} color="#3b82f6" />
-              <span style={{ color: '#3b82f6', fontWeight: '600' }}>Official Xenia Downloads</span>
+              <span style={{ color: '#3b82f6', fontWeight: '600' }}>{t('officialXeniaDownloads')}</span>
             </div>
             <p style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '12px', flex: 1 }}>
               Download directly from the official Xenia website or configure an existing installation.
@@ -384,14 +386,14 @@ const EmulatorSetup = ({ onNavigate }) => {
                 onClick={() => window.electronAPI?.openExternal('https://xenia.jp/download/')}
               >
                 <ExternalLink size={16} />
-                Official Site
+                {t('officialSite')}
               </button>
               <button
                 className="btn btn-secondary"
                 style={{ padding: '8px 16px', fontSize: '13px' }}
                 onClick={() => setSetupStep(2)}
               >
-                Configure Existing
+                {t('configureExisting')}
               </button>
             </div>
           </div>
@@ -399,7 +401,7 @@ const EmulatorSetup = ({ onNavigate }) => {
           <div style={{ padding: '16px', background: 'rgba(245, 158, 11, 0.1)', borderRadius: '12px', border: '1px solid rgba(245, 158, 11, 0.2)', display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
               <Settings size={16} color="#f59e0b" />
-              <span style={{ color: '#f59e0b', fontWeight: '600' }}>Configuration Info</span>
+              <span style={{ color: '#f59e0b', fontWeight: '600' }}>{t('configurationInfo')}</span>
             </div>
             <div style={{ color: '#94a3b8', fontSize: '14px', flex: 1 }}>
               <p style={{ marginBottom: '8px' }}>â€¢ <strong>Xenia Stable:</strong> Config at Documents\Xenia\xenia.config.toml</p>
@@ -418,17 +420,17 @@ const EmulatorSetup = ({ onNavigate }) => {
         <div className="card-header">
           <h3 className="card-title">
             <Settings size={24} />
-            Configure Emulator
+            {t('configureEmulatorTitle')}
           </h3>
           <div className="card-subtitle">
-            Set up emulator path and games directory
+            {t('configureEmulatorSubtitle')}
           </div>
         </div>
 
         <div className="form-group">
           <label className="form-label">
             <Zap size={16} style={{ marginRight: '8px' }} />
-            Emulator Executable Path
+            {t('emulatorExecutablePath')}
           </label>
           <div style={{ display: 'flex', gap: '12px' }}>
             <input
@@ -436,7 +438,7 @@ const EmulatorSetup = ({ onNavigate }) => {
               className="form-input"
               value={emulatorPath}
               onChange={(e) => setEmulatorPath(e.target.value)}
-              placeholder="Select xenia.exe file..."
+              placeholder={t('xeniaExePlaceholder')}
               style={{ flex: 1 }}
             />
             <button
@@ -444,7 +446,7 @@ const EmulatorSetup = ({ onNavigate }) => {
               onClick={handleSelectEmulator}
             >
               <FolderOpen size={16} />
-              Browse
+              {t('browse')}
             </button>
           </div>
           <div style={{ color: '#94a3b8', fontSize: '12px', marginTop: '4px' }}>
@@ -455,7 +457,7 @@ const EmulatorSetup = ({ onNavigate }) => {
         <div className="form-group">
           <label className="form-label">
             <HardDrive size={16} style={{ marginRight: '8px' }} />
-            Games Directory
+            {t('defaultGamesDirectory')}
           </label>
           <div style={{ display: 'flex', gap: '12px' }}>
             <input
@@ -463,7 +465,7 @@ const EmulatorSetup = ({ onNavigate }) => {
               className="form-input"
               value={gamesDirectory}
               onChange={(e) => setGamesDirectory(e.target.value)}
-              placeholder="Select games folder..."
+              placeholder={t('gamesFolderPlaceholder')}
               style={{ flex: 1 }}
             />
             <button
@@ -471,7 +473,7 @@ const EmulatorSetup = ({ onNavigate }) => {
               onClick={handleSelectGamesDirectory}
             >
               <FolderOpen size={16} />
-              Browse
+              {t('browse')}
             </button>
           </div>
           <div style={{ color: '#94a3b8', fontSize: '12px', marginTop: '4px' }}>
@@ -484,7 +486,7 @@ const EmulatorSetup = ({ onNavigate }) => {
             className="btn btn-secondary"
             onClick={() => setSetupStep(1)}
           >
-            Back
+            {t('back')}
           </button>
           <button
             className="btn btn-success"
@@ -493,7 +495,7 @@ const EmulatorSetup = ({ onNavigate }) => {
             style={{ flex: 1 }}
           >
             <CheckCircle size={16} />
-            Complete Setup
+            {t('completeSetup')}
           </button>
         </div>
       </div>
@@ -503,25 +505,25 @@ const EmulatorSetup = ({ onNavigate }) => {
         <div className="card-header">
           <h3 className="card-title">
             <Monitor size={24} />
-            Configuration Preview
+            {t('configurationPreview')}
           </h3>
         </div>
 
         <div className="grid grid-2">
           <div>
             <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '4px' }}>
-              Emulator Status
+              {t('emulatorStatus')}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               {emulatorPath ? (
                 <>
                   <CheckCircle size={16} color="#10b981" />
-                  <span style={{ color: '#10b981' }}>Ready</span>
+                  <span style={{ color: '#10b981' }}>{t('statusReady')}</span>
                 </>
               ) : (
                 <>
                   <AlertCircle size={16} color="#f59e0b" />
-                  <span style={{ color: '#f59e0b' }}>Not Configured</span>
+                  <span style={{ color: '#f59e0b' }}>{t('statusNotConfigured')}</span>
                 </>
               )}
             </div>
@@ -529,18 +531,18 @@ const EmulatorSetup = ({ onNavigate }) => {
 
           <div>
             <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '4px' }}>
-              Games Directory
+              {t('defaultGamesDirectory')}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               {gamesDirectory ? (
                 <>
                   <CheckCircle size={16} color="#10b981" />
-                  <span style={{ color: '#10b981' }}>Set</span>
+                  <span style={{ color: '#10b981' }}>{t('statusSet')}</span>
                 </>
               ) : (
                 <>
                   <AlertCircle size={16} color="#f59e0b" />
-                  <span style={{ color: '#f59e0b' }}>Not Set</span>
+                  <span style={{ color: '#f59e0b' }}>{t('notSet')}</span>
                 </>
               )}
             </div>
@@ -561,10 +563,10 @@ const EmulatorSetup = ({ onNavigate }) => {
           WebkitBackgroundClip: 'text',
           WebkitTextFillColor: 'transparent'
         }}>
-          Emulator Setup
+          {t('emulatorSetupTitle')}
         </h1>
         <p style={{ color: '#94a3b8', fontSize: '16px' }}>
-          Download and configure Xenia emulator for optimal gaming experience
+          {t('emulatorSetupSubtitle')}
         </p>
       </div>
 
@@ -590,7 +592,7 @@ const EmulatorSetup = ({ onNavigate }) => {
             }}>
               1
             </div>
-            <span>Download</span>
+            <span>{t('stepDownload')}</span>
           </div>
 
           <div style={{ flex: 1, height: '2px', background: setupStep >= 2 ? '#7bbf32' : 'rgba(100, 116, 139, 0.3)' }} />
@@ -614,7 +616,7 @@ const EmulatorSetup = ({ onNavigate }) => {
             }}>
               2
             </div>
-            <span>Configure</span>
+            <span>{t('stepConfigure')}</span>
           </div>
         </div>
       </div>

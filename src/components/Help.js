@@ -7,40 +7,20 @@ const Help = () => {
 
   const helpSections = [
     {
-      title: 'Getting Started',
-      items: [
-        'Download and install Xenia emulator from the Setup page',
-        'Add your Xbox 360 game files (.iso, .xex) to the library',
-        'Configure emulator settings for optimal performance',
-        'Launch games directly from the library'
-      ]
+      title: t('helpGettingStarted'),
+      items: [t('helpGs1'), t('helpGs2'), t('helpGs3'), t('helpGs4')]
     },
     {
-      title: 'Game Management',
-      items: [
-        'Scan directories to automatically find games',
-        'Add individual games manually',
-        'Organize games by genre and favorites',
-        'View game details and covers'
-      ]
+      title: t('helpGameManagement'),
+      items: [t('helpGm1'), t('helpGm2'), t('helpGm3'), t('helpGm4')]
     },
     {
-      title: 'Emulator Configuration',
-      items: [
-        'Set custom resolution and graphics settings',
-        'Configure audio and input options',
-        'Enable VSync and frame rate limiting',
-        'Adjust compatibility settings per game'
-      ]
+      title: t('helpEmulatorConfiguration'),
+      items: [t('helpEc1'), t('helpEc2'), t('helpEc3'), t('helpEc4')]
     },
     {
-      title: 'Troubleshooting',
-      items: [
-        'Ensure games are in supported formats (.iso, .xex)',
-        'Check emulator path is correctly set',
-        'Verify game files are not corrupted',
-        'Update graphics drivers for better compatibility'
-      ]
+      title: t('helpTroubleshooting'),
+      items: [t('helpTs1'), t('helpTs2'), t('helpTs3'), t('helpTs4')]
     }
   ];
 
@@ -90,7 +70,7 @@ const Help = () => {
 
         <div className="help-sidebar">
           <div className="help-card">
-            <h3>External Resources</h3>
+            <h3>{t('externalResources')}</h3>
             <div className="external-links">
               {externalLinks.map((link, index) => (
                 <a
@@ -113,12 +93,12 @@ const Help = () => {
           </div>
 
           <div className="help-card about-card">
-            <h3>About X360 Manager</h3>
+            <h3>{t('aboutX360Manager')}</h3>
             <div className="about-content">
               <div className="about-info">
-                <p><strong>Version:</strong> 1.5.0</p>
-                <p><strong>Developer:</strong> Mohammed Albarghouthi</p>
-                <p><strong>License:</strong> MIT</p>
+                <p><strong>{t('version')}:</strong> 1.5.0</p>
+                <p><strong>{t('developer')}:</strong> Mohammed Albarghouthi</p>
+                <p><strong>{t('license')}:</strong> MIT</p>
               </div>
 
               <div className="about-description">
@@ -130,7 +110,7 @@ const Help = () => {
               </div>
 
               <div className="contact-info">
-                <h4>Contact & Support</h4>
+                <h4>{t('contactSupport')}</h4>
                 <div className="contact-links">
                   <a href="mailto:mohmmad.pod@gmail.com" className="contact-link">
                     <Mail size={16} />

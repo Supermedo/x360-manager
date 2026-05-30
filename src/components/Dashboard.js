@@ -18,44 +18,46 @@ import { fetchGameCoverDetails } from '../services/coverService';
 import { GameContext } from '../context/GameContext';
 import { SettingsContext } from '../context/SettingsContext';
 import { buildGameLaunchConfig } from '../services/launchConfig';
+import useTranslation from '../hooks/useTranslation';
 
 const Dashboard = ({ onNavigate }) => {
   const { games, recentGames } = useContext(GameContext);
   const { settings } = useContext(SettingsContext);
+  const { t } = useTranslation();
   const [stats, setStats] = useState({
     totalGames: 0,
     recentlyPlayed: 0,
-    emulatorStatus: 'Not Configured'
+    emulatorStatusKey: 'statusNotConfigured'
   });
 
   useEffect(() => {
     setStats({
       totalGames: games.length,
       recentlyPlayed: recentGames.length,
-      emulatorStatus: settings.emulatorPath ? 'Ready' : 'Not Configured'
+      emulatorStatusKey: settings.emulatorPath ? 'statusReady' : 'statusNotConfigured'
     });
   }, [games, recentGames, settings]);
 
   const quickActions = [
     {
-      title: 'Setup Emulator',
-      description: 'Download and configure Xenia emulator',
+      title: t('setupEmulator'),
+      description: t('setupEmulatorDesc'),
       icon: Download,
       action: () => onNavigate('setup'),
       color: '#7bbf32',
       disabled: false
     },
     {
-      title: 'Add Games',
-      description: 'Import games to your library',
+      title: t('addGames'),
+      description: t('addGamesDesc'),
       icon: Library,
       action: () => onNavigate('library'),
       color: '#3b82f6',
       disabled: !settings.emulatorPath
     },
     {
-      title: 'Game Config',
-      description: 'Configure game settings',
+      title: t('gameConfig'),
+      description: t('gameConfigDesc'),
       icon: Settings,
       action: () => onNavigate('config'),
       color: '#10b981',
@@ -63,7 +65,7 @@ const Dashboard = ({ onNavigate }) => {
     }
   ];
 
-  const StatCard = ({ title, value, icon: Icon, status }) => (
+  const StatCard = ({ title, value, icon: Icon, statusKey }) => (
     <div className="card">
       <div className="card-header">
         <div>
@@ -72,9 +74,9 @@ const Dashboard = ({ onNavigate }) => {
             {title}
           </h3>
         </div>
-        {status && (
-          <span className={`status status-${status === 'Ready' ? 'success' : 'warning'}`}>
-            {status}
+        {statusKey && (
+          <span className={`status status-${statusKey === 'statusReady' ? 'success' : 'warning'}`}>
+            {t(statusKey)}
           </span>
         )}
       </div>
@@ -217,7 +219,7 @@ const Dashboard = ({ onNavigate }) => {
           <div className="game-title">{game.name}</div>
           <div className="game-meta">
             <Clock size={12} style={{ marginRight: '4px' }} />
-            Last played: {game.lastPlayed ? new Date(game.lastPlayed).toLocaleDateString() : 'Never'}
+            {t('lastPlayed')} {game.lastPlayed ? new Date(game.lastPlayed).toLocaleDateString() : t('never')}
           </div>
           <div className="game-actions" style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
             <button
@@ -226,7 +228,7 @@ const Dashboard = ({ onNavigate }) => {
               style={{ flex: 1 }}
             >
               <Play size={14} style={{ marginRight: '4px' }} />
-              Play
+              {t('play')}
             </button>
             <button
               className={`btn btn-sm ${game.isFavorite ? 'btn-warning' : 'btn-secondary'}`}
@@ -259,30 +261,30 @@ const Dashboard = ({ onNavigate }) => {
           WebkitBackgroundClip: 'text',
           WebkitTextFillColor: 'transparent'
         }}>
-          Welcome to X360 Manager
+          {t('dashboardWelcomeTitle')}
         </h1>
         <p style={{ color: '#94a3b8', fontSize: '16px' }}>
-          Your complete emulation management solution
+          {t('dashboardWelcomeSubtitle')}
         </p>
       </div>
 
       {/* Stats Overview */}
       <div className="grid grid-3" style={{ marginBottom: '32px' }}>
         <StatCard
-          title="Total Games"
+          title={t('totalGames')}
           value={stats.totalGames}
           icon={Library}
         />
         <StatCard
-          title="Recently Played"
+          title={t('recentlyPlayed')}
           value={stats.recentlyPlayed}
           icon={Clock}
         />
         <StatCard
-          title="Emulator Status"
-          value={stats.emulatorStatus}
+          title={t('emulatorStatus')}
+          value={t(stats.emulatorStatusKey)}
           icon={Zap}
-          status={stats.emulatorStatus}
+          statusKey={stats.emulatorStatusKey}
         />
       </div>
 
@@ -295,7 +297,7 @@ const Dashboard = ({ onNavigate }) => {
             marginBottom: '24px',
             color: '#e2e8f0'
           }}>
-            Quick Actions
+            {t('quickActions')}
           </h2>
           <div className="grid" style={{ gap: '16px' }}>
             {quickActions.map((action, index) => (
@@ -312,7 +314,7 @@ const Dashboard = ({ onNavigate }) => {
             marginBottom: '24px',
             color: '#e2e8f0'
           }}>
-            Recent Games
+            {t('recentGames')}
           </h2>
           {recentGames.length > 0 ? (
             <div>
@@ -325,23 +327,23 @@ const Dashboard = ({ onNavigate }) => {
                   onClick={() => onNavigate('library')}
                   style={{ width: '100%', marginTop: '16px' }}
                 >
-                  View All Games
+                  {t('viewAllGames')}
                 </button>
               )}
             </div>
           ) : (
             <div className="card" style={{ textAlign: 'center', padding: '48px 24px' }}>
               <Gamepad2 size={48} style={{ color: '#64748b', marginBottom: '16px' }} />
-              <h3 style={{ color: '#94a3b8', marginBottom: '8px' }}>No Recent Games</h3>
+              <h3 style={{ color: '#94a3b8', marginBottom: '8px' }}>{t('noRecentGames')}</h3>
               <p style={{ color: '#64748b', fontSize: '14px', marginBottom: '24px' }}>
-                Add games to your library to see them here
+                {t('noRecentGamesHint')}
               </p>
               <button
                 className="btn btn-primary"
                 onClick={() => onNavigate('library')}
               >
                 <Library size={16} />
-                Go to Library
+                {t('goToLibrary')}
               </button>
             </div>
           )}
@@ -353,32 +355,32 @@ const Dashboard = ({ onNavigate }) => {
         <div className="card-header">
           <h3 className="card-title">
             <HardDrive size={24} />
-            System Status
+            {t('systemStatus')}
           </h3>
         </div>
         <div className="grid grid-3">
           <div>
             <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '4px' }}>
-              Emulator Path
+              {t('emulatorPath')}
             </div>
             <div style={{ color: '#e2e8f0', fontSize: '16px', fontWeight: '500' }}>
-              {settings.emulatorPath || 'Not configured'}
+              {settings.emulatorPath || t('notConfigured')}
             </div>
           </div>
           <div>
             <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '4px' }}>
-              Games Directory
+              {t('gamesDirectory')}
             </div>
             <div style={{ color: '#e2e8f0', fontSize: '16px', fontWeight: '500' }}>
-              {settings.gamesDirectory || 'Not set'}
+              {settings.gamesDirectory || t('notSet')}
             </div>
           </div>
           <div>
             <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '4px' }}>
-              Default Renderer
+              {t('rendererGpuApi')}
             </div>
             <div style={{ color: '#e2e8f0', fontSize: '16px', fontWeight: '500' }}>
-              {settings.defaultRenderer || 'Auto'}
+              {settings.defaultRenderer || t('auto')}
             </div>
           </div>
         </div>

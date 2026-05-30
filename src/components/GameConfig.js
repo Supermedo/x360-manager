@@ -749,16 +749,16 @@ const GameConfig = ({ game, onNavigate }) => {
       <div className="fade-in">
         <div className="card" style={{ textAlign: 'center', padding: '48px 24px' }}>
           <Settings size={64} style={{ color: '#64748b', marginBottom: '16px' }} />
-          <h3 style={{ color: '#94a3b8', marginBottom: '8px' }}>No Game Selected</h3>
+          <h3 style={{ color: '#94a3b8', marginBottom: '8px' }}>{t('noGameSelected')}</h3>
           <p style={{ color: '#64748b', fontSize: '14px', marginBottom: '24px' }}>
-            Select a game from your library to configure its settings
+            {t('noGameSelectedHint')}
           </p>
           <button
             className="btn btn-primary"
             onClick={() => onNavigate('library')}
             style={{ padding: '12px 24px', fontSize: '16px', fontWeight: '600' }}
           >
-            Go to Library
+            {t('goToLibrary')}
           </button>
         </div>
       </div>
@@ -791,17 +791,17 @@ const GameConfig = ({ game, onNavigate }) => {
           {t('gameConfiguration')}
         </h1>
         <p style={{ color: '#94a3b8', fontSize: '16px' }}>
-          Configure settings for <strong style={{ color: '#e2e8f0' }}>{game.name}</strong>
+          {t('configureSettingsFor')} <strong style={{ color: '#e2e8f0' }}>{game.name}</strong>
         </p>
         {supportedLanguages.length > 0 && (
           <p style={{ color: '#64748b', fontSize: '13px', marginTop: '6px' }}>
-            Likely languages: {formatSupportedLanguageList(supportedLanguages)}
+            {t('likelyLanguages')} {formatSupportedLanguageList(supportedLanguages)}
           </p>
         )}
       </div>
 
       <div className="card game-config-preset-card" style={{ marginBottom: '24px', padding: '16px' }}>
-        <h3 className="card-title" style={{ marginBottom: '12px', fontSize: '16px' }}>Graphics preset (optional)</h3>
+        <h3 className="card-title" style={{ marginBottom: '12px', fontSize: '16px' }}>{t('graphicsPresetOptional')}</h3>
         <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
           <select
             className="form-select"
@@ -809,7 +809,7 @@ const GameConfig = ({ game, onNavigate }) => {
             onChange={(e) => handleProfileSelect(e.target.value)}
             style={{ minWidth: '220px', width: 'auto' }}
           >
-            <option value={CUSTOM_PROFILE_ID}>Custom — my own settings only</option>
+            <option value={CUSTOM_PROFILE_ID}>{t('customProfileOnly')}</option>
             {profiles.map((p) => (
               <option key={p.id} value={p.id}>{p.name}{p.builtin ? '' : ' (custom)'}</option>
             ))}
@@ -820,7 +820,7 @@ const GameConfig = ({ game, onNavigate }) => {
             onClick={handleLoadPresetValues}
             disabled={!profileId || profileId === CUSTOM_PROFILE_ID}
           >
-            Load preset values
+            {t('loadPresetValues')}
           </button>
           {game.titleId && (
             <span style={{ color: '#94a3b8', fontSize: '12px' }}>
@@ -847,7 +847,7 @@ const GameConfig = ({ game, onNavigate }) => {
         <div className="card-header">
           <h3 className="card-title">
             <Info size={24} />
-            Game Information
+            {t('gameInformation')}
           </h3>
         </div>
         <div className="card-body">
@@ -963,7 +963,7 @@ const GameConfig = ({ game, onNavigate }) => {
           <div className="card-header">
             <h3 className="card-title">
               <Monitor size={24} />
-              Display Settings
+              {t('displaySettings')}
             </h3>
           </div>
 
@@ -1023,7 +1023,7 @@ const GameConfig = ({ game, onNavigate }) => {
           <div className="card-header">
             <h3 className="card-title">
               <Eye size={24} />
-              Graphics Settings
+              {t('graphicsSettingsTitle')}
             </h3>
           </div>
           <p style={{ color: '#64748b', fontSize: '12px', marginBottom: '12px' }}>
@@ -1075,7 +1075,7 @@ const GameConfig = ({ game, onNavigate }) => {
           <div className="card-header">
             <h3 className="card-title">
               <Volume2 size={24} />
-              Audio Settings
+              {t('audioSettingsTitle')}
             </h3>
           </div>
           <p style={{ color: '#64748b', fontSize: '12px', marginBottom: '12px' }}>
@@ -1114,7 +1114,7 @@ const GameConfig = ({ game, onNavigate }) => {
           <div className="card-header">
             <h3 className="card-title">
               <Sliders size={24} />
-              Advanced Settings
+              {t('advancedHacksTitle')}
             </h3>
           </div>
 
@@ -1151,7 +1151,7 @@ const GameConfig = ({ game, onNavigate }) => {
           <div className="card-header">
             <h3 className="card-title">
               <Monitor size={24} />
-              Performance Settings
+              {t('performanceSettings')}
             </h3>
           </div>
           <p style={{ color: '#64748b', fontSize: '12px', marginBottom: '12px' }}>
@@ -1226,7 +1226,7 @@ const GameConfig = ({ game, onNavigate }) => {
           <div className="card-header">
             <h3 className="card-title">
               <Settings size={24} />
-              Compatibility Settings
+              {t('compatibilitySettings')}
             </h3>
           </div>
 
@@ -1270,7 +1270,7 @@ const GameConfig = ({ game, onNavigate }) => {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Language Override</label>
+            <label className="form-label">{t('languageOverride')}</label>
             {languagesLoading ? (
               <p style={{ color: '#64748b', fontSize: '12px', marginBottom: '8px' }}>Detecting supported languages…</p>
             ) : supportedLanguages.length > 0 ? (
@@ -1322,7 +1322,7 @@ const GameConfig = ({ game, onNavigate }) => {
           <div className="card-header">
             <h3 className="card-title">
               <Gamepad2 size={24} />
-              Input Settings
+              {t('inputSettings')}
             </h3>
           </div>
           <p style={{ color: '#64748b', fontSize: '12px', marginBottom: '12px', lineHeight: 1.5 }}>
@@ -1440,7 +1440,7 @@ const GameConfig = ({ game, onNavigate }) => {
           <div className="card-header">
             <h3 className="card-title">
               <Info size={24} />
-              Debug Settings
+              {t('debugSettings')}
             </h3>
           </div>
 
@@ -1516,7 +1516,7 @@ const GameConfig = ({ game, onNavigate }) => {
           <div className="card-header">
             <h3 className="card-title">
               <Package size={24} />
-              DLC Management
+              {t('dlcManagement')}
             </h3>
           </div>
 
@@ -1608,7 +1608,7 @@ const GameConfig = ({ game, onNavigate }) => {
         <div className="card-header">
           <h3 className="card-title">
             <HardDrive size={24} />
-            Save Game Management
+            {t('saveGameManagement')}
           </h3>
         </div>
         <div className="card-body">
@@ -1773,7 +1773,7 @@ const GameConfig = ({ game, onNavigate }) => {
             style={{ padding: '12px 16px', fontSize: '14px', minWidth: '140px' }}
           >
             <RotateCcw size={18} />
-            Reset to Defaults
+            {t('resetToDefaults')}
           </button>
         </div>
 

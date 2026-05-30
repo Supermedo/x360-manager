@@ -1,9 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Download, RefreshCw, X } from 'lucide-react';
+import useTranslation from '../hooks/useTranslation';
 
 const RELEASES_URL = 'https://github.com/Supermedo/x360-manager/releases';
 
 const UpdateNotifier = ({ checkOnMount = true }) => {
+  const { t } = useTranslation();
   const [currentVersion, setCurrentVersion] = useState('');
   const [status, setStatus] = useState('idle');
   const [availableVersion, setAvailableVersion] = useState('');
@@ -141,7 +143,7 @@ const UpdateNotifier = ({ checkOnMount = true }) => {
       <div className="update-notifier__content">
         {status === 'available' && (
           <>
-            <strong>Update available</strong>
+            <strong>{t('updateAvailable')}</strong>
             <span>
               v{currentVersion} → v{availableVersion}
             </span>
@@ -149,14 +151,14 @@ const UpdateNotifier = ({ checkOnMount = true }) => {
         )}
         {status === 'downloading' && (
           <>
-            <strong>Downloading update…</strong>
+            <strong>{t('downloading')}</strong>
             <span>{downloadPercent}%</span>
           </>
         )}
         {status === 'downloaded' && (
           <>
-            <strong>Update ready</strong>
-            <span>v{availableVersion} downloaded — restart to install.</span>
+            <strong>{t('updateReady')}</strong>
+            <span>v{availableVersion} {t('updateReadyHint')}</span>
           </>
         )}
       </div>
@@ -164,12 +166,12 @@ const UpdateNotifier = ({ checkOnMount = true }) => {
         {status === 'available' && (
           <button type="button" className="btn btn-primary btn-sm" onClick={handleDownload} disabled={busy}>
             <Download size={14} />
-            Download
+            {t('download')}
           </button>
         )}
         {status === 'downloaded' && (
           <button type="button" className="btn btn-primary btn-sm" onClick={handleInstall}>
-            Restart &amp; install
+            {t('restartAndInstall')}
           </button>
         )}
         <button
@@ -177,10 +179,10 @@ const UpdateNotifier = ({ checkOnMount = true }) => {
           className="btn btn-outline btn-sm"
           onClick={() => window.electronAPI?.openExternal?.(RELEASES_URL)}
         >
-          Release notes
+          {t('releaseNotes')}
         </button>
         {status === 'available' && (
-          <button type="button" className="update-notifier__dismiss" onClick={() => setDismissed(true)} title="Dismiss">
+          <button type="button" className="update-notifier__dismiss" onClick={() => setDismissed(true)} title={t('dismiss')}>
             <X size={16} />
           </button>
         )}
@@ -193,7 +195,8 @@ const UpdateNotifier = ({ checkOnMount = true }) => {
 export default UpdateNotifier;
 
 export const AppVersionSettings = () => {
-  const [currentVersion, setCurrentVersion] = useState('…');
+  const { t } = useTranslation();
+  const [currentVersion, setCurrentVersion] = useState('.');
   const [updateStatus, setUpdateStatus] = useState('');
   const [checking, setChecking] = useState(false);
 
@@ -207,12 +210,12 @@ export const AppVersionSettings = () => {
       } else if (payload?.status === 'downloaded') {
         setUpdateStatus(`v${payload.version} ready to install`);
       } else if (payload?.status === 'not-available') {
-        setUpdateStatus('You are on the latest release');
+        setUpdateStatus(t('onLatestRelease'));
       } else if (payload?.status === 'error') {
         setUpdateStatus(payload.error || 'Could not check for updates');
       }
     });
-  }, []);
+  }, [t]);
 
   const handleCheck = async () => {
     if (!window.electronAPI?.checkForUpdates) {
@@ -229,9 +232,9 @@ export const AppVersionSettings = () => {
 
   return (
     <div className="settings-section" style={{ marginTop: '24px', paddingTop: '24px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-      <h3 className="section-title">App updates</h3>
+      <h3 className="section-title">{t('appUpdatesTitle')}</h3>
       <p style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '12px' }}>
-        Installed version: <strong style={{ color: '#e2e8f0' }}>v{currentVersion}</strong>
+        {t('installedVersion')}: <strong style={{ color: '#e2e8f0' }}>v{currentVersion}</strong>
       </p>
       {updateStatus && (
         <p style={{ color: '#64748b', fontSize: '13px', marginBottom: '12px' }}>{updateStatus}</p>
@@ -239,14 +242,14 @@ export const AppVersionSettings = () => {
       <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
         <button type="button" className="btn btn-secondary" onClick={handleCheck} disabled={checking}>
           <RefreshCw size={16} className={checking ? 'spin' : ''} />
-          {checking ? 'Checking…' : 'Check for updates'}
+          {checking ? t('checking') : t('checkForUpdates')}
         </button>
         <button
           type="button"
           className="btn btn-outline"
           onClick={() => window.electronAPI?.openExternal?.(RELEASES_URL)}
         >
-          View releases on GitHub
+          {t('viewReleasesOnGitHub')}
         </button>
       </div>
     </div>
