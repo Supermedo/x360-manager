@@ -23,7 +23,7 @@ const Sidebar = ({ activeView, onNavigate, onSwitchProfile, sessionGamertag, ses
     { id: 'library', label: t('library'), icon: Library },
     { id: 'setup', label: t('setup'), icon: Download },
     { id: 'settings', label: t('settings'), icon: Settings },
-    { id: 'help', label: 'Help', icon: HelpCircle }
+    { id: 'help', label: t('help'), icon: HelpCircle }
   ];
 
   return (
@@ -50,7 +50,7 @@ const Sidebar = ({ activeView, onNavigate, onSwitchProfile, sessionGamertag, ses
             type="button"
             className="sidebar-profile-switch"
             onClick={onSwitchProfile}
-            title="Switch profile"
+            title={t('switchProfile')}
           >
             <span className="sidebar-profile-switch__avatar">
               <ProfileAvatar
@@ -60,7 +60,7 @@ const Sidebar = ({ activeView, onNavigate, onSwitchProfile, sessionGamertag, ses
               />
             </span>
             <span className="sidebar-profile-switch__meta">
-              <span className="sidebar-profile-switch__label">Signed in</span>
+              <span className="sidebar-profile-switch__label">{t('signedIn')}</span>
               <span className="sidebar-profile-switch__tag">{sessionGamertag}</span>
             </span>
             <Users size={16} className="sidebar-profile-switch__icon" />

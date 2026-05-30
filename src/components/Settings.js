@@ -5,19 +5,22 @@ import { GameContext } from '../context/GameContext';
 import {
   FolderOpen, Settings as SettingsIcon, Monitor,
   Cpu, Music, Terminal, Save, Trash2, ShieldAlert,
-  Search, RefreshCw, Download, Sliders, User, Eraser
+  Search, RefreshCw, Download, Sliders, User, Eraser, Globe
 } from 'lucide-react';
 import { localCoverResetPatch } from '../services/coverService';
 import XeniaProfilesPanel from './XeniaProfilesPanel';
 import XboxLiveProfilesPanel from './XboxLiveProfilesPanel';
 import { AppVersionSettings } from './UpdateNotifier';
+import { APP_LANGUAGES } from '../constants/appLanguages';
+import useTranslation from '../hooks/useTranslation';
 
 const Settings = ({ onSwitchProfile }) => {
   const { settings, updateSettings, resetSettings } = useContext(SettingsContext);
   const { games, scanGamesDirectory, batchUpdateGames } = useContext(GameContext);
   const { isFullscreen, setFullscreen } = useAppFullscreen();
+  const { t } = useTranslation();
   const [localSettings, setLocalSettings] = useState({ ...settings });
-  const [activeTab, setActiveTab] = useState('paths');
+  const [activeTab, setActiveTab] = useState('interface');
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [isDownloadingPatches, setIsDownloadingPatches] = useState(false);
@@ -89,6 +92,17 @@ const Settings = ({ onSwitchProfile }) => {
     setHasUnsavedChanges(true);
   };
 
+  const handleLanguageChange = (lang) => {
+    setLocalSettings((prev) => ({ ...prev, language: lang }));
+    updateSettings({ language: lang });
+  };
+
+  const handleThemeChange = (theme) => {
+    setLocalSettings((prev) => ({ ...prev, theme }));
+    updateSettings({ theme });
+    setHasUnsavedChanges(true);
+  };
+
   const handleSaveSettings = async () => {
     updateSettings(localSettings);
     setHasUnsavedChanges(false);
@@ -141,15 +155,46 @@ const Settings = ({ onSwitchProfile }) => {
   };
 
   const tabs = [
-    { id: 'paths', label: 'Directories', icon: FolderOpen },
-    { id: 'xboxlive', label: 'Xbox Live', icon: User },
-    { id: 'profiles', label: 'Graphics Presets', icon: Sliders },
-    { id: 'graphics', label: 'Graphics', icon: Monitor },
-    { id: 'system', label: 'System', icon: Cpu },
-    { id: 'audio', label: 'Audio', icon: Music },
-    { id: 'advanced', label: 'Advanced', icon: Terminal },
-    { id: 'danger', label: 'Danger Zone', icon: ShieldAlert }
+    { id: 'interface', label: t('tabInterface'), icon: Globe },
+    { id: 'paths', label: t('tabDirectories'), icon: FolderOpen },
+    { id: 'xboxlive', label: t('tabXboxLive'), icon: User },
+    { id: 'profiles', label: t('tabGraphicsPresets'), icon: Sliders },
+    { id: 'graphics', label: t('tabGraphics'), icon: Monitor },
+    { id: 'system', label: t('tabSystem'), icon: Cpu },
+    { id: 'audio', label: t('tabAudio'), icon: Music },
+    { id: 'advanced', label: t('tabAdvanced'), icon: Terminal },
+    { id: 'danger', label: t('tabDanger'), icon: ShieldAlert }
   ];
+
+  const renderInterface = () => (
+    <div className="settings-section">
+      <h3 className="section-title">{t('interfaceTitle')}</h3>
+      <div className="settings-group">
+        <label>{t('appLanguage')}</label>
+        <select
+          value={localSettings.language || 'en'}
+          onChange={(e) => handleLanguageChange(e.target.value)}
+        >
+          {APP_LANGUAGES.map((lang) => (
+            <option key={lang.code} value={lang.code}>{lang.nativeLabel}</option>
+          ))}
+        </select>
+        <p style={{ color: '#64748b', fontSize: '13px', marginTop: '8px', lineHeight: 1.5 }}>
+          {t('appLanguageDesc')}
+        </p>
+      </div>
+      <div className="settings-group mt-4">
+        <label>{t('theme')}</label>
+        <select
+          value={localSettings.theme || 'dark'}
+          onChange={(e) => handleThemeChange(e.target.value)}
+        >
+          <option value="dark">{t('themeDark')}</option>
+          <option value="light">{t('themeLight')}</option>
+        </select>
+      </div>
+    </div>
+  );
 
   const renderPaths = () => (
     <div className="settings-section">
@@ -252,7 +297,7 @@ const Settings = ({ onSwitchProfile }) => {
             checked={localSettings.checkUpdates !== false}
             onChange={(e) => handleSettingChange('checkUpdates', e.target.checked)}
           />
-          Check for app updates on startup
+          {t('checkUpdates')}
         </label>
         <div className="settings-group">
           <label>Game Language Override</label>
@@ -373,31 +418,32 @@ const Settings = ({ onSwitchProfile }) => {
   return (
     <div className="settings-container fade-in">
       <div className="settings-header">
-        <h1>Global Settings</h1>
+        <h1>{t('globalSettings')}</h1>
         {hasUnsavedChanges && (
           <button className="btn btn-primary animate-pulse" onClick={handleSaveSettings}>
-            <Save size={18} /> Save Changes
+            <Save size={18} /> {t('saveChanges')}
           </button>
         )}
       </div>
 
       <div className="settings-layout">
         <div className="settings-sidebar">
-          {tabs.map(t => {
-            const Icon = t.icon;
+          {tabs.map((tab) => {
+            const Icon = tab.icon;
             return (
               <button
-                key={t.id}
-                className={`tab-btn ${activeTab === t.id ? 'active' : ''}`}
-                onClick={() => setActiveTab(t.id)}
+                key={tab.id}
+                className={`tab-btn ${activeTab === tab.id ? 'active' : ''}`}
+                onClick={() => setActiveTab(tab.id)}
               >
-                <Icon size={18} /> {t.label}
+                <Icon size={18} /> {tab.label}
               </button>
-            )
+            );
           })}
         </div>
 
         <div className="settings-content">
+          {activeTab === 'interface' && renderInterface()}
           {activeTab === 'paths' && renderPaths()}
           {activeTab === 'xboxlive' && <XboxLiveProfilesPanel onSwitchProfile={onSwitchProfile} />}
           {activeTab === 'profiles' && (

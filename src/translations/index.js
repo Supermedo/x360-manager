@@ -1,51 +1,87 @@
-// Simple translation system
+const EN = {
+  library: 'Game Library',
+  setup: 'Emulator Setup',
+  settings: 'Settings',
+  help: 'Help',
+  welcome: 'Welcome to X360 Manager',
+  recentGames: 'Recent Games',
+  quickActions: 'Quick Actions',
+  scanGames: 'Scan for Games',
+  addGame: 'Add Game',
+  searchGames: 'Search games…',
+  gameLibrary: 'Game Library',
+  noGames: 'No games in your library yet.',
+  favorites: 'Favorites',
+  allGames: 'All Games',
+  general: 'General',
+  interface: 'Interface',
+  advanced: 'Advanced',
+  theme: 'Theme',
+  language: 'Language',
+  dark: 'Dark',
+  light: 'Light',
+  auto: 'Auto',
+  save: 'Save',
+  saveSettings: 'Save Settings',
+  saveChanges: 'Save Changes',
+  cancel: 'Cancel',
+  browse: 'Browse',
+  reset: 'Reset to Defaults',
+  back: 'Back',
+  fullscreen: 'Fullscreen',
+  windowed: 'Windowed',
+  globalSettings: 'Global Settings',
+  interfaceTitle: 'Interface & Language',
+  appLanguage: 'App language',
+  appLanguageDesc: 'Changes menus and labels in X360 Manager. Game language is set separately in Game Configuration.',
+  themeDark: 'Dark',
+  themeLight: 'Light',
+  tabInterface: 'Interface',
+  tabDirectories: 'Directories',
+  tabXboxLive: 'Xbox Live',
+  tabGraphicsPresets: 'Graphics Presets',
+  tabGraphics: 'Graphics',
+  tabSystem: 'System',
+  tabAudio: 'Audio',
+  tabAdvanced: 'Advanced',
+  tabDanger: 'Danger Zone',
+  signedIn: 'Signed in',
+  switchProfile: 'Switch profile',
+  helpTitle: 'Help & Documentation',
+  helpSubtitle: 'Everything you need to know about using X360 Manager',
+  gameConfiguration: 'Game Configuration',
+  saveConfiguration: 'Save Configuration',
+  launchGame: 'Launch Game',
+  backToLibrary: 'Back to Library',
+  languageApplied: 'Language updated',
+  emulatorPath: 'Xenia executable path',
+  gamesDirectory: 'Default games directory',
+  scanDirectory: 'Scan directory for games',
+  scanning: 'Scanning…',
+  checkUpdates: 'Check for app updates on startup',
+  installedVersion: 'Installed version'
+};
+
+const pack = (overrides) => ({ ...EN, ...overrides });
+
 const translations = {
-  en: {
-    // Navigation
-    dashboard: 'Dashboard',
-    library: 'Game Library',
-    setup: 'Emulator Setup',
-    settings: 'Settings',
-    
-    // Dashboard
-    welcome: 'Welcome to X360 Manager',
-    recentGames: 'Recent Games',
-    quickActions: 'Quick Actions',
-    scanGames: 'Scan for Games',
-    addGame: 'Add Game',
-    
-    // Settings
-    general: 'General',
-    interface: 'Interface',
-    advanced: 'Advanced',
-    theme: 'Theme',
-    language: 'Language',
-    dark: 'Dark',
-    light: 'Light',
-    auto: 'Auto',
-    
-    // Common
-    save: 'Save Settings',
-    cancel: 'Cancel',
-    browse: 'Browse',
-    reset: 'Reset to Defaults'
-  },
-  
-  ar: {
-    // Navigation
-    dashboard: 'لوحة التحكم',
+  en: EN,
+
+  ar: pack({
     library: 'مكتبة الألعاب',
     setup: 'إعداد المحاكي',
     settings: 'الإعدادات',
-    
-    // Dashboard
+    help: 'المساعدة',
     welcome: 'مرحباً بك في X360 Manager',
-    recentGames: 'الألعاب الحديثة',
-    quickActions: 'الإجراءات السريعة',
+    recentGames: 'الألعاب الأخيرة',
+    quickActions: 'إجراءات سريعة',
     scanGames: 'البحث عن الألعاب',
     addGame: 'إضافة لعبة',
-    
-    // Settings
+    searchGames: 'بحث في الألعاب…',
+    gameLibrary: 'مكتبة الألعاب',
+    noGames: 'لا توجد ألعاب في المكتبة بعد.',
+    favorites: 'المفضلة',
+    allGames: 'كل الألعاب',
     general: 'عام',
     interface: 'الواجهة',
     advanced: 'متقدم',
@@ -54,146 +90,290 @@ const translations = {
     dark: 'داكن',
     light: 'فاتح',
     auto: 'تلقائي',
-    
-    // Common
-    save: 'حفظ الإعدادات',
+    save: 'حفظ',
+    saveSettings: 'حفظ الإعدادات',
+    saveChanges: 'حفظ التغييرات',
     cancel: 'إلغاء',
     browse: 'تصفح',
-    reset: 'إعادة تعيين الافتراضي'
-  },
-  
-  es: {
-    // Navigation
-    dashboard: 'Panel de Control',
+    reset: 'إعادة الضبط',
+    back: 'رجوع',
+    fullscreen: 'ملء الشاشة',
+    windowed: 'نافذة',
+    globalSettings: 'الإعدادات العامة',
+    interfaceTitle: 'الواجهة واللغة',
+    appLanguage: 'لغة التطبيق',
+    appLanguageDesc: 'تغيّر القوائم والنصوص في X360 Manager. لغة اللعبة تُضبط من إعدادات اللعبة.',
+    themeDark: 'داكن',
+    themeLight: 'فاتح',
+    tabInterface: 'الواجهة',
+    tabDirectories: 'المسارات',
+    tabXboxLive: 'Xbox Live',
+    tabGraphicsPresets: 'إعدادات الرسوميات',
+    tabGraphics: 'الرسوميات',
+    tabSystem: 'النظام',
+    tabAudio: 'الصوت',
+    tabAdvanced: 'متقدم',
+    tabDanger: 'منطقة الخطر',
+    signedIn: 'مسجل الدخول',
+    switchProfile: 'تبديل الملف',
+    helpTitle: 'المساعدة والتوثيق',
+    helpSubtitle: 'كل ما تحتاج معرفته لاستخدام X360 Manager',
+    gameConfiguration: 'إعدادات اللعبة',
+    saveConfiguration: 'حفظ الإعدادات',
+    launchGame: 'تشغيل اللعبة',
+    backToLibrary: 'العودة للمكتبة',
+    languageApplied: 'تم تحديث اللغة',
+    emulatorPath: 'مسار xenia.exe',
+    gamesDirectory: 'مجلد الألعاب الافتراضي',
+    scanDirectory: 'فحص المجلد بحثاً عن ألعاب',
+    scanning: 'جاري الفحص…',
+    checkUpdates: 'التحقق من التحديثات عند بدء التشغيل',
+    installedVersion: 'الإصدار المثبت'
+  }),
+
+  es: pack({
     library: 'Biblioteca de Juegos',
     setup: 'Configuración del Emulador',
     settings: 'Configuración',
-    
-    // Dashboard
-    welcome: 'Bienvenido a X360 Manager',
-    recentGames: 'Juegos Recientes',
-    quickActions: 'Acciones Rápidas',
-    scanGames: 'Buscar Juegos',
-    addGame: 'Agregar Juego',
-    
-    // Settings
-    general: 'General',
-    interface: 'Interfaz',
-    advanced: 'Avanzado',
-    theme: 'Tema',
-    language: 'Idioma',
-    dark: 'Oscuro',
-    light: 'Claro',
-    auto: 'Automático',
-    
-    // Common
-    save: 'Guardar Configuración',
-    cancel: 'Cancelar',
-    browse: 'Explorar',
-    reset: 'Restablecer Predeterminados'
-  },
-  
-  fr: {
-    // Navigation
-    dashboard: 'Tableau de Bord',
+    help: 'Ayuda',
+    searchGames: 'Buscar juegos…',
+    gameLibrary: 'Biblioteca de Juegos',
+    globalSettings: 'Configuración Global',
+    interfaceTitle: 'Interfaz e idioma',
+    appLanguage: 'Idioma de la aplicación',
+    appLanguageDesc: 'Cambia menús y textos del gestor. El idioma del juego se configura aparte.',
+    tabInterface: 'Interfaz',
+    tabDirectories: 'Directorios',
+    tabSystem: 'Sistema',
+    tabDanger: 'Zona de peligro',
+    saveChanges: 'Guardar cambios',
+    fullscreen: 'Pantalla completa',
+    windowed: 'Ventana',
+    back: 'Atrás',
+    launchGame: 'Iniciar juego',
+    gameConfiguration: 'Configuración del juego'
+  }),
+
+  fr: pack({
     library: 'Bibliothèque de Jeux',
     setup: 'Configuration de l\'Émulateur',
     settings: 'Paramètres',
-    
-    // Dashboard
-    welcome: 'Bienvenue dans X360 Manager',
-    recentGames: 'Jeux Récents',
-    quickActions: 'Actions Rapides',
-    scanGames: 'Rechercher des Jeux',
-    addGame: 'Ajouter un Jeu',
-    
-    // Settings
-    general: 'Général',
-    interface: 'Interface',
-    advanced: 'Avancé',
-    theme: 'Thème',
-    language: 'Langue',
-    dark: 'Sombre',
-    light: 'Clair',
-    auto: 'Automatique',
-    
-    // Common
-    save: 'Enregistrer les Paramètres',
-    cancel: 'Annuler',
-    browse: 'Parcourir',
-    reset: 'Réinitialiser par Défaut'
-  },
-  
-  de: {
-    // Navigation
-    dashboard: 'Dashboard',
+    help: 'Aide',
+    searchGames: 'Rechercher des jeux…',
+    gameLibrary: 'Bibliothèque de Jeux',
+    globalSettings: 'Paramètres Globaux',
+    interfaceTitle: 'Interface et langue',
+    appLanguage: 'Langue de l\'application',
+    appLanguageDesc: 'Modifie les menus du gestionnaire. La langue du jeu se règle séparément.',
+    tabInterface: 'Interface',
+    tabDirectories: 'Dossiers',
+    tabSystem: 'Système',
+    tabDanger: 'Zone dangereuse',
+    saveChanges: 'Enregistrer',
+    fullscreen: 'Plein écran',
+    windowed: 'Fenêtré',
+    back: 'Retour',
+    launchGame: 'Lancer le jeu',
+    gameConfiguration: 'Configuration du jeu'
+  }),
+
+  de: pack({
     library: 'Spielebibliothek',
     setup: 'Emulator-Setup',
     settings: 'Einstellungen',
-    
-    // Dashboard
-    welcome: 'Willkommen bei X360 Manager',
-    recentGames: 'Aktuelle Spiele',
-    quickActions: 'Schnellaktionen',
-    scanGames: 'Nach Spielen suchen',
-    addGame: 'Spiel hinzufügen',
-    
-    // Settings
-    general: 'Allgemein',
-    interface: 'Benutzeroberfläche',
-    advanced: 'Erweitert',
-    theme: 'Design',
-    language: 'Sprache',
-    dark: 'Dunkel',
-    light: 'Hell',
-    auto: 'Automatisch',
-    
-    // Common
-    save: 'Einstellungen Speichern',
-    cancel: 'Abbrechen',
-    browse: 'Durchsuchen',
-    reset: 'Auf Standard Zurücksetzen'
-  },
-  
-  ja: {
-    // Navigation
-    dashboard: 'ダッシュボード',
+    help: 'Hilfe',
+    searchGames: 'Spiele suchen…',
+    gameLibrary: 'Spielebibliothek',
+    globalSettings: 'Globale Einstellungen',
+    interfaceTitle: 'Oberfläche & Sprache',
+    appLanguage: 'App-Sprache',
+    appLanguageDesc: 'Ändert Menüs im Manager. Spielsprache wird separat eingestellt.',
+    tabInterface: 'Oberfläche',
+    tabDirectories: 'Verzeichnisse',
+    tabSystem: 'System',
+    tabDanger: 'Gefahrenzone',
+    saveChanges: 'Speichern',
+    fullscreen: 'Vollbild',
+    windowed: 'Fenster',
+    back: 'Zurück',
+    launchGame: 'Spiel starten',
+    gameConfiguration: 'Spielkonfiguration'
+  }),
+
+  pt: pack({
+    library: 'Biblioteca de Jogos',
+    setup: 'Configuração do Emulador',
+    settings: 'Configurações',
+    help: 'Ajuda',
+    searchGames: 'Pesquisar jogos…',
+    interfaceTitle: 'Interface e idioma',
+    appLanguage: 'Idioma do aplicativo',
+    tabInterface: 'Interface',
+    globalSettings: 'Configurações Globais',
+    saveChanges: 'Salvar alterações',
+    launchGame: 'Iniciar jogo'
+  }),
+
+  it: pack({
+    library: 'Libreria Giochi',
+    setup: 'Configurazione Emulatore',
+    settings: 'Impostazioni',
+    help: 'Aiuto',
+    searchGames: 'Cerca giochi…',
+    interfaceTitle: 'Interfaccia e lingua',
+    appLanguage: 'Lingua dell\'app',
+    tabInterface: 'Interfaccia',
+    globalSettings: 'Impostazioni Globali',
+    saveChanges: 'Salva modifiche',
+    launchGame: 'Avvia gioco'
+  }),
+
+  ru: pack({
+    library: 'Библиотека игр',
+    setup: 'Настройка эмулятора',
+    settings: 'Настройки',
+    help: 'Справка',
+    searchGames: 'Поиск игр…',
+    interfaceTitle: 'Интерфейс и язык',
+    appLanguage: 'Язык приложения',
+    tabInterface: 'Интерфейс',
+    globalSettings: 'Общие настройки',
+    saveChanges: 'Сохранить',
+    launchGame: 'Запустить игру'
+  }),
+
+  ja: pack({
     library: 'ゲームライブラリ',
     setup: 'エミュレーター設定',
     settings: '設定',
-    
-    // Dashboard
-    welcome: 'X360 Managerへようこそ',
-    recentGames: '最近のゲーム',
-    quickActions: 'クイックアクション',
-    scanGames: 'ゲームをスキャン',
-    addGame: 'ゲームを追加',
-    
-    // Settings
-    general: '一般',
-    interface: 'インターフェース',
-    advanced: '詳細',
-    theme: 'テーマ',
-    language: '言語',
-    dark: 'ダーク',
-    light: 'ライト',
-    auto: '自動',
-    
-    // Common
-    save: '設定を保存',
-    cancel: 'キャンセル',
-    browse: '参照',
-    reset: 'デフォルトにリセット'
-  }
+    help: 'ヘルプ',
+    searchGames: 'ゲームを検索…',
+    interfaceTitle: 'インターフェースと言語',
+    appLanguage: 'アプリの言語',
+    tabInterface: 'インターフェース',
+    globalSettings: '全体設定',
+    saveChanges: '変更を保存',
+    launchGame: 'ゲームを起動'
+  }),
+
+  ko: pack({
+    library: '게임 라이브러리',
+    setup: '에뮬레이터 설정',
+    settings: '설정',
+    help: '도움말',
+    searchGames: '게임 검색…',
+    interfaceTitle: '인터페이스 및 언어',
+    appLanguage: '앱 언어',
+    tabInterface: '인터페이스',
+    globalSettings: '전역 설정',
+    saveChanges: '변경 사항 저장',
+    launchGame: '게임 실행'
+  }),
+
+  zh: pack({
+    library: '游戏库',
+    setup: '模拟器设置',
+    settings: '设置',
+    help: '帮助',
+    searchGames: '搜索游戏…',
+    interfaceTitle: '界面与语言',
+    appLanguage: '应用语言',
+    tabInterface: '界面',
+    globalSettings: '全局设置',
+    saveChanges: '保存更改',
+    launchGame: '启动游戏'
+  }),
+
+  tr: pack({
+    library: 'Oyun Kütüphanesi',
+    setup: 'Emülatör Kurulumu',
+    settings: 'Ayarlar',
+    help: 'Yardım',
+    searchGames: 'Oyun ara…',
+    interfaceTitle: 'Arayüz ve dil',
+    appLanguage: 'Uygulama dili',
+    tabInterface: 'Arayüz',
+    globalSettings: 'Genel Ayarlar',
+    saveChanges: 'Değişiklikleri kaydet',
+    launchGame: 'Oyunu başlat'
+  }),
+
+  pl: pack({
+    library: 'Biblioteka gier',
+    setup: 'Konfiguracja emulatora',
+    settings: 'Ustawienia',
+    help: 'Pomoc',
+    searchGames: 'Szukaj gier…',
+    interfaceTitle: 'Interfejs i język',
+    appLanguage: 'Język aplikacji',
+    tabInterface: 'Interfejs',
+    globalSettings: 'Ustawienia globalne',
+    saveChanges: 'Zapisz zmiany',
+    launchGame: 'Uruchom grę'
+  }),
+
+  nl: pack({
+    library: 'Spelbibliotheek',
+    setup: 'Emulator instellen',
+    settings: 'Instellingen',
+    help: 'Help',
+    searchGames: 'Games zoeken…',
+    interfaceTitle: 'Interface en taal',
+    appLanguage: 'App-taal',
+    tabInterface: 'Interface',
+    globalSettings: 'Algemene instellingen',
+    saveChanges: 'Wijzigingen opslaan',
+    launchGame: 'Spel starten'
+  }),
+
+  sv: pack({
+    library: 'Spelbibliotek',
+    setup: 'Emulatorinställning',
+    settings: 'Inställningar',
+    help: 'Hjälp',
+    searchGames: 'Sök spel…',
+    interfaceTitle: 'Gränssnitt och språk',
+    appLanguage: 'Appspråk',
+    tabInterface: 'Gränssnitt',
+    globalSettings: 'Globala inställningar',
+    saveChanges: 'Spara ändringar',
+    launchGame: 'Starta spel'
+  }),
+
+  nb: pack({
+    library: 'Spillbibliotek',
+    setup: 'Emulatoroppsett',
+    settings: 'Innstillinger',
+    help: 'Hjelp',
+    searchGames: 'Søk etter spill…',
+    interfaceTitle: 'Grensesnitt og språk',
+    appLanguage: 'Appspråk',
+    tabInterface: 'Grensesnitt',
+    globalSettings: 'Globale innstillinger',
+    saveChanges: 'Lagre endringer',
+    launchGame: 'Start spill'
+  }),
+
+  hi: pack({
+    library: 'गेम लाइब्रेरी',
+    setup: 'एमुलेटर सेटअप',
+    settings: 'सेटिंग्स',
+    help: 'सहायता',
+    searchGames: 'गेम खोजें…',
+    interfaceTitle: 'इंटरफ़ेस और भाषा',
+    appLanguage: 'ऐप भाषा',
+    tabInterface: 'इंटरफ़ेस',
+    globalSettings: 'वैश्विक सेटिंग्स',
+    saveChanges: 'बदलाव सहेजें',
+    launchGame: 'गेम चलाएँ'
+  })
 };
 
 export const getTranslation = (language, key) => {
-  return translations[language]?.[key] || translations.en[key] || key;
+  const code = translations[language] ? language : 'en';
+  return translations[code][key] || translations.en[key] || key;
 };
 
-export const getCurrentLanguage = () => {
-  // This will be connected to the settings context
-  return 'en';
-};
+export const supportedAppLanguageCodes = () => Object.keys(translations);
 
 export default translations;

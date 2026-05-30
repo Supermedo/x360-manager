@@ -2,11 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { Maximize2, Minimize2 } from 'lucide-react';
 import { getPublicAssetUrl } from '../utils/assetUrl';
 import useAppFullscreen from '../hooks/useAppFullscreen';
+import useTranslation from '../hooks/useTranslation';
 
 const TitleBar = () => {
     const [iconSrc, setIconSrc] = useState(getPublicAssetUrl('icon.png'));
     const [appVersion, setAppVersion] = useState('');
     const { isFullscreen, toggleFullscreen } = useAppFullscreen();
+    const { t } = useTranslation();
 
     useEffect(() => {
         let cancelled = false;
@@ -71,7 +73,7 @@ const TitleBar = () => {
             <button
                 type="button"
                 className="titlebar-fullscreen-btn"
-                title={isFullscreen ? 'Exit fullscreen (F11)' : 'Fullscreen (F11)'}
+                title={isFullscreen ? t('windowed') : t('fullscreen')}
                 onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
@@ -97,7 +99,7 @@ const TitleBar = () => {
                 }}
             >
                 {isFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
-                {isFullscreen ? 'Windowed' : 'Fullscreen'}
+                {isFullscreen ? t('windowed') : t('fullscreen')}
             </button>
         </div>
     );

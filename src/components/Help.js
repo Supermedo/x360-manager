@@ -67,10 +67,10 @@ const Help = () => {
       <div className="help-header">
         <div className="help-title">
           <Book size={24} />
-          <h1>Help & Documentation</h1>
+          <h1>{t('helpTitle')}</h1>
         </div>
         <p className="help-subtitle">
-          Everything you need to know about using X360 Manager
+          {t('helpSubtitle')}
         </p>
       </div>
 

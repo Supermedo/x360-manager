@@ -38,12 +38,14 @@ import {
 } from '../services/xeniaProfiles';
 import { KEYBOARD_MODE_OPTIONS, XENIA_KEYBOARD_DEFAULT_BINDINGS } from '../constants/xeniaInputHelp';
 import { buildGameLaunchConfig } from '../services/launchConfig';
+import useTranslation from '../hooks/useTranslation';
 
 const CUSTOM_PROFILE_ID = 'custom';
 
 const GameConfig = ({ game, onNavigate }) => {
   const { updateGame, xbox360DB } = useContext(GameContext);
   const { settings } = useContext(SettingsContext);
+  const { t } = useTranslation();
   const [config, setConfig] = useState({
     resolution: 'auto',
     renderer: 'auto',
@@ -773,7 +775,7 @@ const GameConfig = ({ game, onNavigate }) => {
           style={{ minWidth: '120px', padding: '10px 16px', fontSize: '14px' }}
         >
           <ArrowLeft size={18} />
-          Back
+          {t('back')}
         </button>
       </div>
 
@@ -786,7 +788,7 @@ const GameConfig = ({ game, onNavigate }) => {
           WebkitBackgroundClip: 'text',
           WebkitTextFillColor: 'transparent'
         }}>
-          Game Configuration
+          {t('gameConfiguration')}
         </h1>
         <p style={{ color: '#94a3b8', fontSize: '16px' }}>
           Configure settings for <strong style={{ color: '#e2e8f0' }}>{game.name}</strong>
@@ -1752,7 +1754,7 @@ const GameConfig = ({ game, onNavigate }) => {
             style={{ flex: 1, padding: '12px 16px', fontSize: '16px', fontWeight: '600' }}
           >
             <Play size={20} />
-            Launch Game
+            {t('launchGame')}
           </button>
 
           <button
@@ -1762,7 +1764,7 @@ const GameConfig = ({ game, onNavigate }) => {
             style={{ padding: '12px 16px', fontSize: '14px', minWidth: '120px' }}
           >
             <Save size={18} />
-            Save Config
+            {t('saveConfiguration')}
           </button>
 
           <button

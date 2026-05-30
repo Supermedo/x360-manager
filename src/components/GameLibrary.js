@@ -41,6 +41,7 @@ import {
 import useGamepad from '../hooks/useGamepad';
 import { buildGameLaunchConfig } from '../services/launchConfig';
 import { clampContextMenuPosition } from '../utils/contextMenuPosition';
+import useTranslation from '../hooks/useTranslation';
 
 const CONTEXT_MENU_WIDTH = 220;
 const CONTEXT_MENU_EST_HEIGHT = 400;
@@ -224,6 +225,7 @@ const GameListItem = React.memo(({ game, onLaunch, onToggleFavorite, onConfigure
   </div>
 ));
 const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode }) => {
+  const { t } = useTranslation();
   const {
     games,
     addGame,
@@ -1441,7 +1443,7 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode }) => {
           WebkitBackgroundClip: 'text',
           WebkitTextFillColor: 'transparent'
         }}>
-          Game Library
+          {t('gameLibrary')}
         </h1>
         <p style={{ color: '#94a3b8', fontSize: '16px' }}>
           Manage your game collection and launch games with ease
@@ -1466,7 +1468,7 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode }) => {
                 <input
                   type="text"
                   className="form-input"
-                  placeholder="Search games..."
+                  placeholder={t('searchGames')}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   style={{ padding: '10px 16px 10px 40px', fontSize: '14px' }}

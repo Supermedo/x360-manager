@@ -23,6 +23,7 @@ import { GameplayProvider, useGameplay } from './context/GameplayContext';
 import useGamepad from './hooks/useGamepad';
 import useAppFullscreen from './hooks/useAppFullscreen';
 import { buildGameLaunchConfig } from './services/launchConfig';
+import { isRtlLanguage } from './constants/appLanguages';
 
 const APP_VIEWS = ['library', 'setup', 'settings', 'help'];
 
@@ -37,6 +38,13 @@ const AppContent = () => {
   const { updateGame } = useContext(GameContext);
   const { emulatorRunning } = useGameplay();
   const { toggleFullscreen, setFullscreen } = useAppFullscreen();
+
+  useEffect(() => {
+    const lang = settings.language || 'en';
+    const rtl = isRtlLanguage(lang);
+    document.documentElement.lang = lang;
+    document.documentElement.dir = rtl ? 'rtl' : 'ltr';
+  }, [settings.language]);
 
   useEffect(() => {
     if (!hydrated) return undefined;

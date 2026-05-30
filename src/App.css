@@ -1541,6 +1541,13 @@ input[type="range"]::-moz-range-thumb:hover {
 [data-language="ar"] {
   direction: rtl;
   text-align: right;
+  font-family: 'Segoe UI', 'Tahoma', 'Arial', sans-serif;
+}
+
+[data-language="ar"] .main-content,
+[data-language="ar"] .settings-content,
+[data-language="ar"] .settings-container {
+  font-family: 'Segoe UI', 'Tahoma', 'Arial', sans-serif;
 }
 
 [data-language="ar"] .sidebar {
