@@ -1,6 +1,7 @@
 import React, { createContext, useState, useEffect, useRef } from 'react';
 import { loadPersisted, savePersisted } from '../utils/persistentStorage';
 import { createDebouncedPersist } from '../utils/debouncePersist';
+import { normalizeDefaultLanguage } from '../constants/xeniaLanguages';
 
 export const SettingsContext = createContext();
 
@@ -70,7 +71,9 @@ export const SettingsProvider = ({ children }) => {
         if (parsed.setupCompleted && parsed.emulatorPath && !parsed.onboardingCompleted) {
           parsed.onboardingCompleted = true;
         }
-        setSettings({ ...defaultSettings, ...parsed });
+        const merged = { ...defaultSettings, ...parsed };
+        merged.defaultLanguage = normalizeDefaultLanguage(merged.defaultLanguage);
+        setSettings(merged);
         canPersist.current = true;
       }
 
@@ -162,7 +165,7 @@ export const SettingsProvider = ({ children }) => {
     gpuBackend: settings.defaultGpuBackend || 'auto',
     vsync: settings.defaultVsync !== undefined ? settings.defaultVsync : true,
     fullscreen: settings.defaultFullscreen || false,
-    language: settings.defaultLanguage || 'en',
+    languageOverride: normalizeDefaultLanguage(settings.defaultLanguage),
     licenseMask: settings.defaultLicenseMask || '0xFFFFFFFF',
     audioChannels: settings.defaultAudioChannels || 'stereo',
     audioSampleRate: settings.defaultAudioSampleRate || '48000',

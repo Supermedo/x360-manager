@@ -59,7 +59,9 @@ const EN = {
   scanDirectory: 'Scan directory for games',
   scanning: 'Scanning…',
   checkUpdates: 'Check for app updates on startup',
-  installedVersion: 'Installed version'
+  installedVersion: 'Installed version',
+  defaultGameLanguage: 'Default game language (Xenia)',
+  defaultGameLanguageDesc: 'In-game language for new games. Xenia does not support Arabic here — use App language above for Arabic menus. Per-game override is in Game Configuration.'
 };
 
 const pack = (overrides) => ({ ...EN, ...overrides });
@@ -128,7 +130,9 @@ const translations = {
     scanDirectory: 'فحص المجلد بحثاً عن ألعاب',
     scanning: 'جاري الفحص…',
     checkUpdates: 'التحقق من التحديثات عند بدء التشغيل',
-    installedVersion: 'الإصدار المثبت'
+    installedVersion: 'الإصدار المثبت',
+    defaultGameLanguage: 'لغة اللعبة الافتراضية (Xenia)',
+    defaultGameLanguageDesc: 'لغة اللعبة داخل Xenia. العربية غير مدعومة هنا — استخدم لغة التطبيق أعلاه لواجهة عربية. يمكن تغيير كل لعبة من إعدادات اللعبة.'
   }),
 
   es: pack({

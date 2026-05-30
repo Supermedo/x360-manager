@@ -77,5 +77,11 @@ export const normalizeLanguageCodes = (codes) => {
   return [...out];
 };
 
+export const normalizeDefaultLanguage = (raw) => normalizeLanguageCode(raw) || 'en';
+
+export const XENIA_GAME_LANGUAGE_OPTIONS = XENIA_LANGUAGE_OPTIONS.filter(
+  (o) => o.value !== 'auto'
+);
+
 export const isReliableLanguageSource = (source) =>
   source === 'screenscraper' || source === 'screenscraper-synopsis';

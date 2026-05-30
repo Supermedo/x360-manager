@@ -12,6 +12,7 @@ import XeniaProfilesPanel from './XeniaProfilesPanel';
 import XboxLiveProfilesPanel from './XboxLiveProfilesPanel';
 import { AppVersionSettings } from './UpdateNotifier';
 import { APP_LANGUAGES } from '../constants/appLanguages';
+import { XENIA_GAME_LANGUAGE_OPTIONS, normalizeDefaultLanguage } from '../constants/xeniaLanguages';
 import useTranslation from '../hooks/useTranslation';
 
 const Settings = ({ onSwitchProfile }) => {
@@ -20,7 +21,7 @@ const Settings = ({ onSwitchProfile }) => {
   const { isFullscreen, setFullscreen } = useAppFullscreen();
   const { t } = useTranslation();
   const [localSettings, setLocalSettings] = useState({ ...settings });
-  const [activeTab, setActiveTab] = useState('interface');
+  const [activeTab, setActiveTab] = useState('system');
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [isDownloadingPatches, setIsDownloadingPatches] = useState(false);
@@ -281,8 +282,22 @@ const Settings = ({ onSwitchProfile }) => {
 
   const renderSystem = () => (
     <div className="settings-section">
-      <h3 className="section-title">System Settings</h3>
+      <h3 className="section-title">{t('tabSystem')}</h3>
       <div className="grid grid-2 gap-4">
+        <div className="settings-group" style={{ gridColumn: '1 / -1' }}>
+          <label>{t('appLanguage')}</label>
+          <select
+            value={localSettings.language || 'en'}
+            onChange={(e) => handleLanguageChange(e.target.value)}
+          >
+            {APP_LANGUAGES.map((lang) => (
+              <option key={lang.code} value={lang.code}>{lang.nativeLabel}</option>
+            ))}
+          </select>
+          <p style={{ color: '#64748b', fontSize: '13px', marginTop: '8px', lineHeight: 1.5 }}>
+            {t('appLanguageDesc')}
+          </p>
+        </div>
         <label className="checkbox-label">
           <input
             type="checkbox"
@@ -299,16 +314,19 @@ const Settings = ({ onSwitchProfile }) => {
           />
           {t('checkUpdates')}
         </label>
-        <div className="settings-group">
-          <label>Game Language Override</label>
-          <select value={localSettings.defaultLanguage || '1'} onChange={(e) => handleSettingChange('defaultLanguage', e.target.value)}>
-            <option value="1">English</option>
-            <option value="2">Japanese</option>
-            <option value="3">German</option>
-            <option value="4">French</option>
-            <option value="5">Spanish</option>
-            <option value="6">Italian</option>
+        <div className="settings-group" style={{ gridColumn: '1 / -1' }}>
+          <label>{t('defaultGameLanguage')}</label>
+          <select
+            value={normalizeDefaultLanguage(localSettings.defaultLanguage)}
+            onChange={(e) => handleSettingChange('defaultLanguage', e.target.value)}
+          >
+            {XENIA_GAME_LANGUAGE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
           </select>
+          <p style={{ color: '#64748b', fontSize: '13px', marginTop: '8px', lineHeight: 1.5 }}>
+            {t('defaultGameLanguageDesc')}
+          </p>
         </div>
       </div>
       <AppVersionSettings />
