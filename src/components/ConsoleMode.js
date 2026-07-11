@@ -3,7 +3,14 @@ import { Play, Star, X } from 'lucide-react';
 import { GameContext } from '../context/GameContext';
 import { SettingsContext } from '../context/SettingsContext';
 import CoverImage from './CoverImage';
-import useGamepad from '../hooks/useGamepad';
+import useGamepad, {
+  wasRecentGamepadInput,
+  resetGamepadHoldState,
+  markKeyboardInput,
+  isLikelyGamepadEchoKey
+} from '../hooks/useGamepad';
+import useOverlayKeyboardTrap from '../hooks/useOverlayKeyboardTrap';
+import MetroSettingsPanel from './metro/MetroSettingsPanel';
 import { fetchGameCoverDetails } from '../services/coverService';
 import './ConsoleMode.css';
 
@@ -13,13 +20,17 @@ const TABS = [
   { id: 'favorites', label: 'Favorites' }
 ];
 
-const ConsoleMode = ({ onExit, onLaunch, onConfigure }) => {
-  const { games, recentGames, updateGame, xbox360DB } = React.useContext(GameContext);
+const ConsoleMode = ({ onExit, onLaunch, onConfigure, onSwitchProfile }) => {
+  const { games, recentGames, updateGame, toggleFavorite, xbox360DB } = React.useContext(GameContext);
   const { settings } = React.useContext(SettingsContext);
   const [activeTab, setActiveTab] = useState('all');
   const [focusedIndex, setFocusedIndex] = useState(0);
+  const [appSettingsOpen, setAppSettingsOpen] = useState(false);
+  const [gameOptionsGame, setGameOptionsGame] = useState(null);
   const shelfRef = useRef(null);
   const tileRefs = useRef([]);
+
+  const isOverlayOpen = appSettingsOpen || Boolean(gameOptionsGame);
 
   const visibleGames = useMemo(() => {
     switch (activeTab) {
@@ -42,34 +53,29 @@ const ConsoleMode = ({ onExit, onLaunch, onConfigure }) => {
 
   useEffect(() => {
     window.electronAPI?.setFullScreen?.(true);
-    return () => {
-      window.electronAPI?.setFullScreen?.(false);
-    };
+    window.electronAPI?.focusMainWindow?.();
+    window.focus?.();
   }, []);
 
   useEffect(() => {
-    const node = tileRefs.current[focusedIndex];
-    node?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
-  }, [focusedIndex, activeTab]);
+    if (isOverlayOpen) {
+      resetGamepadHoldState();
+    }
+  }, [isOverlayOpen]);
 
   useEffect(() => {
-    const onKeyDown = (event) => {
-      if (event.key === 'Escape' || event.key === 'Backspace') {
-        event.preventDefault();
-        onExit();
-      }
-      if (event.key === 'ArrowLeft') setFocusedIndex((index) => Math.max(0, index - 1));
-      if (event.key === 'ArrowRight') setFocusedIndex((index) => Math.min(visibleGames.length - 1, index + 1));
-      if (event.key === 'Enter' && focusedGame) onLaunch(focusedGame);
-      if (event.key === 'F11') {
-        event.preventDefault();
-        onExit();
-      }
-    };
+    if (isOverlayOpen) return undefined;
+    const node = tileRefs.current[focusedIndex];
+    node?.scrollIntoView({ behavior: 'auto', inline: 'center', block: 'nearest' });
+    return undefined;
+  }, [focusedIndex, activeTab, isOverlayOpen]);
 
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [focusedGame, onExit, onLaunch, visibleGames.length]);
+  useOverlayKeyboardTrap(isOverlayOpen, (event) => {
+    if (event.key === 'Escape') {
+      setAppSettingsOpen(false);
+      setGameOptionsGame(null);
+    }
+  });
 
   const moveTab = useCallback((direction) => {
     setActiveTab((current) => {
@@ -80,16 +86,104 @@ const ConsoleMode = ({ onExit, onLaunch, onConfigure }) => {
     setFocusedIndex(0);
   }, []);
 
+  useEffect(() => {
+    const onKeyDown = (event) => {
+      if (isOverlayOpen) return;
+
+      if (wasRecentGamepadInput() && isLikelyGamepadEchoKey(event.key)) {
+        event.preventDefault();
+        return;
+      }
+
+      const navMap = {
+        ArrowLeft: () => setFocusedIndex((index) => Math.max(0, index - 1)),
+        ArrowRight: () => setFocusedIndex((index) => Math.min(visibleGames.length - 1, index + 1)),
+        a: () => setFocusedIndex((index) => Math.max(0, index - 1)),
+        A: () => setFocusedIndex((index) => Math.max(0, index - 1)),
+        d: () => setFocusedIndex((index) => Math.min(visibleGames.length - 1, index + 1)),
+        D: () => setFocusedIndex((index) => Math.min(visibleGames.length - 1, index + 1)),
+        q: () => moveTab(-1),
+        Q: () => moveTab(-1),
+        e: () => moveTab(1),
+        E: () => moveTab(1),
+        PageUp: () => moveTab(-1),
+        PageDown: () => moveTab(1)
+      };
+
+      if (navMap[event.key]) {
+        markKeyboardInput();
+        event.preventDefault();
+        navMap[event.key]();
+        return;
+      }
+
+      if (event.key === 'Escape' || event.key === 'Backspace') {
+        if (wasRecentGamepadInput()) {
+          event.preventDefault();
+          return;
+        }
+        markKeyboardInput();
+        event.preventDefault();
+        onExit();
+      }
+      if (event.key === 'Enter' && focusedGame) {
+        if (wasRecentGamepadInput()) {
+          event.preventDefault();
+          return;
+        }
+        markKeyboardInput();
+        onLaunch(focusedGame);
+      }
+      if (event.key === 'F11') {
+        event.preventDefault();
+        onExit();
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [focusedGame, isOverlayOpen, moveTab, onExit, onLaunch, visibleGames.length]);
+
   useGamepad(
     {
-      left: () => setFocusedIndex((index) => Math.max(0, index - 1)),
-      right: () => setFocusedIndex((index) => Math.min(visibleGames.length - 1, index + 1)),
-      confirm: () => focusedGame && onLaunch(focusedGame),
-      back: () => onExit(),
-      prevTab: () => moveTab(-1),
-      nextTab: () => moveTab(1)
+      left: () => { if (!isOverlayOpen) setFocusedIndex((index) => Math.max(0, index - 1)); },
+      right: () => { if (!isOverlayOpen) setFocusedIndex((index) => Math.min(visibleGames.length - 1, index + 1)); },
+      confirm: () => {
+        if (isOverlayOpen) return;
+        if (focusedGame) onLaunch(focusedGame);
+      },
+      back: () => {
+        if (isOverlayOpen) {
+          setAppSettingsOpen(false);
+          setGameOptionsGame(null);
+          return;
+        }
+        onExit();
+      },
+      actionX: () => {
+        if (isOverlayOpen) return;
+        if (focusedGame) toggleFavorite(focusedGame.id);
+      },
+      actionY: () => {
+        if (isOverlayOpen) return;
+        if (focusedGame) {
+          setAppSettingsOpen(false);
+          setGameOptionsGame(focusedGame);
+        }
+      },
+      prevTab: () => { if (!isOverlayOpen) moveTab(-1); },
+      nextTab: () => { if (!isOverlayOpen) moveTab(1); },
+      menu: () => {
+        if (isOverlayOpen) {
+          setAppSettingsOpen(false);
+          setGameOptionsGame(null);
+        } else {
+          setAppSettingsOpen(true);
+        }
+      }
     },
-    true
+    !isOverlayOpen,
+    100
   );
 
   const handleCoverFailed = useCallback(async (game) => {
@@ -160,7 +254,6 @@ const ConsoleMode = ({ onExit, onLaunch, onConfigure }) => {
                       tileRefs.current[index] = node;
                     }}
                     className={`console-tile ${index === focusedIndex ? 'focused' : ''}`}
-                    onMouseEnter={() => setFocusedIndex(index)}
                     onClick={() => setFocusedIndex(index)}
                   >
                     <div className="console-tile-cover">
@@ -206,7 +299,10 @@ const ConsoleMode = ({ onExit, onLaunch, onConfigure }) => {
 
             <div className="console-hints">
               <div className="console-hint"><span className="console-hint-key">A</span> Play</div>
+              <div className="console-hint"><span className="console-hint-key">X</span> Favorite</div>
+              <div className="console-hint"><span className="console-hint-key">Y</span> Options</div>
               <div className="console-hint"><span className="console-hint-key">B</span> Exit</div>
+              <div className="console-hint"><span className="console-hint-key">Start</span> Settings</div>
               <div className="console-hint"><span className="console-hint-key">LB/RB</span> Switch tab</div>
               <div className="console-hint"><span className="console-hint-key">← →</span> Browse games</div>
               {!settings.emulatorPath && (
@@ -218,6 +314,27 @@ const ConsoleMode = ({ onExit, onLaunch, onConfigure }) => {
           </>
         )}
       </div>
+
+      {appSettingsOpen && (
+        <MetroSettingsPanel
+          mode="app"
+          onClose={() => setAppSettingsOpen(false)}
+          onSwitchProfile={onSwitchProfile}
+          onExitConsole={onExit}
+          updateGame={updateGame}
+        />
+      )}
+
+      {gameOptionsGame && (
+        <MetroSettingsPanel
+          mode="game"
+          game={games.find((g) => g.id === gameOptionsGame.id) || gameOptionsGame}
+          onClose={() => setGameOptionsGame(null)}
+          onLaunchGame={onLaunch}
+          onTogglePin={(g) => toggleFavorite(g.id)}
+          updateGame={updateGame}
+        />
+      )}
     </div>
   );
 };

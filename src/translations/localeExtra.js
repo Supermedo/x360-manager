@@ -17,7 +17,7 @@ export const EXTRA_EN = {
   resolution3x: '3x (4K 2160p)',
   launchGamesFullscreen: 'Launch games in fullscreen (Xenia)',
   enableVsync: 'Enable VSync',
-  showInGameFpsCounter: 'Show in-game FPS counter (F3 in Xenia)',
+  showInGameFpsCounter: 'Show X360 Manager FPS overlay',
   fullscreenAppWindow: 'Fullscreen app window (F11)',
   askProfileOnLaunch: 'Ask who is playing when the app opens (multiple profiles)',
   audioSettingsTitle: 'Audio Settings',
@@ -189,7 +189,17 @@ export const EXTRA_EN = {
   yes: 'Yes',
   no: 'No',
   unknown: 'Unknown',
-  notRated: 'Not rated'
+  notRated: 'Not rated',
+  hintPlay: 'Play',
+  hintFavorite: 'Favorite',
+  hintSettings: 'Settings',
+  hintMenu: 'Menu',
+  hintFullscreen: 'Fullscreen',
+  hintBrowse: 'Browse',
+  hintSwitchTab: 'Switch tab',
+  playsCount: 'plays',
+  metroConsoleLabel: 'Xbox 360 Metro dashboard for Console Mode',
+  metroConsoleDesc: 'Use a controller-first Xbox 360 NXE style dashboard. Layout inspired by'
 };
 
 export const EXTRA_AR = {
@@ -210,7 +220,7 @@ export const EXTRA_AR = {
   resolution3x: '3x (4K)',
   launchGamesFullscreen: 'تشغيل الألعاب بملء الشاشة (Xenia)',
   enableVsync: 'تفعيل VSync',
-  showInGameFpsCounter: 'عرض عداد FPS (F3 في Xenia)',
+  showInGameFpsCounter: 'عرض عداد FPS من X360 Manager',
   fullscreenAppWindow: 'نافذة التطبيق بملء الشاشة (F11)',
   askProfileOnLaunch: 'اسأل من يلعب عند فتح التطبيق (عدة ملفات)',
   audioSettingsTitle: 'إعدادات الصوت',
@@ -382,5 +392,15 @@ export const EXTRA_AR = {
   yes: 'نعم',
   no: 'لا',
   unknown: 'غير معروف',
-  notRated: 'بدون تقييم'
+  notRated: 'بدون تقييم',
+  hintPlay: 'تشغيل',
+  hintFavorite: 'مفضلة',
+  hintSettings: 'إعدادات',
+  hintMenu: 'القائمة',
+  hintFullscreen: 'ملء الشاشة',
+  hintBrowse: 'تصفح',
+  hintSwitchTab: 'تبديل القسم',
+  playsCount: 'مرات',
+  metroConsoleLabel: 'واجهة Xbox 360 Metro لوضع وحدة التحكم',
+  metroConsoleDesc: 'استخدم واجهة بأسلوب Xbox 360 NXE تعمل بذراع التحكم. التصميم مستوحى من'
 };

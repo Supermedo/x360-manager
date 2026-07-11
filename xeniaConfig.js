@@ -20,6 +20,7 @@ const KEY_SECTIONS = {
   show_profiler: 'UI',
   headless: 'UI',
   mount_cache: 'General',
+  apply_patches: 'General',
   user_language: 'XConfig',
   license_mask: 'XConfig',
   keyboard_mode: 'HID',
@@ -292,8 +293,8 @@ const buildProfileToml = (settings = {}) => {
     lines.push('', '[HID]', `keyboard_mode = ${keyboardMode}`, 'hid = "winkey"', 'keyboard_user_index = 0');
   }
 
-  if (cfg.showFPS || cfg.showStats) {
-    lines.push('', '[UI]', `show_profiler = true`, 'headless = false');
+  if (cfg.showStats) {
+    lines.push('', '[UI]', 'show_profiler = true', 'headless = false');
   }
 
   if (cfg.textureCache) {
@@ -345,11 +346,12 @@ const applyProfileToConfigFile = (configPath, settings, options = {}) => {
   if (cfg.vsync !== undefined) {
     content = upsertTomlKey(content, 'vsync', cfg.vsync !== false);
   }
-  const profilerOn = cfg.showFPS || cfg.showStats;
+  const profilerOn = cfg.showStats === true || cfg.showStats === 'true';
   content = upsertTomlKey(content, 'show_profiler', profilerOn);
   if (profilerOn) {
     content = upsertTomlKey(content, 'headless', false);
   }
+  content = upsertTomlKey(content, 'apply_patches', true);
   if (cfg.textureCache !== undefined) {
     content = upsertTomlKey(content, 'mount_cache', Boolean(cfg.textureCache));
   }

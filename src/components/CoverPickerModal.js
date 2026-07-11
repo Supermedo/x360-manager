@@ -93,7 +93,7 @@ const CoverPickerModal = ({ game, onClose, onSelect }) => {
           display: 'flex',
           flexDirection: 'column',
           gap: '16px',
-          color: '#e2e8f0',
+          color: 'var(--text-primary)',
           boxShadow: '0 30px 60px rgba(0, 0, 0, 0.6)'
         }}
       >
@@ -104,7 +104,7 @@ const CoverPickerModal = ({ game, onClose, onSelect }) => {
             </div>
             <h2 style={{ margin: 0, fontSize: '20px', color: '#fff' }}>{game.name}</h2>
             {game.titleId && (
-              <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '2px' }}>Title ID: {game.titleId}</div>
+              <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>Title ID: {game.titleId}</div>
             )}
           </div>
           <button
@@ -129,7 +129,7 @@ const CoverPickerModal = ({ game, onClose, onSelect }) => {
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', gap: '8px' }}>
           <div style={{ position: 'relative', flex: 1 }}>
-            <Search size={16} style={{ position: 'absolute', top: '50%', left: '12px', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+            <Search size={16} style={{ position: 'absolute', top: '50%', left: '12px', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
             <input
               autoFocus
               type="text"
@@ -156,7 +156,7 @@ const CoverPickerModal = ({ game, onClose, onSelect }) => {
 
         <div style={{ overflowY: 'auto', flex: 1, paddingRight: '4px' }}>
           {loading && results.length === 0 ? (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px', color: '#94a3b8' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px', color: 'var(--text-secondary)' }}>
               <Loader2 size={20} style={{ marginRight: 8 }} /> Searching all sources...
             </div>
           ) : (
@@ -236,7 +236,7 @@ const CoverChoice = ({ entry, isCurrent, onSelect }) => {
         )}
       </div>
       <div>
-        <div style={{ fontSize: '13px', fontWeight: 600, color: '#e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {entry.title || 'Untitled'}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
@@ -244,7 +244,7 @@ const CoverChoice = ({ entry, isCurrent, onSelect }) => {
             {sourceLabel}
           </span>
           {scorePct > 0 && (
-            <span style={{ fontSize: '10px', color: '#94a3b8' }}>match {scorePct}%</span>
+            <span style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>match {scorePct}%</span>
           )}
         </div>
       </div>

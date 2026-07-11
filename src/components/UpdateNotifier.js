@@ -233,11 +233,11 @@ export const AppVersionSettings = () => {
   return (
     <div className="settings-section" style={{ marginTop: '24px', paddingTop: '24px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
       <h3 className="section-title">{t('appUpdatesTitle')}</h3>
-      <p style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '12px' }}>
-        {t('installedVersion')}: <strong style={{ color: '#e2e8f0' }}>v{currentVersion}</strong>
+      <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '12px' }}>
+        {t('installedVersion')}: <strong style={{ color: 'var(--text-primary)' }}>v{currentVersion}</strong>
       </p>
       {updateStatus && (
-        <p style={{ color: '#64748b', fontSize: '13px', marginBottom: '12px' }}>{updateStatus}</p>
+        <p style={{ color: 'var(--text-tertiary)', fontSize: '13px', marginBottom: '12px' }}>{updateStatus}</p>
       )}
       <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
         <button type="button" className="btn btn-secondary" onClick={handleCheck} disabled={checking}>

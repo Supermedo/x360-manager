@@ -217,7 +217,7 @@ const XboxLiveProfilesPanel = ({ onSwitchProfile }) => {
     return (
       <div className="settings-section xlive-panel">
         <h3>My profile</h3>
-        <p style={{ color: '#94a3b8', marginBottom: 16 }}>No profile signed in.</p>
+        <p style={{ color: 'var(--text-secondary)', marginBottom: 16 }}>No profile signed in.</p>
         <button type="button" className="btn btn-primary" onClick={onSwitchProfile}>
           <Users size={16} /> Choose profile
         </button>
@@ -229,7 +229,7 @@ const XboxLiveProfilesPanel = ({ onSwitchProfile }) => {
     return (
       <div className="settings-section xlive-panel">
         <h3>My profile</h3>
-        <p style={{ color: '#94a3b8', marginBottom: 16 }}>{status || 'Profile unavailable.'}</p>
+        <p style={{ color: 'var(--text-secondary)', marginBottom: 16 }}>{status || 'Profile unavailable.'}</p>
         <button type="button" className="btn btn-primary" onClick={onSwitchProfile}>
           <Users size={16} /> Switch profile
         </button>

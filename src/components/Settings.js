@@ -180,7 +180,7 @@ const Settings = ({ onSwitchProfile }) => {
             <option key={lang.code} value={lang.code}>{lang.nativeLabel}</option>
           ))}
         </select>
-        <p style={{ color: '#64748b', fontSize: '13px', marginTop: '8px', lineHeight: 1.5 }}>
+        <p style={{ color: 'var(--text-tertiary)', fontSize: '13px', marginTop: '8px', lineHeight: 1.5 }}>
           {t('appLanguageDesc')}
         </p>
       </div>
@@ -193,6 +193,40 @@ const Settings = ({ onSwitchProfile }) => {
           <option value="dark">{t('themeDark')}</option>
           <option value="light">{t('themeLight')}</option>
         </select>
+      </div>
+      <div className="settings-group mt-4">
+        <label className="checkbox-label">
+          <input
+            type="checkbox"
+            checked={isFullscreen}
+            onChange={async (e) => {
+              const enabled = e.target.checked;
+              handleSettingChange('appFullscreen', enabled);
+              await setFullscreen(enabled);
+            }}
+          />
+          {t('fullscreenAppWindow')}
+        </label>
+        <label className="checkbox-label">
+          <input
+            type="checkbox"
+            checked={localSettings.betaMetroConsole || false}
+            onChange={(e) => handleSettingChange('betaMetroConsole', e.target.checked)}
+          />
+          {t('metroConsoleLabel')} <span className="beta-badge">BETA</span>
+        </label>
+        <p className="settings-hint">
+          {t('metroConsoleDesc')}{' '}
+          <a
+            href="https://github.com/ZivvoZ/dashx360"
+            onClick={(e) => {
+              e.preventDefault();
+              window.electronAPI?.openExternal?.('https://github.com/ZivvoZ/dashx360');
+            }}
+          >
+            DashX360
+          </a>
+        </p>
       </div>
     </div>
   );
@@ -264,18 +298,6 @@ const Settings = ({ onSwitchProfile }) => {
           <input type="checkbox" checked={localSettings.showFPS || false} onChange={e => handleSettingChange('showFPS', e.target.checked)} />
           {t('showInGameFpsCounter')}
         </label>
-        <label className="checkbox-label">
-          <input
-            type="checkbox"
-            checked={isFullscreen}
-            onChange={async (e) => {
-              const enabled = e.target.checked;
-              handleSettingChange('appFullscreen', enabled);
-              await setFullscreen(enabled);
-            }}
-          />
-          {t('fullscreenAppWindow')}
-        </label>
       </div>
     </div>
   );
@@ -294,7 +316,7 @@ const Settings = ({ onSwitchProfile }) => {
               <option key={lang.code} value={lang.code}>{lang.nativeLabel}</option>
             ))}
           </select>
-          <p style={{ color: '#64748b', fontSize: '13px', marginTop: '8px', lineHeight: 1.5 }}>
+          <p style={{ color: 'var(--text-tertiary)', fontSize: '13px', marginTop: '8px', lineHeight: 1.5 }}>
             {t('appLanguageDesc')}
           </p>
         </div>
@@ -324,7 +346,7 @@ const Settings = ({ onSwitchProfile }) => {
               <option key={option.value} value={option.value}>{option.label}</option>
             ))}
           </select>
-          <p style={{ color: '#64748b', fontSize: '13px', marginTop: '8px', lineHeight: 1.5 }}>
+          <p style={{ color: 'var(--text-tertiary)', fontSize: '13px', marginTop: '8px', lineHeight: 1.5 }}>
             {t('defaultGameLanguageDesc')}
           </p>
         </div>
@@ -362,10 +384,10 @@ const Settings = ({ onSwitchProfile }) => {
       </div>
 
       <h3 className="section-title mt-6">{t('coverCacheTitle')}</h3>
-      <p style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '12px' }}>
+      <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '12px' }}>
         {t('coverCacheDescription')}
       </p>
-      <p style={{ color: '#64748b', fontSize: '13px', marginBottom: '12px' }}>
+      <p style={{ color: 'var(--text-tertiary)', fontSize: '13px', marginBottom: '12px' }}>
         {coverCacheStats
           ? `${coverCacheStats.fileCount} file(s), ${formatBytes(coverCacheStats.bytes)}`
           : t('loadingCacheInfo')}
@@ -390,7 +412,7 @@ const Settings = ({ onSwitchProfile }) => {
       </div>
 
       <h3 className="section-title mt-6">{t('gamePatchesTitle')}</h3>
-      <p style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '15px' }}>
+      <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '15px' }}>
         {t('gamePatchesDescription')}
       </p>
       <div style={{ display: 'flex', gap: '10px' }}>

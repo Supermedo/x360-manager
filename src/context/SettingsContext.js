@@ -49,7 +49,8 @@ const defaultSettings = {
   enableTelemetry: false,
   customEmulatorArgs: '',
   checkUpdates: true,
-  autoSaveStates: true
+  autoSaveStates: true,
+  betaMetroConsole: false
 };
 
 export const SettingsProvider = ({ children }) => {

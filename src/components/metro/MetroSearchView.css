@@ -1,0 +1,123 @@
+/* Bing-style game search */
+
+.metro-search {
+  width: min(820px, 90vw);
+  margin: 0 auto;
+  padding: 20px 0 40px;
+}
+
+.metro-search__hero {
+  margin-bottom: 28px;
+}
+
+.metro-search__title {
+  margin: 0 0 8px;
+  font-size: clamp(42px, 5vw, 56px);
+  font-weight: 300;
+  text-transform: lowercase;
+  color: #fff;
+}
+
+.metro-search__hint {
+  margin: 0 0 18px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.metro-search__bar {
+  display: flex;
+  align-items: center;
+  background: #000;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  padding: 0 16px;
+  min-height: 52px;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+.metro-search__bar.is-focused {
+  border-color: #fff;
+  box-shadow: 0 0 0 2px rgba(16, 124, 16, 0.6);
+}
+
+.metro-search__input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: #fff;
+  font-size: 20px;
+  font-family: inherit;
+  outline: none;
+  min-width: 0;
+}
+
+.metro-search__input::placeholder {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.metro-search__icon {
+  flex-shrink: 0;
+  color: rgba(255, 255, 255, 0.7);
+  margin-left: 12px;
+}
+
+.metro-search__results {
+  max-height: min(420px, 50vh);
+  overflow-y: auto;
+}
+
+.metro-search__empty {
+  margin: 0;
+  padding: 16px 4px;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 15px;
+}
+
+.metro-search__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.metro-search__result {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  border: none;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  outline: none;
+  transition: background 0.1s ease;
+}
+
+.metro-search__result:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.metro-search__result.is-focused {
+  background: rgba(16, 124, 16, 0.75);
+}
+
+.metro-search__result-cover {
+  width: 48px;
+  height: 64px;
+  flex-shrink: 0;
+  overflow: hidden;
+  background: #222;
+}
+
+.metro-search__result-cover img,
+.metro-search__result-cover .cover-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.metro-search__result-name {
+  font-size: 16px;
+  font-weight: 500;
+}

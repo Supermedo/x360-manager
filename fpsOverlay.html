@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>X360 FPS</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      background: transparent;
+      overflow: hidden;
+      user-select: none;
+      -webkit-user-select: none;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+    }
+    .fps-overlay {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      border-radius: 6px;
+      background: rgba(8, 12, 8, 0.82);
+      border: 1px solid rgba(123, 191, 50, 0.45);
+      box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
+    }
+    .fps-overlay__label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: rgba(123, 191, 50, 0.9);
+      text-transform: uppercase;
+    }
+    .fps-overlay__value {
+      font-size: 22px;
+      font-weight: 700;
+      color: #eaffd0;
+      min-width: 3ch;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+    .fps-overlay__value.is-waiting {
+      color: rgba(255, 255, 255, 0.55);
+      font-size: 16px;
+    }
+    .fps-overlay__dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #7bbf32;
+      box-shadow: 0 0 8px rgba(123, 191, 50, 0.8);
+      animation: pulse 1.2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 0.45; transform: scale(0.92); }
+      50% { opacity: 1; transform: scale(1); }
+    }
+    video { display: none; }
+  </style>
+</head>
+<body>
+  <div class="fps-overlay" aria-live="polite">
+    <span class="fps-overlay__dot" aria-hidden="true"></span>
+    <span class="fps-overlay__label">FPS</span>
+    <span class="fps-overlay__value is-waiting" id="fps-value">—</span>
+  </div>
+  <video id="capture" autoplay muted playsinline></video>
+  <script>
+    const valueEl = document.getElementById('fps-value');
+    const video = document.getElementById('capture');
+
+    let stream = null;
+    let rvfcHandle = null;
+    let lastFrames = null;
+    let lastTime = null;
+    let smoothedFps = null;
+
+    const showWaiting = () => {
+      valueEl.textContent = '—';
+      valueEl.classList.add('is-waiting');
+      smoothedFps = null;
+      lastFrames = null;
+      lastTime = null;
+    };
+
+    const showFps = (fps) => {
+      valueEl.classList.remove('is-waiting');
+      valueEl.textContent = String(Math.round(fps));
+    };
+
+    const stopCapture = () => {
+      if (rvfcHandle !== null && video.cancelVideoFrameCallback) {
+        video.cancelVideoFrameCallback(rvfcHandle);
+        rvfcHandle = null;
+      }
+      if (stream) {
+        stream.getTracks().forEach((track) => track.stop());
+        stream = null;
+      }
+      video.srcObject = null;
+      showWaiting();
+    };
+
+    const onVideoFrame = (now, metadata) => {
+      const frames = metadata.presentedFrames;
+      const t = now;
+
+      if (lastFrames !== null && lastTime !== null) {
+        const dt = (t - lastTime) / 1000;
+        if (dt >= 0.5) {
+          const fps = (frames - lastFrames) / dt;
+          if (fps > 0 && fps < 1000) {
+            smoothedFps = smoothedFps === null ? fps : smoothedFps * 0.6 + fps * 0.4;
+            showFps(smoothedFps);
+          }
+          lastFrames = frames;
+          lastTime = t;
+        }
+      } else {
+        lastFrames = frames;
+        lastTime = t;
+      }
+
+      rvfcHandle = video.requestVideoFrameCallback(onVideoFrame);
+    };
+
+    const startCapture = async (sourceId) => {
+      stopCapture();
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: false,
+          video: {
+            mandatory: {
+              chromeMediaSource: 'desktop',
+              chromeMediaSourceId: sourceId,
+              maxWidth: 320,
+              maxHeight: 180,
+              maxFrameRate: 240
+            }
+          }
+        });
+        video.srcObject = stream;
+        await video.play();
+
+        stream.getVideoTracks()[0].addEventListener('ended', showWaiting);
+
+        if (video.requestVideoFrameCallback) {
+          rvfcHandle = video.requestVideoFrameCallback(onVideoFrame);
+        }
+      } catch (err) {
+        console.warn('capture failed:', err);
+        showWaiting();
+      }
+    };
+
+    window.fpsOverlayAPI.onSource(({ id }) => {
+      if (!id) {
+        stopCapture();
+        return;
+      }
+      startCapture(id);
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,66 @@
+/* Shared Xbox 360 vertical blade tab nav */
+
+.metro-blade-nav {
+  --blade-green: #107c10;
+  --blade-nav-bg: #d4d4d4;
+  --blade-nav-focus: #b0b0b0;
+  flex: 0 0 240px;
+  background: var(--blade-nav-bg);
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid rgba(0, 0, 0, 0.12);
+  min-height: 0;
+}
+
+.metro-blade-nav__header {
+  background: var(--blade-green);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  padding: 14px 20px;
+  flex-shrink: 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.15);
+}
+
+.metro-blade-nav__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.metro-blade-nav__item {
+  display: block;
+  width: 100%;
+  padding: 14px 20px;
+  border: none;
+  background: transparent;
+  color: #1a1a1a;
+  font-size: 15px;
+  font-weight: 400;
+  text-align: left;
+  cursor: pointer;
+  outline: none;
+  transition: background 0.1s ease;
+}
+
+.metro-blade-nav__item:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.metro-blade-nav__item.is-active {
+  background: var(--blade-green);
+  color: #fff;
+  font-weight: 700;
+}
+
+.metro-blade-nav__item.is-focused {
+  background: var(--blade-nav-focus);
+  font-weight: 600;
+}
+
+.metro-blade-nav__item.is-active.is-focused {
+  background: var(--blade-green);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.85);
+}

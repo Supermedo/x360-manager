@@ -377,6 +377,48 @@ body {
   --spacing-xl: 32px;
   --spacing-2xl: 48px;
 }
+
+/* Light theme — readable contrast on pale backgrounds */
+.theme-light {
+  --xbox-green-bright: #0a6b0a;
+  --xbox-silver-dim: #475569;
+
+  --bg-app: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 55%, #cbd5e1 100%);
+  --bg-primary: rgba(255, 255, 255, 0.98);
+  --bg-secondary: rgba(248, 250, 252, 0.98);
+  --bg-tertiary: rgba(16, 124, 16, 0.08);
+  --bg-panel: rgba(255, 255, 255, 0.94);
+
+  --text-primary: #0f172a;
+  --text-secondary: #334155;
+  --text-tertiary: #64748b;
+
+  --border-color: rgba(15, 23, 42, 0.12);
+  --border-hover: rgba(16, 124, 16, 0.45);
+  --border-accent: rgba(16, 124, 16, 0.28);
+
+  --shadow-sm: 0 2px 4px rgba(15, 23, 42, 0.08);
+  --shadow-md: 0 6px 16px rgba(15, 23, 42, 0.1);
+  --shadow-lg: 0 12px 28px rgba(15, 23, 42, 0.12);
+  --shadow-glow: 0 0 20px rgba(16, 124, 16, 0.18);
+}
+
+.theme-light ::-webkit-scrollbar-track {
+  background: rgba(226, 232, 240, 0.9);
+}
+
+.theme-light ::-webkit-scrollbar-thumb {
+  background: rgba(16, 124, 16, 0.45);
+}
+
+.theme-light ::-webkit-scrollbar-thumb:hover {
+  background: rgba(16, 124, 16, 0.65);
+}
+
+.theme-light ::selection {
+  background: rgba(16, 124, 16, 0.25);
+  color: #0f172a;
+}
 /* Modern Settings Layout */
 .settings-container {
   max-width: 1000px;
@@ -389,7 +431,7 @@ body {
   align-items: center;
   margin-bottom: 30px;
   padding-bottom: 20px;
-  border-bottom: 1px solid rgba(255,255,255,0.1);
+  border-bottom: 1px solid var(--border-color);
 }
 .settings-header h1 {
   font-size: 28px;
@@ -416,7 +458,7 @@ body {
   border-radius: 12px;
   border: none;
   background: transparent;
-  color: #94a3b8;
+  color: var(--text-tertiary);
   font-size: 15px;
   font-weight: 500;
   cursor: pointer;
@@ -424,19 +466,19 @@ body {
   text-align: left;
 }
 .tab-btn:hover {
-  background: rgba(255,255,255,0.05);
-  color: #fff;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
 }
 .tab-btn.active {
-  background: rgba(16, 124, 16, 0.18);
-  color: #107c10;
+  background: rgba(16, 124, 16, 0.14);
+  color: var(--xbox-green);
 }
 .settings-content {
   flex: 1;
 }
 .settings-section {
-  background: rgba(30, 30, 40, 0.6);
-  border: 1px solid rgba(255,255,255,0.05);
+  background: var(--bg-panel);
+  border: 1px solid var(--border-color);
   border-radius: 16px;
   padding: 30px;
   margin-bottom: 20px;
@@ -446,8 +488,8 @@ body {
   font-size: 20px;
   margin-bottom: 25px;
   padding-bottom: 15px;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
-  color: #f8fafc;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-primary);
 }
 .settings-group {
   display: flex;
@@ -457,14 +499,14 @@ body {
 }
 .settings-group label {
   font-size: 14px;
-  color: #94a3b8;
+  color: var(--text-secondary);
 }
 .settings-group select, .settings-group input[type="text"] {
   padding: 12px 16px;
-  background: rgba(0,0,0,0.3);
-  border: 1px solid rgba(255,255,255,0.1);
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
-  color: white;
+  color: var(--text-primary);
   font-size: 14px;
 }
 .settings-group select:focus, .settings-group input[type="text"]:focus {
@@ -482,10 +524,33 @@ body {
   display: flex;
   align-items: center;
   gap: 12px;
-  color: #e2e8f0;
+  color: var(--text-primary);
   font-size: 15px;
   cursor: pointer;
   margin-bottom: 15px;
+}
+.beta-badge {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #9bf763, #107c10);
+  color: #041504;
+}
+.settings-hint {
+  margin: -6px 0 16px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+.settings-hint a {
+  color: var(--xbox-green);
+  text-decoration: none;
+  font-weight: 600;
+}
+.settings-hint a:hover {
+  text-decoration: underline;
 }
 .border-danger {
   border-color: rgba(239, 68, 68, 0.3);

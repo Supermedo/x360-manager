@@ -1,0 +1,264 @@
+/* Global Settings — Xbox 360 list blade */
+
+.metro-settings-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 21000;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+}
+
+.metro-settings-panel {
+  --settings-green: #107c10;
+  --settings-green-focus: rgba(16, 124, 16, 0.85);
+  --settings-bg: #454545;
+  width: min(780px, 88vw);
+  min-height: min(580px, 76vh);
+  max-height: min(820px, 88vh);
+  background: var(--settings-bg);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  color: #fff;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+}
+
+.metro-settings-panel--blade {
+  flex-direction: row;
+  width: min(980px, 92vw);
+}
+
+.metro-settings-panel__body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* ── Header ── */
+
+.metro-settings-panel__header {
+  padding: 28px 36px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
+  position: relative;
+}
+
+.metro-settings-panel__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 12px;
+  padding: 8px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.22);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.metro-settings-panel__back:hover,
+.metro-settings-panel__back:focus-visible {
+  background: rgba(16, 124, 16, 0.35);
+  border-color: rgba(123, 191, 50, 0.55);
+  outline: none;
+}
+
+.metro-settings-panel__header h2 {
+  margin: 0;
+  font-size: 30px;
+  font-weight: 300;
+  letter-spacing: -0.01em;
+}
+
+.metro-settings-panel__tabs,
+.metro-settings-panel__tab-nav,
+.metro-settings-panel__tab-label {
+  display: none;
+}
+
+.metro-settings-panel__header-sub {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.metro-settings-panel__tabs {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.metro-settings-panel__tab-nav {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #fff;
+  width: 34px;
+  height: 34px;
+  cursor: pointer;
+  font-size: 22px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.metro-settings-panel__tab-nav:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.metro-settings-panel__tab-label {
+  font-size: 20px;
+  font-weight: 400;
+  min-width: 160px;
+  text-align: center;
+}
+
+.metro-settings-panel__page {
+  margin-top: 8px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* ── List ── */
+
+.metro-settings-panel__list {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.metro-settings-panel__section {
+  padding: 20px 36px 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.metro-settings-panel__info {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 36px;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 14px;
+}
+
+.metro-settings-panel__row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 15px 36px;
+  border: none;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  outline: none;
+  transition: background 0.1s ease;
+}
+
+.metro-settings-panel__row:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.metro-settings-panel__row.is-focused {
+  background: var(--settings-green-focus);
+  box-shadow: none;
+}
+
+.metro-settings-panel__row.is-focused .metro-settings-panel__row-label,
+.metro-settings-panel__row.is-focused .metro-settings-panel__row-value {
+  color: #fff;
+}
+
+.metro-settings-panel__row.is-busy {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.metro-settings-panel__row-label {
+  font-size: 16px;
+  font-weight: 400;
+  flex: 1;
+  min-width: 0;
+}
+
+.metro-settings-panel__row-value {
+  font-size: 15px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.82);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ── Footer hints ── */
+
+.metro-settings-panel__hints {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  padding: 16px 36px 22px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.68);
+  flex-shrink: 0;
+}
+
+.metro-hint-btn--lb,
+.metro-hint-btn--rb {
+  background: #444;
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
+.metro-hint-btn--start {
+  background: #555;
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 700;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+.console-profile-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 22000;
+  background: rgba(0, 0, 0, 0.85);
+  overflow: auto;
+}

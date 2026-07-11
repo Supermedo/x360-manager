@@ -24,7 +24,14 @@ export const GameplayProvider = ({ children }) => {
       setEmulatorRunning(Boolean(payload?.running));
     });
 
-    const onFocus = () => setWindowFocused(true);
+    const onFocus = () => {
+      setWindowFocused(true);
+      window.electronAPI?.getEmulatorSession?.().then((session) => {
+        if (session && typeof session.running === 'boolean') {
+          setEmulatorRunning(session.running);
+        }
+      });
+    };
     const onBlur = () => setWindowFocused(false);
     const onVisibility = () => {
       setWindowFocused(document.hasFocus() && !document.hidden);
@@ -42,7 +49,7 @@ export const GameplayProvider = ({ children }) => {
     };
   }, []);
 
-  const emulatorBlocksGamepad = emulatorRunning || !windowFocused;
+  const emulatorBlocksGamepad = emulatorRunning && !windowFocused;
 
   const value = useMemo(
     () => ({ emulatorRunning, emulatorBlocksGamepad, windowFocused }),

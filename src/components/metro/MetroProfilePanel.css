@@ -1,0 +1,221 @@
+/* Xbox 360 blade-style profile submenu */
+
+.metro-profile-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 21000;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+}
+
+.metro-profile-blade {
+  --blade-green: #107c10;
+  --blade-nav-bg: #d4d4d4;
+  --blade-content-bg: #545f63;
+  --blade-field-bg: #b8b8b8;
+  --blade-field-text: #1a1a1a;
+  display: flex;
+  width: min(920px, 88vw);
+  min-height: min(620px, 78vh);
+  max-height: min(780px, 86vh);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45);
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  position: relative;
+}
+
+.metro-profile-blade.is-loading::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.2);
+  pointer-events: auto;
+  cursor: wait;
+  z-index: 2;
+}
+
+/* ── Right content pane ── */
+
+.metro-profile-blade__content {
+  flex: 1;
+  min-width: 0;
+  background: var(--blade-content-bg);
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  padding: 28px 32px 0;
+}
+
+.metro-profile-blade__empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0 8px;
+}
+
+.metro-profile-blade__empty h2 {
+  margin: 0 0 10px;
+  font-size: 26px;
+  font-weight: 300;
+}
+
+.metro-profile-blade__empty p {
+  margin: 0 0 20px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.metro-profile-blade__empty-btn {
+  align-self: flex-start;
+  padding: 10px 20px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.metro-profile-blade__empty-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Profile card header (white box) */
+
+.metro-profile-blade__card {
+  background: #fff;
+  margin-bottom: 24px;
+  flex-shrink: 0;
+}
+
+.metro-profile-blade__card-inner {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 18px;
+}
+
+.metro-profile-blade__card-avatar {
+  flex-shrink: 0;
+  width: 72px;
+  height: 72px;
+  background: #e8e8e8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.metro-profile-blade__card-avatar .profile-avatar {
+  border-radius: 0;
+}
+
+.metro-profile-blade__card-text {
+  min-width: 0;
+}
+
+.metro-profile-blade__card-name {
+  font-size: 22px;
+  font-weight: 700;
+  color: #1a1a1a;
+  line-height: 1.2;
+}
+
+.metro-profile-blade__card-status {
+  margin-top: 2px;
+  font-size: 14px;
+  color: #666;
+}
+
+/* Form fields */
+
+.metro-profile-blade__fields {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding-bottom: 12px;
+}
+
+.metro-profile-blade__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.metro-profile-blade__field-label {
+  font-size: 14px;
+  font-weight: 400;
+  color: #fff;
+}
+
+.metro-profile-blade__field-box,
+.metro-profile-blade__field-input {
+  width: 100%;
+  min-height: 52px;
+  padding: 12px 16px;
+  border: 1px solid rgba(0, 0, 0, 0.25);
+  background: var(--blade-field-bg);
+  color: var(--blade-field-text);
+  font-size: 20px;
+  font-weight: 400;
+  font-family: inherit;
+  text-align: left;
+  box-sizing: border-box;
+  outline: none;
+}
+
+.metro-profile-blade__field-box {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+
+.metro-profile-blade__field-box:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.metro-profile-blade__field.is-focused .metro-profile-blade__field-box,
+.metro-profile-blade__field.is-focused .metro-profile-blade__field-input {
+  box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--blade-green);
+}
+
+.metro-profile-blade__field.is-danger .metro-profile-blade__field-label {
+  color: #ffb0b0;
+}
+
+.metro-profile-blade__field.is-danger .metro-profile-blade__field-box {
+  color: #8b2020;
+}
+
+.metro-profile-blade__status {
+  margin: 8px 0 0;
+  padding: 8px 12px;
+  font-size: 13px;
+  background: rgba(16, 124, 16, 0.25);
+  color: #c8f0c8;
+  flex-shrink: 0;
+}
+
+.metro-profile-blade__status.is-warn {
+  background: rgba(200, 140, 40, 0.25);
+  color: #f0d898;
+}
+
+.metro-profile-blade__hints {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  padding: 14px 0 18px;
+  margin-top: auto;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+  flex-shrink: 0;
+}

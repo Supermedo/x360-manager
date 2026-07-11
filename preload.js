@@ -45,6 +45,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getCoverCacheStats: () => ipcRenderer.invoke('get-cover-cache-stats'),
   clearCoverCache: () => ipcRenderer.invoke('clear-cover-cache'),
   setFullScreen: (enabled) => ipcRenderer.invoke('set-fullscreen', enabled),
+  focusMainWindow: () => ipcRenderer.invoke('focus-main-window'),
   isFullScreen: () => ipcRenderer.invoke('is-fullscreen'),
   toggleFullScreen: () => ipcRenderer.invoke('toggle-fullscreen'),
   onFullscreenChanged: (callback) => {

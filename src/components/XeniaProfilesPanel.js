@@ -148,7 +148,7 @@ const XeniaProfilesPanel = ({ localSettings, onDefaultProfileChange }) => {
         </span>
       </label>
 
-      <p style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '16px' }}>
+      <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '16px' }}>
         Presets map to Xenia launch options and config files. Assign a default profile for new launches,
         or pick one per game in Game Configuration.
       </p>
@@ -178,8 +178,8 @@ const XeniaProfilesPanel = ({ localSettings, onDefaultProfileChange }) => {
 
       {selectedProfile && (
         <div className="card" style={{ marginTop: '16px', padding: '16px' }}>
-          <h4 style={{ color: '#e2e8f0', marginBottom: '8px' }}>{selectedProfile.name}</h4>
-          <p style={{ color: '#94a3b8', fontSize: '13px', marginBottom: '12px' }}>{selectedProfile.description}</p>
+          <h4 style={{ color: 'var(--text-primary)', marginBottom: '8px' }}>{selectedProfile.name}</h4>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginBottom: '12px' }}>{selectedProfile.description}</p>
           <ul className="xenia-profile-detail-list">
             <li>Resolution: {selectedProfile.settings.resolution}</li>
             <li>Renderer: {selectedProfile.settings.renderer}</li>
@@ -217,8 +217,8 @@ const XeniaProfilesPanel = ({ localSettings, onDefaultProfileChange }) => {
       </div>
 
       <div className="xenia-presets-panel__actions" style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-        <h4 style={{ color: '#e2e8f0', marginBottom: '8px', fontSize: '14px' }}>Create Custom Profile</h4>
-        <p style={{ color: '#94a3b8', fontSize: '12px', marginBottom: '10px' }}>
+        <h4 style={{ color: 'var(--text-primary)', marginBottom: '8px', fontSize: '14px' }}>Create Custom Profile</h4>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '12px', marginBottom: '10px' }}>
           Copies settings from the selected preset above, then you can tweak per-game in Game Config.
         </p>
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>

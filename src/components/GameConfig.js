@@ -39,6 +39,7 @@ import {
 import { KEYBOARD_MODE_OPTIONS, XENIA_KEYBOARD_DEFAULT_BINDINGS } from '../constants/xeniaInputHelp';
 import { buildGameLaunchConfig } from '../services/launchConfig';
 import useTranslation from '../hooks/useTranslation';
+import GamePatchesModal from './GamePatchesModal';
 
 const CUSTOM_PROFILE_ID = 'custom';
 
@@ -97,6 +98,7 @@ const GameConfig = ({ game, onNavigate }) => {
   const [supportedLangSource, setSupportedLangSource] = useState('');
   const [supportedLangConfidence, setSupportedLangConfidence] = useState('low');
   const [languagesLoading, setLanguagesLoading] = useState(false);
+  const [patchesOpen, setPatchesOpen] = useState(false);
   const profiles = React.useMemo(() => loadAllProfiles(), []);
 
   useEffect(() => {
@@ -748,9 +750,9 @@ const GameConfig = ({ game, onNavigate }) => {
     return (
       <div className="fade-in">
         <div className="card" style={{ textAlign: 'center', padding: '48px 24px' }}>
-          <Settings size={64} style={{ color: '#64748b', marginBottom: '16px' }} />
-          <h3 style={{ color: '#94a3b8', marginBottom: '8px' }}>{t('noGameSelected')}</h3>
-          <p style={{ color: '#64748b', fontSize: '14px', marginBottom: '24px' }}>
+          <Settings size={64} style={{ color: 'var(--text-tertiary)', marginBottom: '16px' }} />
+          <h3 style={{ color: 'var(--text-secondary)', marginBottom: '8px' }}>{t('noGameSelected')}</h3>
+          <p style={{ color: 'var(--text-tertiary)', fontSize: '14px', marginBottom: '24px' }}>
             {t('noGameSelectedHint')}
           </p>
           <button
@@ -790,11 +792,11 @@ const GameConfig = ({ game, onNavigate }) => {
         }}>
           {t('gameConfiguration')}
         </h1>
-        <p style={{ color: '#94a3b8', fontSize: '16px' }}>
-          {t('configureSettingsFor')} <strong style={{ color: '#e2e8f0' }}>{game.name}</strong>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '16px' }}>
+          {t('configureSettingsFor')} <strong style={{ color: 'var(--text-primary)' }}>{game.name}</strong>
         </p>
         {supportedLanguages.length > 0 && (
-          <p style={{ color: '#64748b', fontSize: '13px', marginTop: '6px' }}>
+          <p style={{ color: 'var(--text-tertiary)', fontSize: '13px', marginTop: '6px' }}>
             {t('likelyLanguages')} {formatSupportedLanguageList(supportedLanguages)}
           </p>
         )}
@@ -823,12 +825,12 @@ const GameConfig = ({ game, onNavigate }) => {
             {t('loadPresetValues')}
           </button>
           {game.titleId && (
-            <span style={{ color: '#94a3b8', fontSize: '12px' }}>
+            <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>
               Per-game config: config/{String(game.titleId).toUpperCase().replace(/[^0-9A-F]/g, '').slice(-8)}.config.toml
             </span>
           )}
         </div>
-        <p style={{ color: '#64748b', fontSize: '12px', marginTop: '10px' }}>
+        <p style={{ color: 'var(--text-tertiary)', fontSize: '12px', marginTop: '10px' }}>
           {profileId === CUSTOM_PROFILE_ID
             ? 'Custom mode uses only the settings below. Display, renderer, VSync, resolution, and debug options are applied when you launch.'
             : 'Choosing a preset loads its values into the form. Change any field below to override that preset for this game. Use Save or Launch Game to keep changes.'}
@@ -854,7 +856,7 @@ const GameConfig = ({ game, onNavigate }) => {
           {/* Cover Image Preview */}
           {(game.coverUrl || game.cover) && (
             <div style={{ marginBottom: '16px', textAlign: 'center' }}>
-              <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '8px' }}>Cover Image</div>
+              <div style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '8px' }}>Cover Image</div>
               <img
                 src={game.coverUrl || game.cover}
                 alt={`${game.name} cover`}
@@ -874,34 +876,34 @@ const GameConfig = ({ game, onNavigate }) => {
 
           <div className="grid grid-3" style={{ marginBottom: '16px' }}>
             <div>
-              <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '4px' }}>Name</div>
-              <div style={{ color: '#e2e8f0', fontSize: '16px', fontWeight: '500' }}>{game.name}</div>
+              <div style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '4px' }}>Name</div>
+              <div style={{ color: 'var(--text-primary)', fontSize: '16px', fontWeight: '500' }}>{game.name}</div>
             </div>
             <div>
-              <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '4px' }}>Genre</div>
-              <div style={{ color: '#e2e8f0', fontSize: '16px', fontWeight: '500' }}>{game.genre || 'Unknown'}</div>
+              <div style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '4px' }}>Genre</div>
+              <div style={{ color: 'var(--text-primary)', fontSize: '16px', fontWeight: '500' }}>{game.genre || 'Unknown'}</div>
             </div>
             <div>
-              <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '4px' }}>Rating</div>
-              <div style={{ color: '#e2e8f0', fontSize: '16px', fontWeight: '500' }}>
+              <div style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '4px' }}>Rating</div>
+              <div style={{ color: 'var(--text-primary)', fontSize: '16px', fontWeight: '500' }}>
                 {game.rating ? `${game.rating}/5 â­` : 'Not rated'}
               </div>
             </div>
           </div>
           <div className="grid grid-3" style={{ marginBottom: '16px' }}>
             <div>
-              <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '4px' }}>Times Played</div>
-              <div style={{ color: '#e2e8f0', fontSize: '16px', fontWeight: '500' }}>{game.timesPlayed || 0}</div>
+              <div style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '4px' }}>Times Played</div>
+              <div style={{ color: 'var(--text-primary)', fontSize: '16px', fontWeight: '500' }}>{game.timesPlayed || 0}</div>
             </div>
             <div>
-              <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '4px' }}>Last Played</div>
-              <div style={{ color: '#e2e8f0', fontSize: '16px', fontWeight: '500' }}>
+              <div style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '4px' }}>Last Played</div>
+              <div style={{ color: 'var(--text-primary)', fontSize: '16px', fontWeight: '500' }}>
                 {game.lastPlayed ? new Date(game.lastPlayed).toLocaleDateString() : 'Never'}
               </div>
             </div>
             <div>
-              <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '4px' }}>Date Added</div>
-              <div style={{ color: '#e2e8f0', fontSize: '16px', fontWeight: '500' }}>
+              <div style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '4px' }}>Date Added</div>
+              <div style={{ color: 'var(--text-primary)', fontSize: '16px', fontWeight: '500' }}>
                 {game.dateAdded ? new Date(game.dateAdded).toLocaleDateString() : 'Unknown'}
               </div>
             </div>
@@ -910,34 +912,34 @@ const GameConfig = ({ game, onNavigate }) => {
           {/* Additional Game Details */}
           <div className="grid grid-3" style={{ marginBottom: '16px' }}>
             <div>
-              <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '4px' }}>File Size</div>
-              <div style={{ color: '#e2e8f0', fontSize: '16px', fontWeight: '500' }}>
+              <div style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '4px' }}>File Size</div>
+              <div style={{ color: 'var(--text-primary)', fontSize: '16px', fontWeight: '500' }}>
                 {game.fileSize ? `${(game.fileSize / (1024 * 1024 * 1024)).toFixed(2)} GB` : 'Unknown'}
               </div>
             </div>
             <div>
-              <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '4px' }}>File Type</div>
-              <div style={{ color: '#e2e8f0', fontSize: '16px', fontWeight: '500' }}>
+              <div style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '4px' }}>File Type</div>
+              <div style={{ color: 'var(--text-primary)', fontSize: '16px', fontWeight: '500' }}>
                 {game.path ? game.path.split('.').pop().toUpperCase() : 'Unknown'}
               </div>
             </div>
             <div>
-              <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '4px' }}>Game ID</div>
-              <div style={{ color: '#e2e8f0', fontSize: '12px', fontFamily: 'monospace' }}>
+              <div style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '4px' }}>Game ID</div>
+              <div style={{ color: 'var(--text-primary)', fontSize: '12px', fontFamily: 'monospace' }}>
                 {game.id || 'N/A'}
               </div>
             </div>
           </div>
           {game.description && (
             <div style={{ marginBottom: '16px' }}>
-              <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '4px' }}>Description</div>
-              <div style={{ color: '#e2e8f0', fontSize: '14px', lineHeight: '1.5' }}>{game.description}</div>
+              <div style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '4px' }}>Description</div>
+              <div style={{ color: 'var(--text-primary)', fontSize: '14px', lineHeight: '1.5' }}>{game.description}</div>
             </div>
           )}
           <div>
-            <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '4px' }}>File Path</div>
+            <div style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '4px' }}>File Path</div>
             <div style={{
-              color: '#e2e8f0',
+              color: 'var(--text-primary)',
               fontSize: '12px',
               fontFamily: 'monospace',
               background: 'rgba(0, 0, 0, 0.3)',
@@ -952,7 +954,7 @@ const GameConfig = ({ game, onNavigate }) => {
       </div>
 
       <div className="grid grid-2">
-        <p style={{ color: '#94a3b8', fontSize: '13px', marginBottom: '16px', lineHeight: 1.5 }}>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginBottom: '16px', lineHeight: 1.5 }}>
           <strong style={{ color: '#c8e4ff' }}>Applied on launch (Xenia):</strong> resolution, renderer, fullscreen,
           VSync, frame limit, texture cache, FPS overlay, debug logging, language override, keyboard mode, and custom arguments.
           Save configuration before launching from the library, or use <strong>Launch Game</strong> here.
@@ -1026,7 +1028,7 @@ const GameConfig = ({ game, onNavigate }) => {
               {t('graphicsSettingsTitle')}
             </h3>
           </div>
-          <p style={{ color: '#64748b', fontSize: '12px', marginBottom: '12px' }}>
+          <p style={{ color: 'var(--text-tertiary)', fontSize: '12px', marginBottom: '12px' }}>
             Frame limit is applied (unlimited/high FPS turns VSync off). Anti-aliasing and texture filtering are not supported by Xenia yet.
           </p>
 
@@ -1078,7 +1080,7 @@ const GameConfig = ({ game, onNavigate }) => {
               {t('audioSettingsTitle')}
             </h3>
           </div>
-          <p style={{ color: '#64748b', fontSize: '12px', marginBottom: '12px' }}>
+          <p style={{ color: 'var(--text-tertiary)', fontSize: '12px', marginBottom: '12px' }}>
             Saved per game for now — Xenia Canary does not expose these audio options via launch flags.
           </p>
 
@@ -1140,7 +1142,7 @@ const GameConfig = ({ game, onNavigate }) => {
               onChange={(e) => handleConfigChange('customArgs', e.target.value)}
               placeholder="Additional command line arguments..."
             />
-            <div style={{ color: '#94a3b8', fontSize: '12px', marginTop: '4px' }}>
+            <div style={{ color: 'var(--text-secondary)', fontSize: '12px', marginTop: '4px' }}>
               Advanced users only. These arguments will be passed directly to the emulator.
             </div>
           </div>
@@ -1154,7 +1156,7 @@ const GameConfig = ({ game, onNavigate }) => {
               {t('performanceSettings')}
             </h3>
           </div>
-          <p style={{ color: '#64748b', fontSize: '12px', marginBottom: '12px' }}>
+          <p style={{ color: 'var(--text-tertiary)', fontSize: '12px', marginBottom: '12px' }}>
             Only <strong>Texture cache</strong> is applied on launch. Other options are saved for a future update.
           </p>
 
@@ -1272,22 +1274,22 @@ const GameConfig = ({ game, onNavigate }) => {
           <div className="form-group">
             <label className="form-label">{t('languageOverride')}</label>
             {languagesLoading ? (
-              <p style={{ color: '#64748b', fontSize: '12px', marginBottom: '8px' }}>Detecting supported languages…</p>
+              <p style={{ color: 'var(--text-tertiary)', fontSize: '12px', marginBottom: '8px' }}>Detecting supported languages…</p>
             ) : supportedLanguages.length > 0 ? (
-              <p style={{ color: '#94a3b8', fontSize: '12px', marginBottom: '8px', lineHeight: 1.5 }}>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '12px', marginBottom: '8px', lineHeight: 1.5 }}>
                 <strong>Likely supported:</strong>{' '}
                 {formatSupportedLanguageList(supportedLanguages)}
                 {supportedLangSource && supportedLangSource !== 'unknown'
                   ? ` (${supportedLangSource.replace(/-/g, ' ')})`
                   : ''}
                 {!isReliableLanguageSource(supportedLangSource) && (
-                  <span style={{ color: '#64748b' }}>
+                  <span style={{ color: 'var(--text-tertiary)' }}>
                     {' '}— estimate from folder/title; you can still pick any language below.
                   </span>
                 )}
               </p>
             ) : (
-              <p style={{ color: '#64748b', fontSize: '12px', marginBottom: '8px', lineHeight: 1.5 }}>
+              <p style={{ color: 'var(--text-tertiary)', fontSize: '12px', marginBottom: '8px', lineHeight: 1.5 }}>
                 Could not verify languages for this title. All Xenia languages are available below.
                 Add a Title ID or ScreenScraper credentials in Settings for better detection.
               </p>
@@ -1309,7 +1311,7 @@ const GameConfig = ({ game, onNavigate }) => {
                 ScreenScraper data does not list this language for the title. Menus or audio may stay on the default.
               </p>
             )}
-            <p style={{ color: '#64748b', fontSize: '12px', marginTop: '6px', lineHeight: 1.5 }}>
+            <p style={{ color: 'var(--text-tertiary)', fontSize: '12px', marginTop: '6px', lineHeight: 1.5 }}>
               On launch, writes <code>user_language</code> into your main <code>xenia-canary.config.toml</code> (close Xenia first).
               Many games only change menus/system text — voice acting may stay English if the disc has one audio language.
               Save, then launch from here or the library.
@@ -1325,7 +1327,7 @@ const GameConfig = ({ game, onNavigate }) => {
               {t('inputSettings')}
             </h3>
           </div>
-          <p style={{ color: '#64748b', fontSize: '12px', marginBottom: '12px', lineHeight: 1.5 }}>
+          <p style={{ color: 'var(--text-tertiary)', fontSize: '12px', marginBottom: '12px', lineHeight: 1.5 }}>
             Xenia does not support remapping keys in the app. Mode <strong>Keyboard as gamepad</strong> uses
             Xenia&apos;s built-in layout below. Mouse-as-camera needs a separate tool (e.g. Xenia MouseHook), not this app.
           </p>
@@ -1355,19 +1357,19 @@ const GameConfig = ({ game, onNavigate }) => {
                 borderRadius: '8px',
                 background: 'rgba(0,0,0,0.25)',
                 fontSize: '12px',
-                color: '#cbd5e1'
+                color: 'var(--text-secondary)'
               }}
             >
               <div style={{ fontWeight: 600, color: '#7bbf32', marginBottom: '8px' }}>Default keyboard layout</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 12px' }}>
                 {XENIA_KEYBOARD_DEFAULT_BINDINGS.map((row) => (
                   <React.Fragment key={row.action}>
-                    <span style={{ color: '#94a3b8' }}>{row.action}</span>
+                    <span style={{ color: 'var(--text-secondary)' }}>{row.action}</span>
                     <span style={{ fontFamily: 'monospace' }}>{row.keys}</span>
                   </React.Fragment>
                 ))}
               </div>
-              <p style={{ marginTop: '8px', color: '#64748b' }}>
+              <p style={{ marginTop: '8px', color: 'var(--text-tertiary)' }}>
                 Click the Xenia window so it has focus. Keys cannot be changed without editing Xenia&apos;s config manually.
               </p>
             </div>
@@ -1477,10 +1479,10 @@ const GameConfig = ({ game, onNavigate }) => {
                 onChange={(e) => handleConfigChange('showFPS', e.target.checked)}
                 style={{ marginRight: '8px' }}
               />
-              Show FPS Counter
+              Show FPS Counter (X360 Manager overlay)
             </label>
-            <p style={{ color: '#94a3b8', fontSize: '12px', marginTop: '6px', marginLeft: '28px' }}>
-              Patches Xenia config and enables the profiler overlay. Press <strong>F3</strong> in-game to toggle the FPS display if it does not appear automatically.
+            <p style={{ color: 'var(--text-secondary)', fontSize: '12px', marginTop: '6px', marginLeft: '28px' }}>
+              Shows a custom FPS overlay built into X360 Manager while the game runs. Enable in Settings or per-game, then launch.
             </p>
           </div>
 
@@ -1497,17 +1499,26 @@ const GameConfig = ({ game, onNavigate }) => {
           </div>
 
           <div style={{ marginTop: '16px', padding: '16px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-            <h4 style={{ color: '#e2e8f0', marginBottom: '8px' }}>Game Patches</h4>
-            <p style={{ color: '#94a3b8', fontSize: '13px', marginBottom: '12px' }}>
-              Xenia Canary patches can be enabled for this game by opening its corresponding TOML file and setting `is_enabled = true`.
+            <h4 style={{ color: 'var(--text-primary)', marginBottom: '8px' }}>Game Patches</h4>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginBottom: '12px' }}>
+              Enable community patches (60 FPS, widescreen, etc.) for this title. Patches apply on next launch when enabled.
             </p>
-            <button
-              className="btn btn-secondary"
-              onClick={() => window.electronAPI && window.electronAPI.openPatchesFolder(settings.emulatorPath)}
-              disabled={!settings.emulatorPath}
-            >
-              <FolderOpen size={16} /> Open Patches Folder
-            </button>
+            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+              <button
+                className="btn btn-primary"
+                onClick={() => setPatchesOpen(true)}
+                disabled={!settings.emulatorPath}
+              >
+                <Zap size={16} /> Configure Patches
+              </button>
+              <button
+                className="btn btn-secondary"
+                onClick={() => window.electronAPI && window.electronAPI.openPatchesFolder(settings.emulatorPath)}
+                disabled={!settings.emulatorPath}
+              >
+                <FolderOpen size={16} /> Open Patches Folder
+              </button>
+            </div>
           </div>
         </div>
 
@@ -1529,7 +1540,7 @@ const GameConfig = ({ game, onNavigate }) => {
               <FolderOpen size={18} />
               Browse for DLC Files
             </button>
-            <div style={{ color: '#94a3b8', fontSize: '12px', marginTop: '4px' }}>
+            <div style={{ color: 'var(--text-secondary)', fontSize: '12px', marginTop: '4px' }}>
               Supported formats: .xcp, .dlc, .pkg, .zip, .7z
             </div>
           </div>
@@ -1556,13 +1567,13 @@ const GameConfig = ({ game, onNavigate }) => {
                     border: '1px solid rgba(148, 163, 184, 0.2)'
                   }}>
                     <div style={{ flex: 1 }}>
-                      <div style={{ color: '#e2e8f0', fontSize: '14px', fontWeight: '500' }}>
+                      <div style={{ color: 'var(--text-primary)', fontSize: '14px', fontWeight: '500' }}>
                         {dlc.name}
                       </div>
-                      <div style={{ color: '#94a3b8', fontSize: '12px', fontFamily: 'monospace' }}>
+                      <div style={{ color: 'var(--text-secondary)', fontSize: '12px', fontFamily: 'monospace' }}>
                         {dlc.path}
                       </div>
-                      <div style={{ color: '#64748b', fontSize: '11px' }}>
+                      <div style={{ color: 'var(--text-tertiary)', fontSize: '11px' }}>
                         Added: {new Date(dlc.dateAdded).toLocaleDateString()}
                       </div>
                     </div>
@@ -1589,7 +1600,7 @@ const GameConfig = ({ game, onNavigate }) => {
             <div style={{
               textAlign: 'center',
               padding: '24px',
-              color: '#64748b',
+              color: 'var(--text-tertiary)',
               fontSize: '14px',
               border: '2px dashed rgba(148, 163, 184, 0.3)',
               borderRadius: '8px',
@@ -1647,7 +1658,7 @@ const GameConfig = ({ game, onNavigate }) => {
                 onChange={(e) => handleConfigChange('autoBackupEnabled', e.target.checked)}
                 style={{ width: '18px', height: '18px' }}
               />
-              <label htmlFor="autoBackup" style={{ color: '#e2e8f0', fontSize: '14px', cursor: 'pointer' }}>
+              <label htmlFor="autoBackup" style={{ color: 'var(--text-primary)', fontSize: '14px', cursor: 'pointer' }}>
                 Automatically backup saves before launching game
               </label>
             </div>
@@ -1678,7 +1689,7 @@ const GameConfig = ({ game, onNavigate }) => {
 
           {/* Save Files List */}
           <div>
-            <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '8px', fontWeight: '500' }}>
+            <div style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '8px', fontWeight: '500' }}>
               Save Backups ({(config.saveFiles || []).length})
             </div>
             {(config.saveFiles || []).length === 0 ? (
@@ -1689,8 +1700,8 @@ const GameConfig = ({ game, onNavigate }) => {
                 borderRadius: '8px',
                 background: 'rgba(16, 124, 16, 0.05)'
               }}>
-                <HardDrive size={32} style={{ color: '#64748b', marginBottom: '8px' }} />
-                <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '4px' }}>No save backups found</div>
+                <HardDrive size={32} style={{ color: 'var(--text-tertiary)', marginBottom: '8px' }} />
+                <div style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '4px' }}>No save backups found</div>
                 <div style={{ fontSize: '12px', marginTop: '4px' }}>Create backups or import save files to manage your game saves</div>
               </div>
             ) : (
@@ -1707,13 +1718,13 @@ const GameConfig = ({ game, onNavigate }) => {
                     border: '1px solid rgba(16, 124, 16, 0.2)'
                   }}>
                     <div style={{ flex: 1 }}>
-                      <div style={{ color: '#e2e8f0', fontSize: '14px', fontWeight: '500', marginBottom: '2px' }}>
+                      <div style={{ color: 'var(--text-primary)', fontSize: '14px', fontWeight: '500', marginBottom: '2px' }}>
                         {saveFile.name}
                       </div>
-                      <div style={{ color: '#94a3b8', fontSize: '12px' }}>
+                      <div style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>
                         {new Date(saveFile.date).toLocaleString()} â€¢ {saveFile.type}
                       </div>
-                      <div style={{ color: '#64748b', fontSize: '11px', fontFamily: 'monospace', marginTop: '2px' }}>
+                      <div style={{ color: 'var(--text-tertiary)', fontSize: '11px', fontFamily: 'monospace', marginTop: '2px' }}>
                         {saveFile.path}
                       </div>
                     </div>
@@ -1795,6 +1806,14 @@ const GameConfig = ({ game, onNavigate }) => {
           </div>
         )}
       </div>
+      {patchesOpen && game && (
+        <GamePatchesModal
+          game={game}
+          settings={settings}
+          onClose={() => setPatchesOpen(false)}
+          updateGame={updateGame}
+        />
+      )}
     </div >
   );
 };

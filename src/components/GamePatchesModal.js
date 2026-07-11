@@ -62,12 +62,13 @@ const GamePatchesModal = React.memo(({ game, settings, onClose, updateGame }) =>
 
 
     const handleTogglePatch = async (patch) => {
-        if (!patchFile || patch.enabledLineIndex === -1) return;
+        if (!patchFile) return;
 
         const newValue = !patch.is_enabled;
         const result = await window.electronAPI.toggleGamePatch({
             patchFile,
             enabledLineIndex: patch.enabledLineIndex,
+            patchId: patch.id,
             newValue
         });
 
@@ -120,7 +121,7 @@ const GamePatchesModal = React.memo(({ game, settings, onClose, updateGame }) =>
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            zIndex: 1000
+            zIndex: 22000
         }}>
             <div className="card" style={{ width: '650px', maxWidth: '90vw', maxHeight: '85vh', display: 'flex', flexDirection: 'column', background: 'linear-gradient(to bottom, #1e1e2f, #13131f)', border: '1px solid rgba(16, 124, 16, 0.2)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}>
                 <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
@@ -133,7 +134,7 @@ const GamePatchesModal = React.memo(({ game, settings, onClose, updateGame }) =>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                         {patchFile && (
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <span style={{ fontSize: '12px', color: '#64748b', background: 'rgba(0,0,0,0.2)', padding: '4px 8px', borderRadius: '4px' }}>
+                                <span style={{ fontSize: '12px', color: 'var(--text-tertiary)', background: 'rgba(0,0,0,0.2)', padding: '4px 8px', borderRadius: '4px' }}>
                                     {patchFile.split(/[\\/]/).pop()}
                                 </span>
                                 <button
@@ -157,7 +158,7 @@ const GamePatchesModal = React.memo(({ game, settings, onClose, updateGame }) =>
                             </div>
                         )}
                         <button
-                            style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '4px', display: 'flex' }}
+                            style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '4px', display: 'flex' }}
                             onClick={onClose}
                         >
                             <X size={20} />
@@ -166,14 +167,14 @@ const GamePatchesModal = React.memo(({ game, settings, onClose, updateGame }) =>
                 </div>
                 <div className="card-body" style={{ overflowY: 'auto', padding: '20px' }}>
                     {loadingPatches ? (
-                        <div style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>
+                        <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>
                             <Zap size={48} style={{ color: '#7bbf32', marginBottom: '16px', opacity: 0.5, animation: 'pulse 2s infinite' }} />
                             <p>Loading patches...</p>
                         </div>
                     ) : availablePatches.length > 0 ? (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(16, 124, 16, 0.2)', borderRadius: '8px', padding: '0 12px' }}>
-                                <Search size={18} style={{ color: '#94a3b8' }} />
+                                <Search size={18} style={{ color: 'var(--text-secondary)' }} />
                                 <input
                                     type="text"
                                     placeholder="Search patches..."
@@ -184,7 +185,7 @@ const GamePatchesModal = React.memo(({ game, settings, onClose, updateGame }) =>
                             </div>
 
                             {filteredPatches.length === 0 ? (
-                                <div style={{ textAlign: 'center', padding: '30px', color: '#64748b' }}>
+                                <div style={{ textAlign: 'center', padding: '30px', color: 'var(--text-tertiary)' }}>
                                     <p>No patches match your search.</p>
                                 </div>
                             ) : (
@@ -202,15 +203,15 @@ const GamePatchesModal = React.memo(({ game, settings, onClose, updateGame }) =>
                                         }}>
                                             <div style={{ flex: 1, paddingRight: '16px' }}>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                                                    <div style={{ color: patch.is_enabled ? '#fff' : '#e2e8f0', fontSize: '15px', fontWeight: 'bold' }}>{patch.name}</div>
+                                                    <div style={{ color: patch.is_enabled ? '#fff' : 'var(--text-primary)', fontSize: '15px', fontWeight: 'bold' }}>{patch.name}</div>
                                                     {patch.author && patch.author !== 'Unknown' && (
-                                                        <span style={{ fontSize: '11px', color: '#64748b', background: 'rgba(255,255,255,0.05)', padding: '2px 6px', borderRadius: '4px' }}>
+                                                        <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', background: 'rgba(255,255,255,0.05)', padding: '2px 6px', borderRadius: '4px' }}>
                                                             by {patch.author}
                                                         </span>
                                                     )}
                                                 </div>
                                                 {patch.desc && (
-                                                    <div style={{ color: '#94a3b8', fontSize: '13px', lineHeight: '1.4' }}>{patch.desc}</div>
+                                                    <div style={{ color: 'var(--text-secondary)', fontSize: '13px', lineHeight: '1.4' }}>{patch.desc}</div>
                                                 )}
                                             </div>
                                             <label className="switch">
@@ -228,8 +229,8 @@ const GamePatchesModal = React.memo(({ game, settings, onClose, updateGame }) =>
                         </div>
                     ) : (
                         <div style={{ textAlign: 'center', padding: '40px 24px' }}>
-                            <Zap size={48} style={{ color: '#64748b', marginBottom: '16px', opacity: 0.5 }} />
-                            <p style={{ color: '#94a3b8', marginBottom: '16px' }}>
+                            <Zap size={48} style={{ color: 'var(--text-tertiary)', marginBottom: '16px', opacity: 0.5 }} />
+                            <p style={{ color: 'var(--text-secondary)', marginBottom: '16px' }}>
                                 No patches found for this game {(manualTitleId || game?.titleId) ? `(Title ID: ${manualTitleId || game?.titleId})` : ''}.
                             </p>
 
@@ -266,10 +267,10 @@ const GamePatchesModal = React.memo(({ game, settings, onClose, updateGame }) =>
 
                                     {allPatchFiles.length > 0 && (
                                         <div style={{ width: '100%', maxWidth: '450px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                            <span style={{ color: '#64748b', fontSize: '12px', fontWeight: 'bold', textAlign: 'center' }}>OR SEARCH COMMUNITY LIST</span>
+                                            <span style={{ color: 'var(--text-tertiary)', fontSize: '12px', fontWeight: 'bold', textAlign: 'center' }}>OR SEARCH COMMUNITY LIST</span>
                                             <div style={{ position: 'relative', width: '100%' }}>
                                                 <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(16, 124, 16, 0.3)', borderRadius: '6px', padding: '0 12px' }}>
-                                                    <Search size={16} style={{ color: '#94a3b8' }} />
+                                                    <Search size={16} style={{ color: 'var(--text-secondary)' }} />
                                                     <input
                                                         type="text"
                                                         placeholder="Search game title or ID..."
@@ -312,7 +313,7 @@ const GamePatchesModal = React.memo(({ game, settings, onClose, updateGame }) =>
                                                                     style={{
                                                                         padding: '10px 16px',
                                                                         cursor: 'pointer',
-                                                                        color: '#e2e8f0',
+                                                                        color: 'var(--text-primary)',
                                                                         fontSize: '13px',
                                                                         borderBottom: '1px solid rgba(255,255,255,0.05)',
                                                                         transition: 'background 0.2s'
@@ -321,12 +322,12 @@ const GamePatchesModal = React.memo(({ game, settings, onClose, updateGame }) =>
                                                                     onMouseLeave={(e) => e.target.style.background = 'transparent'}
                                                                 >
                                                                     <div style={{ fontWeight: '600' }}>{f.titleName}</div>
-                                                                    <div style={{ fontSize: '11px', color: '#64748b' }}>{f.filename}</div>
+                                                                    <div style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>{f.filename}</div>
                                                                 </div>
                                                             ))
                                                         }
                                                         {allPatchFiles.filter(f => f.titleName.toLowerCase().includes(searchQuery.toLowerCase()) || f.filename.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 && (
-                                                            <div style={{ padding: '16px', textAlign: 'center', color: '#64748b', fontSize: '13px' }}>No matches found</div>
+                                                            <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-tertiary)', fontSize: '13px' }}>No matches found</div>
                                                         )}
                                                     </div>
                                                 )}

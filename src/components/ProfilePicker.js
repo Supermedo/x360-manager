@@ -1,9 +1,10 @@
-import React, { useCallback, useContext, useEffect, useState } from 'react';
+import React, { useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { UserPlus } from 'lucide-react';
 import { SettingsContext } from '../context/SettingsContext';
 import ProfilePinModal from './ProfilePinModal';
 import ProfileAddModal from './ProfileAddModal';
 import ProfileAvatar from './ProfileAvatar';
+import useGamepad from '../hooks/useGamepad';
 
 const avatarColor = (key) => {
   const palette = ['#107c10', '#0e6b0e', '#1a8f1a', '#2d6a4f', '#40916c', '#52b788'];
@@ -27,6 +28,7 @@ const ProfilePicker = ({ onSelect, onCancel, allowAdd = false }) => {
   const [askEachTime, setAskEachTime] = useState(settings.askProfileOnLaunch !== false);
   const [pinProfile, setPinProfile] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
+  const [focusIndex, setFocusIndex] = useState(0);
 
   const load = useCallback(async () => {
     if (!settings.emulatorPath) {
@@ -43,6 +45,18 @@ const ProfilePicker = ({ onSelect, onCancel, allowAdd = false }) => {
   useEffect(() => {
     load();
   }, [load]);
+
+  const pickerItems = useMemo(() => {
+    const items = profiles.map((p) => ({ type: 'profile', profile: p }));
+    if (allowAdd) items.push({ type: 'add' });
+    return items;
+  }, [allowAdd, profiles]);
+
+  useEffect(() => {
+    if (focusIndex >= pickerItems.length) {
+      setFocusIndex(Math.max(0, pickerItems.length - 1));
+    }
+  }, [focusIndex, pickerItems.length]);
 
   const activateProfile = async (profile) => {
     setPicking(profile.id);
@@ -66,6 +80,21 @@ const ProfilePicker = ({ onSelect, onCancel, allowAdd = false }) => {
     activateProfile(profile);
   };
 
+  const activateFocused = useCallback(() => {
+    const item = pickerItems[focusIndex];
+    if (!item || picking) return;
+    if (item.type === 'add') {
+      setShowAdd(true);
+      return;
+    }
+    const profile = item.profile;
+    if (profile.hasPin) {
+      setPinProfile(profile);
+      return;
+    }
+    activateProfile(profile);
+  }, [focusIndex, pickerItems, picking]);
+
   const handleCreate = async (options) => {
     const result = await window.electronAPI?.createXboxLiveProfile?.(settings.emulatorPath, options);
     if (result?.ok) {
@@ -75,6 +104,42 @@ const ProfilePicker = ({ onSelect, onCancel, allowAdd = false }) => {
     }
     return result;
   };
+
+  useGamepad({
+    left: () => setFocusIndex((i) => Math.max(0, i - 1)),
+    right: () => setFocusIndex((i) => Math.min(pickerItems.length - 1, i + 1)),
+    confirm: activateFocused,
+    back: () => onCancel?.()
+  }, !loading && !showAdd && !pinProfile && pickerItems.length > 0, 250);
+
+  useEffect(() => {
+    const onKeyDown = (event) => {
+      if (loading || showAdd || pinProfile || pickerItems.length === 0) return;
+      switch (event.key) {
+        case 'ArrowLeft':
+          event.preventDefault();
+          setFocusIndex((i) => Math.max(0, i - 1));
+          break;
+        case 'ArrowRight':
+          event.preventDefault();
+          setFocusIndex((i) => Math.min(pickerItems.length - 1, i + 1));
+          break;
+        case 'Enter':
+          event.preventDefault();
+          activateFocused();
+          break;
+        case 'Escape':
+        case 'Backspace':
+          event.preventDefault();
+          onCancel?.();
+          break;
+        default:
+          break;
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [activateFocused, loading, onCancel, pinProfile, pickerItems.length, showAdd]);
 
   if (showAdd) {
     return (
@@ -116,13 +181,13 @@ const ProfilePicker = ({ onSelect, onCancel, allowAdd = false }) => {
           <p className="profile-picker__hint">Loading profiles…</p>
         ) : (
           <div className="profile-picker__grid">
-            {profiles.map((p) => (
+            {profiles.map((p, index) => (
               <button
                 key={p.id}
                 type="button"
-                className="profile-picker__card"
+                className={`profile-picker__card${index === focusIndex ? ' is-focused' : ''}`}
                 disabled={Boolean(picking)}
-                onClick={() => handlePick(p)}
+                onClick={() => { setFocusIndex(index); handlePick(p); }}
               >
                 <span className="profile-picker__avatar profile-picker__avatar--rendered">
                   <ProfileAvatar
@@ -140,8 +205,8 @@ const ProfilePicker = ({ onSelect, onCancel, allowAdd = false }) => {
             {allowAdd && (
               <button
                 type="button"
-                className="profile-picker__card profile-picker__card--add"
-                onClick={() => setShowAdd(true)}
+                className={`profile-picker__card profile-picker__card--add${focusIndex === profiles.length ? ' is-focused' : ''}`}
+                onClick={() => { setFocusIndex(profiles.length); setShowAdd(true); }}
                 disabled={Boolean(picking)}
               >
                 <span className="profile-picker__avatar profile-picker__avatar--add">
@@ -166,6 +231,12 @@ const ProfilePicker = ({ onSelect, onCancel, allowAdd = false }) => {
           <button type="button" className="boot-btn boot-btn--ghost profile-picker__cancel" onClick={onCancel}>
             Cancel
           </button>
+        )}
+
+        {!loading && pickerItems.length > 0 && (
+          <p className="profile-picker__hint">
+            ← → Move · A Select · B Back
+          </p>
         )}
       </div>
     </div>

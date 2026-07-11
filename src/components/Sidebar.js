@@ -76,13 +76,13 @@ const Sidebar = ({ activeView, onNavigate, onSwitchProfile, sessionGamertag, ses
           border: '1px solid rgba(16, 124, 16, 0.2)',
           textAlign: 'center'
         }}>
-          <div style={{ fontSize: '12px', color: '#94a3b8', marginBottom: '4px' }}>
+          <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>
             Version {appVersion || '…'}
           </div>
-          <div style={{ fontSize: '10px', color: '#64748b', marginBottom: '8px' }}>
+          <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', marginBottom: '8px' }}>
             X360 Manager
           </div>
-          <div style={{ fontSize: '9px', color: '#64748b', fontStyle: 'italic' }}>
+          <div style={{ fontSize: '9px', color: 'var(--text-tertiary)', fontStyle: 'italic' }}>
             Made by Mohammed Albarghouthi
           </div>
         </div>

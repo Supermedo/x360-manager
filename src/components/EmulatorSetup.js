@@ -326,19 +326,19 @@ const EmulatorSetup = ({ onNavigate }) => {
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
                 <div>
-                  <h4 style={{ color: '#e2e8f0', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <h4 style={{ color: 'var(--text-primary)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                     {version.name}
                     {version.recommended && (
                       <span className="status status-success">{t('recommended')}</span>
                     )}
                   </h4>
-                  <p style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '8px' }}>
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '8px' }}>
                     {version.description}
                   </p>
-                  <div style={{ color: '#64748b', fontSize: '12px', marginBottom: '4px' }}>
+                  <div style={{ color: 'var(--text-tertiary)', fontSize: '12px', marginBottom: '4px' }}>
                     Size: {version.size}
                   </div>
-                  <div style={{ color: '#64748b', fontSize: '12px' }}>
+                  <div style={{ color: 'var(--text-tertiary)', fontSize: '12px' }}>
                     Config: {version.configPath}
                   </div>
                 </div>
@@ -358,7 +358,7 @@ const EmulatorSetup = ({ onNavigate }) => {
         {isDownloading && (
           <div style={{ marginTop: '24px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-              <span style={{ color: '#e2e8f0' }}>{downloadStatus}</span>
+              <span style={{ color: 'var(--text-primary)' }}>{downloadStatus}</span>
               <span style={{ color: '#7bbf32' }}>{Math.round(downloadProgress)}%</span>
             </div>
             <div className="progress-bar">
@@ -376,7 +376,7 @@ const EmulatorSetup = ({ onNavigate }) => {
               <ExternalLink size={16} color="#3b82f6" />
               <span style={{ color: '#3b82f6', fontWeight: '600' }}>{t('officialXeniaDownloads')}</span>
             </div>
-            <p style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '12px', flex: 1 }}>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '12px', flex: 1 }}>
               Download directly from the official Xenia website or configure an existing installation.
             </p>
             <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginTop: 'auto' }}>
@@ -403,7 +403,7 @@ const EmulatorSetup = ({ onNavigate }) => {
               <Settings size={16} color="#f59e0b" />
               <span style={{ color: '#f59e0b', fontWeight: '600' }}>{t('configurationInfo')}</span>
             </div>
-            <div style={{ color: '#94a3b8', fontSize: '14px', flex: 1 }}>
+            <div style={{ color: 'var(--text-secondary)', fontSize: '14px', flex: 1 }}>
               <p style={{ marginBottom: '8px' }}>â€¢ <strong>Xenia Stable:</strong> Config at Documents\Xenia\xenia.config.toml</p>
               <p style={{ marginBottom: '8px' }}>â€¢ <strong>Xenia Canary:</strong> Config alongside xenia.exe (portable)</p>
               <p>â€¢ <strong>Per-game configs:</strong> Create TitleID.config.toml in config folder</p>
@@ -449,7 +449,7 @@ const EmulatorSetup = ({ onNavigate }) => {
               {t('browse')}
             </button>
           </div>
-          <div style={{ color: '#94a3b8', fontSize: '12px', marginTop: '4px' }}>
+          <div style={{ color: 'var(--text-secondary)', fontSize: '12px', marginTop: '4px' }}>
             Path to the main Xenia emulator executable (xenia.exe)
           </div>
         </div>
@@ -476,7 +476,7 @@ const EmulatorSetup = ({ onNavigate }) => {
               {t('browse')}
             </button>
           </div>
-          <div style={{ color: '#94a3b8', fontSize: '12px', marginTop: '4px' }}>
+          <div style={{ color: 'var(--text-secondary)', fontSize: '12px', marginTop: '4px' }}>
             Directory where your game files are stored
           </div>
         </div>
@@ -511,7 +511,7 @@ const EmulatorSetup = ({ onNavigate }) => {
 
         <div className="grid grid-2">
           <div>
-            <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '4px' }}>
+            <div style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '4px' }}>
               {t('emulatorStatus')}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -530,7 +530,7 @@ const EmulatorSetup = ({ onNavigate }) => {
           </div>
 
           <div>
-            <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '4px' }}>
+            <div style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '4px' }}>
               {t('defaultGamesDirectory')}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -565,7 +565,7 @@ const EmulatorSetup = ({ onNavigate }) => {
         }}>
           {t('emulatorSetupTitle')}
         </h1>
-        <p style={{ color: '#94a3b8', fontSize: '16px' }}>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '16px' }}>
           {t('emulatorSetupSubtitle')}
         </p>
       </div>
@@ -577,7 +577,7 @@ const EmulatorSetup = ({ onNavigate }) => {
             display: 'flex',
             alignItems: 'center',
             gap: '8px',
-            color: setupStep >= 1 ? '#7bbf32' : '#64748b'
+            color: setupStep >= 1 ? '#7bbf32' : 'var(--text-tertiary)'
           }}>
             <div style={{
               width: '32px',
@@ -601,7 +601,7 @@ const EmulatorSetup = ({ onNavigate }) => {
             display: 'flex',
             alignItems: 'center',
             gap: '8px',
-            color: setupStep >= 2 ? '#7bbf32' : '#64748b'
+            color: setupStep >= 2 ? '#7bbf32' : 'var(--text-tertiary)'
           }}>
             <div style={{
               width: '32px',

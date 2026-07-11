@@ -159,45 +159,45 @@ const GameCard = React.memo(React.forwardRef(({ game, cardSize = 180, isFocused 
 
 GameCard.displayName = 'GameCard';
 
-const GameListItem = React.memo(({ game, onLaunch, onToggleFavorite, onConfigure, onRemove }) => {
+const GameListItem = React.memo(React.forwardRef(({
+  game,
+  isFocused = false,
+  onLaunch,
+  onToggleFavorite,
+  onConfigure,
+  onRemove,
+  onCoverFailed
+}, ref) => {
   const { t } = useTranslation();
   return (
-  <div className="card" style={{ padding: '16px', marginBottom: '8px' }}>
-    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-      <div style={{
-        width: '64px',
-        height: '64px',
-        background: 'linear-gradient(180deg, #7bbf32, #107c10)',
-        borderRadius: '8px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center'
-      }}>
-        <Gamepad2 size={24} color="white" />
+    <div ref={ref} className={`game-list-item${isFocused ? ' game-list-item--focused' : ''}`}>
+      <div className="game-list-item__cover">
+        <CoverImage
+          gameName={game.name}
+          coverUrl={game.coverHttpUrl || game.coverUrl}
+          alt={game.name}
+          onCoverFailed={() => onCoverFailed?.(game)}
+          placeholderSize={22}
+        />
       </div>
 
-      <div style={{ flex: 1 }}>
-        <h3 style={{ color: '#e2e8f0', marginBottom: '4px' }}>{game.name}</h3>
-        <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '4px' }}>
-          {game.genre || t('unknownGenre')} • {game.timesPlayed || 0} plays
+      <div className="game-list-item__info">
+        <h3 className="game-list-item__title">{game.name}</h3>
+        <div className="game-list-item__meta">
+          {game.genre || t('unknownGenre')} • {game.timesPlayed || 0} {t('playsCount')}
         </div>
-        <div style={{ color: '#64748b', fontSize: '12px' }}>
-          {game.path}
-        </div>
+        <div className="game-list-item__path">{game.path}</div>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <div className="game-list-item__actions">
         {game.rating > 0 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <div className="game-list-item__rating">
             <Star size={14} color="#fbbf24" fill="#fbbf24" />
-            <span style={{ color: '#fbbf24', fontSize: '14px' }}>{game.rating}</span>
+            <span>{game.rating}</span>
           </div>
         )}
 
-        <button
-          className="btn btn-primary"
-          onClick={() => onLaunch(game)}
-        >
+        <button className="btn btn-primary" onClick={() => onLaunch(game)}>
           <Play size={16} />
           {t('play')}
         </button>
@@ -210,25 +210,20 @@ const GameListItem = React.memo(({ game, onLaunch, onToggleFavorite, onConfigure
           <Heart size={16} fill={game.isFavorite ? 'currentColor' : 'none'} />
         </button>
 
-        <button
-          className="btn btn-secondary"
-          onClick={() => onConfigure(game)}
-        >
+        <button className="btn btn-secondary" onClick={() => onConfigure(game)}>
           <Settings size={16} />
         </button>
 
-        <button
-          className="btn btn-danger"
-          onClick={() => onRemove(game.id)}
-        >
+        <button className="btn btn-danger" onClick={() => onRemove(game.id)}>
           <Trash2 size={16} />
         </button>
       </div>
     </div>
-  </div>
   );
-});
-const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode }) => {
+}));
+
+GameListItem.displayName = 'GameListItem';
+const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode, suspendGamepad = false }) => {
   const { t } = useTranslation();
   const {
     games,
@@ -621,6 +616,26 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode }) => {
     setContextMenu({ visible: true, x: left, y: top, game });
   }, []);
 
+  const openContextMenuForGame = useCallback((game) => {
+    const idx = filteredGames.findIndex((entry) => entry.id === game.id);
+    const node = gameCardRefs.current[idx];
+    let x = window.innerWidth / 2;
+    let y = window.innerHeight / 2;
+    if (node?.getBoundingClientRect) {
+      const rect = node.getBoundingClientRect();
+      x = rect.left + Math.min(rect.width * 0.75, rect.width - 20);
+      y = rect.top + rect.height / 2;
+    }
+    contextMenuAnchor.current = { x, y };
+    const { left, top } = clampContextMenuPosition(
+      x,
+      y,
+      CONTEXT_MENU_WIDTH,
+      CONTEXT_MENU_EST_HEIGHT
+    );
+    setContextMenu({ visible: true, x: left, y: top, game });
+  }, [filteredGames]);
+
   useLayoutEffect(() => {
     if (!contextMenu.visible || !contextMenuRef.current) return undefined;
     const rect = contextMenuRef.current.getBoundingClientRect();
@@ -648,7 +663,8 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode }) => {
   }, [onGameSelect, onNavigate]);
 
   const getGridColumns = useCallback(() => {
-    if (viewMode !== 'grid' || !gamesGridRef.current) return 1;
+    if (viewMode === 'list') return 1;
+    if (!gamesGridRef.current) return 1;
     const style = window.getComputedStyle(gamesGridRef.current);
     const trackList = style.gridTemplateColumns || '';
     if (!trackList || trackList === 'none') return 1;
@@ -685,8 +701,14 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode }) => {
           setShowBulkAddModal(false);
         }
       },
-      left: () => setPadFocusIdx((index) => Math.max(0, index - 1)),
-      right: () => setPadFocusIdx((index) => Math.min(filteredGames.length - 1, index + 1)),
+      left: () => {
+        if (viewMode === 'list') return;
+        setPadFocusIdx((index) => Math.max(0, index - 1));
+      },
+      right: () => {
+        if (viewMode === 'list') return;
+        setPadFocusIdx((index) => Math.min(filteredGames.length - 1, index + 1));
+      },
       up: () => {
         const cols = getGridColumns();
         setPadFocusIdx((index) => Math.max(0, index - cols));
@@ -707,9 +729,13 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode }) => {
         const game = filteredGames[padFocusIdx];
         if (game) handleConfigure(game);
       },
-      menu: () => onEnterConsoleMode?.()
+      select: () => {
+        const game = filteredGames[padFocusIdx];
+        if (game) openContextMenuForGame(game);
+      }
     },
-    gamepadEnabled && filteredGames.length > 0
+    gamepadEnabled && !suspendGamepad && filteredGames.length > 0,
+    10
   );
 
   const handleRemoveGame = useCallback((id) => {
@@ -1247,50 +1273,35 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode }) => {
             top: contextMenu.y,
             left: contextMenu.x,
             zIndex: 20000,
-            background: 'rgba(15, 23, 42, 0.98)',
-            border: '1px solid rgba(16, 124, 16, 0.3)',
-            borderRadius: '12px',
-            padding: '6px 0',
             minWidth: `${CONTEXT_MENU_WIDTH}px`,
             maxHeight: `calc(100vh - 16px)`,
-            overflowY: 'auto',
-            boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
-            backdropFilter: 'blur(20px)',
           }}
           onClick={(e) => e.stopPropagation()}
           onContextMenu={(e) => e.preventDefault()}
         >
-          <div style={{ padding: '8px 16px', color: '#7bbf32', fontSize: '12px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid rgba(139,92,246,0.15)', marginBottom: '4px' }}>
+          <div className="game-context-menu__title">
             {contextMenu.game.name}
           </div>
           <button
-            style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '10px 16px', background: 'none', border: 'none', color: '#e2e8f0', cursor: 'pointer', fontSize: '14px', textAlign: 'left' }}
-            onMouseEnter={(e) => e.target.style.background = 'rgba(16,124,16,0.2)'}
-            onMouseLeave={(e) => e.target.style.background = 'none'}
+            className="game-context-menu__item"
             onClick={() => handlePickCover(contextMenu.game)}
           >
             <ImageIcon size={16} color="#10b981" /> {t('pickCover')}
           </button>
           <button
-            style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '10px 16px', background: 'none', border: 'none', color: '#e2e8f0', cursor: 'pointer', fontSize: '14px', textAlign: 'left' }}
-            onMouseEnter={(e) => e.target.style.background = 'rgba(16,124,16,0.2)'}
-            onMouseLeave={(e) => e.target.style.background = 'none'}
+            className="game-context-menu__item"
             onClick={() => handleSetManualCover(contextMenu.game)}
           >
             <ImageIcon size={16} color="#7bbf32" /> {t('setCoverFromFile')}
           </button>
           <button
-            style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '10px 16px', background: 'none', border: 'none', color: '#e2e8f0', cursor: 'pointer', fontSize: '14px', textAlign: 'left' }}
-            onMouseEnter={(e) => e.target.style.background = 'rgba(16,124,16,0.2)'}
-            onMouseLeave={(e) => e.target.style.background = 'none'}
+            className="game-context-menu__item"
             onClick={() => handleResyncCover(contextMenu.game)}
           >
             <RefreshCw size={16} color="#3b82f6" /> {t('resyncCoverAuto')}
           </button>
           <button
-            style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '10px 16px', background: 'none', border: 'none', color: '#e2e8f0', cursor: 'pointer', fontSize: '14px', textAlign: 'left' }}
-            onMouseEnter={(e) => e.target.style.background = 'rgba(16,124,16,0.2)'}
-            onMouseLeave={(e) => e.target.style.background = 'none'}
+            className="game-context-menu__item"
             onClick={async () => {
               const menuGame = contextMenu.game;
               setContextMenu({ visible: false, x: 0, y: 0, game: null });
@@ -1309,9 +1320,7 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode }) => {
             <MonitorUp size={16} color="#f59e0b" /> {t('createDesktopShortcut')}
           </button>
           <button
-            style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '10px 16px', background: 'none', border: 'none', color: '#e2e8f0', cursor: 'pointer', fontSize: '14px', textAlign: 'left' }}
-            onMouseEnter={(e) => e.target.style.background = 'rgba(16,124,16,0.2)'}
-            onMouseLeave={(e) => e.target.style.background = 'none'}
+            className="game-context-menu__item"
             onClick={() => {
               setContextMenu({ visible: false, x: 0, y: 0, game: null });
               if (!settings.emulatorPath) {
@@ -1324,9 +1333,7 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode }) => {
             <FolderOpen size={16} color="#7bbf32" /> {t('openPatchesFolder')}
           </button>
           <button
-            style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '10px 16px', background: 'none', border: 'none', color: '#e2e8f0', cursor: 'pointer', fontSize: '14px', textAlign: 'left' }}
-            onMouseEnter={(e) => e.target.style.background = 'rgba(16,124,16,0.2)'}
-            onMouseLeave={(e) => e.target.style.background = 'none'}
+            className="game-context-menu__item"
             onClick={async () => {
               const menuGame = contextMenu.game;
               setContextMenu({ visible: false, x: 0, y: 0, game: null });
@@ -1345,9 +1352,7 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode }) => {
             <Download size={16} color="#14b8a6" /> {t('downloadAllPatches')}
           </button>
           <button
-            style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '10px 16px', background: 'none', border: 'none', color: '#e2e8f0', cursor: 'pointer', fontSize: '14px', textAlign: 'left' }}
-            onMouseEnter={(e) => e.target.style.background = 'rgba(16,124,16,0.2)'}
-            onMouseLeave={(e) => e.target.style.background = 'none'}
+            className="game-context-menu__item"
             onClick={async () => {
               const menuGame = contextMenu.game;
               setContextMenu({ visible: false, x: 0, y: 0, game: null });
@@ -1371,9 +1376,7 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode }) => {
             <FilePlus size={16} color="#fbbf24" /> {t('installPatch')}
           </button>
           <button
-            style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '10px 16px', background: 'none', border: 'none', color: '#e2e8f0', cursor: 'pointer', fontSize: '14px', textAlign: 'left' }}
-            onMouseEnter={(e) => e.target.style.background = 'rgba(16,124,16,0.2)'}
-            onMouseLeave={(e) => e.target.style.background = 'none'}
+            className="game-context-menu__item"
             onClick={async () => {
               const menuGame = contextMenu.game;
               setContextMenu({ visible: false, x: 0, y: 0, game: null });
@@ -1401,9 +1404,7 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode }) => {
           </button>
           <div style={{ height: '1px', background: 'rgba(139,92,246,0.15)', margin: '4px 0' }} />
           <button
-            style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '10px 16px', background: 'none', border: 'none', color: '#eab308', cursor: 'pointer', fontSize: '14px', textAlign: 'left' }}
-            onMouseEnter={(e) => e.target.style.background = 'rgba(234,179,8,0.15)'}
-            onMouseLeave={(e) => e.target.style.background = 'none'}
+            className="game-context-menu__item game-context-menu__item--warn"
             onClick={() => {
               const menuGame = contextMenu.game;
               setContextMenu({ visible: false, x: 0, y: 0, game: null });
@@ -1417,17 +1418,13 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode }) => {
             <Zap size={16} color="#eab308" /> {t('configurePatches')}
           </button>
           <button
-            style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '10px 16px', background: 'none', border: 'none', color: '#e2e8f0', cursor: 'pointer', fontSize: '14px', textAlign: 'left' }}
-            onMouseEnter={(e) => e.target.style.background = 'rgba(16,124,16,0.2)'}
-            onMouseLeave={(e) => e.target.style.background = 'none'}
+            className="game-context-menu__item"
             onClick={() => { setContextMenu({ visible: false, x: 0, y: 0, game: null }); onGameSelect(contextMenu.game); onNavigate('config'); }}
           >
             <Settings size={16} color="#10b981" /> {t('gameProperties')}
           </button>
           <button
-            style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', padding: '10px 16px', background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '14px', textAlign: 'left' }}
-            onMouseEnter={(e) => e.target.style.background = 'rgba(239,68,68,0.15)'}
-            onMouseLeave={(e) => e.target.style.background = 'none'}
+            className="game-context-menu__item game-context-menu__item--danger"
             onClick={() => {
               setContextMenu({ visible: false, x: 0, y: 0, game: null });
               if (window.confirm(`Remove "${contextMenu.game.name}" from your library?`)) removeGame(contextMenu.game.id);
@@ -1449,7 +1446,7 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode }) => {
         }}>
           {t('gameLibrary')}
         </h1>
-        <p style={{ color: '#94a3b8', fontSize: '16px' }}>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '16px' }}>
           {t('gameLibrarySubtitle')}
         </p>
       </div>
@@ -1467,7 +1464,7 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode }) => {
                   left: '12px',
                   top: '50%',
                   transform: 'translateY(-50%)',
-                  color: '#94a3b8'
+                  color: 'var(--text-secondary)'
                 }} />
                 <input
                   type="text"
@@ -1541,7 +1538,7 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode }) => {
             <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
               {viewMode === 'grid' && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '120px' }}>
-                  <span style={{ fontSize: '11px', color: '#94a3b8', whiteSpace: 'nowrap' }}>{t('cardSize')}:</span>
+                  <span style={{ fontSize: '11px', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{t('cardSize')}:</span>
                   <input
                     type="range"
                     min="80"
@@ -1590,7 +1587,7 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode }) => {
       {filteredGames.length > 0 ? (
         <div
           ref={gamesGridRef}
-          className={viewMode === 'grid' ? 'grid-dynamic' : ''}
+          className={viewMode === 'grid' ? 'grid-dynamic' : 'games-list-view'}
           style={viewMode === 'grid' ? {
             '--card-min-width': `${Math.max(150, cardSize * 1.5)}px`
           } : {}}
@@ -1612,22 +1609,25 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode }) => {
             ) : (
               <GameListItem
                 key={game.id}
+                ref={(el) => { gameCardRefs.current[index] = el; }}
                 game={game}
+                isFocused={index === padFocusIdx}
                 onLaunch={handleLaunchGame}
                 onToggleFavorite={handleToggleFavorite}
                 onConfigure={handleConfigure}
                 onRemove={handleRemoveGame}
+                onCoverFailed={handleCoverFailed}
               />
             )
           )}
         </div>
       ) : (
         <div className="card" style={{ textAlign: 'center', padding: '48px 24px' }}>
-          <Gamepad2 size={64} style={{ color: '#64748b', marginBottom: '16px' }} />
-          <h3 style={{ color: '#94a3b8', marginBottom: '8px' }}>
+          <Gamepad2 size={64} style={{ color: 'var(--text-tertiary)', marginBottom: '16px' }} />
+          <h3 style={{ color: 'var(--text-secondary)', marginBottom: '8px' }}>
             {searchTerm || filterGenre !== 'all' ? t('noGamesFound') : t('noGamesInLibrary')}
           </h3>
-          <p style={{ color: '#64748b', fontSize: '14px', marginBottom: '24px' }}>
+          <p style={{ color: 'var(--text-tertiary)', fontSize: '14px', marginBottom: '24px' }}>
             {searchTerm || filterGenre !== 'all'
               ? t('noGamesFilteredHint')
               : t('noGamesEmptyHint')
@@ -1792,7 +1792,7 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode }) => {
                 })}
               </div>
 
-              <p style={{ fontSize: '14px', color: '#9CA3AF' }}>
+              <p style={{ fontSize: '14px', color: 'var(--text-tertiary)' }}>
                 {t('bulkAddCoversHint')}
               </p>
             </div>

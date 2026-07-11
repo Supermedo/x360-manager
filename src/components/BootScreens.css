@@ -233,6 +233,16 @@
   transform: scale(1.06);
 }
 
+.profile-picker__card.is-focused,
+.profile-picker__card.is-focused:hover:not(:disabled) {
+  transform: scale(1.06);
+}
+
+.profile-picker__card.is-focused .profile-picker__avatar {
+  border-color: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 0 0 3px rgba(16, 124, 16, 0.85), 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
 .profile-picker__card:disabled {
   opacity: 0.6;
   cursor: wait;

@@ -5,6 +5,26 @@ All notable changes to X360 Manager will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.4] - 2026-05-30
+
+### Added
+- **Metro console (DashX360-style)** — search, home, games, and settings channels with hub tiles
+- **Home hub** — Last played, Favorite, Most played, and Game List boxes
+- **Search channel** — library search with controller and keyboard navigation
+- **Settings blade** — 4×2 green tile grid in console mode
+- **Boot video** — DashX360 Boot Screen plays when entering console mode
+- **Tab slide animations** — cross-slide between channels with background parallax
+- **DashX360 sounds** — Page Left / Page Right on tab changes
+- **Favorite (X)** — toggle favorites from hub tiles, library, and game options
+- **Profile editor overlay** — blade-style UI with controller support
+
+### Fixed
+- Search input — Backspace and Delete work while typing
+- Home hub tile mapping — favorite/most played slots and game list action
+
+### Changed
+- Console mode entry plays boot video then dashboard (startup sound on transition)
+
 ## [1.6.3] - 2026-05-24
 
 ### Added

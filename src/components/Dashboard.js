@@ -109,10 +109,10 @@ const Dashboard = ({ onNavigate }) => {
           <Icon size={24} color="white" />
         </div>
       </div>
-      <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '8px', color: '#e2e8f0' }}>
+      <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '8px', color: 'var(--text-primary)' }}>
         {title}
       </h3>
-      <p style={{ color: '#94a3b8', fontSize: '14px' }}>
+      <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>
         {description}
       </p>
     </div>
@@ -263,7 +263,7 @@ const Dashboard = ({ onNavigate }) => {
         }}>
           {t('dashboardWelcomeTitle')}
         </h1>
-        <p style={{ color: '#94a3b8', fontSize: '16px' }}>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '16px' }}>
           {t('dashboardWelcomeSubtitle')}
         </p>
       </div>
@@ -295,7 +295,7 @@ const Dashboard = ({ onNavigate }) => {
             fontSize: '24px',
             fontWeight: '600',
             marginBottom: '24px',
-            color: '#e2e8f0'
+            color: 'var(--text-primary)'
           }}>
             {t('quickActions')}
           </h2>
@@ -312,7 +312,7 @@ const Dashboard = ({ onNavigate }) => {
             fontSize: '24px',
             fontWeight: '600',
             marginBottom: '24px',
-            color: '#e2e8f0'
+            color: 'var(--text-primary)'
           }}>
             {t('recentGames')}
           </h2>
@@ -333,9 +333,9 @@ const Dashboard = ({ onNavigate }) => {
             </div>
           ) : (
             <div className="card" style={{ textAlign: 'center', padding: '48px 24px' }}>
-              <Gamepad2 size={48} style={{ color: '#64748b', marginBottom: '16px' }} />
-              <h3 style={{ color: '#94a3b8', marginBottom: '8px' }}>{t('noRecentGames')}</h3>
-              <p style={{ color: '#64748b', fontSize: '14px', marginBottom: '24px' }}>
+              <Gamepad2 size={48} style={{ color: 'var(--text-tertiary)', marginBottom: '16px' }} />
+              <h3 style={{ color: 'var(--text-secondary)', marginBottom: '8px' }}>{t('noRecentGames')}</h3>
+              <p style={{ color: 'var(--text-tertiary)', fontSize: '14px', marginBottom: '24px' }}>
                 {t('noRecentGamesHint')}
               </p>
               <button
@@ -360,26 +360,26 @@ const Dashboard = ({ onNavigate }) => {
         </div>
         <div className="grid grid-3">
           <div>
-            <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '4px' }}>
+            <div style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '4px' }}>
               {t('emulatorPath')}
             </div>
-            <div style={{ color: '#e2e8f0', fontSize: '16px', fontWeight: '500' }}>
+            <div style={{ color: 'var(--text-primary)', fontSize: '16px', fontWeight: '500' }}>
               {settings.emulatorPath || t('notConfigured')}
             </div>
           </div>
           <div>
-            <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '4px' }}>
+            <div style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '4px' }}>
               {t('gamesDirectory')}
             </div>
-            <div style={{ color: '#e2e8f0', fontSize: '16px', fontWeight: '500' }}>
+            <div style={{ color: 'var(--text-primary)', fontSize: '16px', fontWeight: '500' }}>
               {settings.gamesDirectory || t('notSet')}
             </div>
           </div>
           <div>
-            <div style={{ color: '#94a3b8', fontSize: '14px', marginBottom: '4px' }}>
+            <div style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '4px' }}>
               {t('rendererGpuApi')}
             </div>
-            <div style={{ color: '#e2e8f0', fontSize: '16px', fontWeight: '500' }}>
+            <div style={{ color: 'var(--text-primary)', fontSize: '16px', fontWeight: '500' }}>
               {settings.defaultRenderer || t('auto')}
             </div>
           </div>

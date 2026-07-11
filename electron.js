@@ -96,6 +96,12 @@ const {
   installUpdate,
   scheduleUpdateCheck
 } = require('./appUpdater');
+const {
+  findPatchFileForTitle,
+  parsePatchFile,
+  togglePatchEnabled
+} = require('./patchHelpers');
+const { showFpsOverlay, hideFpsOverlay } = require('./fpsOverlay');
 
 const toXboxCdnHttpUrl = (url) => {
   if (!url || typeof url !== 'string') return url;
@@ -208,6 +214,29 @@ let mainWindow;
 const activeEmulatorPids = new Set();
 let emulatorWatchInterval = null;
 
+const focusMainWindow = () => {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  try {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.moveTop();
+    mainWindow.focus();
+  } catch (err) {
+    console.warn('[focus] Could not refocus main window:', err.message);
+  }
+};
+
+const stopFpsSampler = () => {
+  hideFpsOverlay();
+};
+
+const startFpsSampler = () => {
+  try {
+    showFpsOverlay();
+  } catch (err) {
+    console.warn('[fps-overlay] Failed to show overlay:', err.message);
+  }
+};
+
 const isPidRunning = (pid) => {
   if (!pid) return false;
   try {
@@ -230,6 +259,10 @@ const notifyEmulatorSession = () => {
 const untrackEmulatorPid = (pid) => {
   if (!pid) return;
   activeEmulatorPids.delete(pid);
+  if (activeEmulatorPids.size === 0) {
+    stopFpsSampler();
+    focusMainWindow();
+  }
   notifyEmulatorSession();
   if (activeEmulatorPids.size === 0 && emulatorWatchInterval) {
     clearInterval(emulatorWatchInterval);
@@ -250,11 +283,14 @@ const trackEmulatorPid = (pid) => {
         }
       }
       notifyEmulatorSession();
-      if (activeEmulatorPids.size === 0 && emulatorWatchInterval) {
-        clearInterval(emulatorWatchInterval);
-        emulatorWatchInterval = null;
+      if (activeEmulatorPids.size === 0) {
+        stopFpsSampler();
+        if (emulatorWatchInterval) {
+          clearInterval(emulatorWatchInterval);
+          emulatorWatchInterval = null;
+        }
       }
-    }, 2000);
+    }, 1000);
   }
 };
 
@@ -804,12 +840,6 @@ ipcMain.handle('launch-game', async (event, emulatorPath, gamePath, config) => {
           spawnArgs.push(`--vsync=${vsyncEnabled}`);
         }
 
-        if (wantsFpsOverlay(launchConfig)) {
-          spawnArgs.push('--headless=false');
-          spawnArgs.push('--show_profiler=true');
-          spawnArgs.push('--show_profiler=1');
-        }
-
         if (launchConfig.debugMode === true || launchConfig.debugMode === 'true') {
           spawnArgs.push('--debug=true');
         }
@@ -873,11 +903,13 @@ ipcMain.handle('launch-game', async (event, emulatorPath, gamePath, config) => {
       }
     }
 
+    const useCustomFpsOverlay = emulatorName.includes('xenia') && wantsFpsOverlay(launchConfig);
+
     const command = `"${emulatorPath}" ${spawnArgs.join(' ')}`;
     console.log('Launching game with command:', command);
     console.log('Spawn args:', spawnArgs);
-    if (emulatorName.includes('xenia') && wantsFpsOverlay(launchConfig)) {
-      console.log('[launch-game] FPS overlay enabled (show_profiler). Press F3 in Xenia if overlay is hidden.');
+    if (useCustomFpsOverlay) {
+      console.log('[launch-game] Custom X360 Manager FPS overlay enabled.');
     }
 
     const child = spawn(emulatorPath, spawnArgs, {
@@ -886,9 +918,25 @@ ipcMain.handle('launch-game', async (event, emulatorPath, gamePath, config) => {
       stdio: 'ignore'
     });
 
+    let settled = false;
+    const finishLaunch = () => {
+      if (settled) return;
+      settled = true;
+      trackEmulatorPid(child.pid);
+      if (useCustomFpsOverlay) {
+        startFpsSampler();
+      }
+      child.unref();
+      resolve({ command, pid: child.pid, emulatorRunning: true });
+    };
+
     child.on('error', (error) => {
       console.error('Launch error:', error);
-      reject(new Error(`Failed to launch game: ${error.message}`));
+      stopFpsSampler();
+      if (!settled) {
+        settled = true;
+        reject(new Error(`Failed to launch game: ${error.message}`));
+      }
     });
 
     child.on('exit', () => {
@@ -897,17 +945,13 @@ ipcMain.handle('launch-game', async (event, emulatorPath, gamePath, config) => {
 
     child.on('spawn', () => {
       console.log('Game launched successfully');
-      trackEmulatorPid(child.pid);
-      child.unref(); // Allow the parent process to exit independently
-      resolve({ command, pid: child.pid, emulatorRunning: true });
+      finishLaunch();
     });
 
-    // Set a timeout for the spawn event
     setTimeout(() => {
-      if (!child.killed && child.exitCode === null) {
+      if (!settled && !child.killed && child.exitCode === null) {
         console.log('Game process started successfully');
-        trackEmulatorPid(child.pid);
-        resolve({ command, pid: child.pid, emulatorRunning: true });
+        finishLaunch();
       }
     }, 3000);
   });
@@ -1027,6 +1071,11 @@ ipcMain.handle('clear-cover-cache', async () => {
 });
 
 ipcMain.handle('set-fullscreen', async (event, enabled) => setAppFullscreen(enabled));
+
+ipcMain.handle('focus-main-window', () => {
+  focusMainWindow();
+  return true;
+});
 
 ipcMain.handle('is-fullscreen', () => {
   return mainWindow && !mainWindow.isDestroyed() ? mainWindow.isFullScreen() : false;
@@ -1494,18 +1543,20 @@ ipcMain.handle('download-patches', async (event, emulatorPath) => {
     const zipEntries = zip.getEntries();
 
     // The zip contains a folder like 'game-patches-main/patches/', we only want its contents.
+    let extractedCount = 0;
     zipEntries.forEach(entry => {
       if (entry.entryName.startsWith('game-patches-main/patches/') && !entry.isDirectory) {
         const content = zip.readFile(entry);
         const fileName = path.basename(entry.entryName);
         fs.writeFileSync(path.join(patchesDir, fileName), content);
+        extractedCount += 1;
       }
     });
 
     // Cleanup zip
     fs.unlinkSync(zipPath);
 
-    return { success: true, count: zipEntries.length };
+    return { success: true, count: extractedCount };
   } catch (error) {
     console.error('Failed to download patches:', error);
     return { success: false, error: error.message };
@@ -1582,8 +1633,6 @@ ipcMain.handle('install-game-patch', async (event, { emulatorPath, titleId }) =>
 // Get patches for a specific game (Title ID)
 ipcMain.handle('get-game-patches', async (event, { emulatorPath, titleId, gamePath }) => {
   try {
-    const fs = require('fs');
-    const path = require('path');
     if (!emulatorPath) return { success: false, error: 'Missing emulator path' };
 
     let effectiveTitleId = titleId;
@@ -1593,45 +1642,17 @@ ipcMain.handle('get-game-patches', async (event, { emulatorPath, titleId, gamePa
 
     if (!effectiveTitleId) return { success: false, error: 'Missing or could not detect title id' };
 
-    // Check for titleId match in file names in the patches directory
-    const patchesDir = path.join(path.dirname(emulatorPath), 'patches');
-    if (!fs.existsSync(patchesDir)) return { success: false, error: 'Patches folder not found. Please click Download Patches.' };
-
-    const files = fs.readdirSync(patchesDir);
-    const patchFile = files.find(f => f.toUpperCase().includes(effectiveTitleId.toUpperCase()) && (f.endsWith('.toml') || f.endsWith('.patch')));
-
-    if (!patchFile) return { success: false, error: `No patch file found for title ID ${effectiveTitleId}` };
-
-    const patchPath = path.join(patchesDir, patchFile);
-    const lines = fs.readFileSync(patchPath, 'utf8').split(/\r?\n/);
-
-    let patches = [];
-    let currentPatch = null;
-
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim();
-      if (line.startsWith('[[patch]]')) {
-        if (currentPatch) patches.push(currentPatch);
-        currentPatch = { id: patches.length, enabledLineIndex: -1, name: 'Unnamed Patch', desc: '', author: 'Unknown', is_enabled: false };
-      } else if (currentPatch && !line.startsWith('[[patch.')) { // Ignore block patches inside main patch
-        if (line.startsWith('name') && line.includes('=')) {
-          currentPatch.name = line.substring(line.indexOf('=') + 1).trim().replace(/(^"|"$)/g, '');
-        } else if (line.startsWith('desc') && line.includes('=')) {
-          currentPatch.desc = line.substring(line.indexOf('=') + 1).trim().replace(/(^"|"$)/g, '');
-        } else if (line.startsWith('author') && line.includes('=')) {
-          currentPatch.author = line.substring(line.indexOf('=') + 1).trim().replace(/(^"|"$)/g, '');
-        } else if (line.startsWith('is_enabled') && line.includes('=')) {
-          currentPatch.is_enabled = line.toLowerCase().includes('true');
-          currentPatch.enabledLineIndex = i;
-        }
-      }
+    const patchPath = findPatchFileForTitle(emulatorPath, effectiveTitleId);
+    if (!patchPath) {
+      return { success: false, error: `No patch file found for title ID ${effectiveTitleId}` };
     }
-    if (currentPatch) patches.push(currentPatch);
+
+    const { patches } = parsePatchFile(patchPath);
 
     return {
       success: true,
       patchFile: patchPath,
-      patches: patches.map(p => ({ ...p })),
+      patches: patches.map((p) => ({ ...p })),
       detectedTitleId: effectiveTitleId
     };
   } catch (error) {
@@ -1698,53 +1719,20 @@ ipcMain.handle('delete-patch-file', async (event, patchFilePath) => {
 });
 
 // Toggle a specific patch
-ipcMain.handle('toggle-game-patch', async (event, { patchFile, enabledLineIndex, newValue }) => {
+ipcMain.handle('toggle-game-patch', async (event, { patchFile, enabledLineIndex, newValue, patchId }) => {
   try {
-    const fs = require('fs');
-    if (!fs.existsSync(patchFile)) return { success: false, error: 'Patch file not found' };
+    if (!patchFile) return { success: false, error: 'Patch file not found' };
 
-    let content = fs.readFileSync(patchFile, 'utf8');
-    const lines = content.split(/\r?\n/);
-
-    // We'll use the enabledLineIndex as a starting point to find the actual line
-    // but we'll be more flexible in case the file shifted.
-    let targetIndex = enabledLineIndex;
-
-    // If the line at the index doesn't look like is_enabled, look nearby
-    if (!lines[targetIndex] || !lines[targetIndex].includes('is_enabled')) {
-      // Find the [[patch]] header that this patch probably belongs to
-      let patchStart = -1;
-      for (let i = targetIndex; i >= 0; i--) {
-        if (lines[i] && lines[i].trim().startsWith('[[patch]]')) {
-          patchStart = i;
-          break;
-        }
-      }
-
-      if (patchStart !== -1) {
-        // Look for is_enabled between this [[patch]] and the next one
-        for (let i = patchStart + 1; i < lines.length; i++) {
-          if (lines[i] && lines[i].trim().startsWith('[[patch]]')) break;
-          if (lines[i] && lines[i].includes('is_enabled')) {
-            targetIndex = i;
-            break;
-          }
-        }
-      }
+    if (patchId !== undefined && patchId !== null) {
+      return togglePatchEnabled(patchFile, patchId, Boolean(newValue));
     }
 
-    if (targetIndex >= 0 && targetIndex < lines.length && lines[targetIndex].includes('is_enabled')) {
-      const existingLine = lines[targetIndex];
-      const leadingSpaceMatch = existingLine.match(/^\s*/);
-      const leadingSpace = leadingSpaceMatch ? leadingSpaceMatch[0] : '';
-      lines[targetIndex] = `${leadingSpace}is_enabled = ${newValue ? 'true' : 'false'}`;
-      fs.writeFileSync(patchFile, lines.join('\n'), 'utf8');
-      return { success: true };
-    } else {
-      // If we still can't find it, we might need a more complex search, 
-      // but for now, we'll try to find the [[patch]] block again and append it if missing
-      return { success: false, error: 'Could not find is_enabled line in patch file. Please refresh and try again.' };
+    const { lines, patches } = parsePatchFile(patchFile);
+    const patch = patches.find((p) => p.enabledLineIndex === enabledLineIndex) || patches[0];
+    if (!patch) {
+      return { success: false, error: 'Patch entry not found in file' };
     }
+    return togglePatchEnabled(patchFile, patch.id, Boolean(newValue));
   } catch (error) {
     console.error('Failed to toggle game patch:', error);
     return { success: false, error: error.message };
