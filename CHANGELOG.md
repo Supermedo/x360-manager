@@ -5,6 +5,11 @@ All notable changes to X360 Manager will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.6] - 2026-07-11
+
+### Fixed
+- Installed app crash on launch: include missing `accountFile.js` in the Windows installer package
+
 ## [1.6.5] - 2026-07-11
 
 ### Added

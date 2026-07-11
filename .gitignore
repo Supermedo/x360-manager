@@ -8,6 +8,7 @@ yarn-error.log*
 build/
 dist/
 dist-build-temp/
+dist-build-temp*/
 dist-github-*/
 dist-release-*/
 release-assets/
