@@ -119,6 +119,14 @@ x360-xbox-live-profiles.json
 portable.txt
 data/
 
+# Local debug / scratch (never commit)
+dist_log.txt
+test.vdf
+cover-demo.html
+public/cover-demo.html
+public/app-debug.html
+DiscordSetup*.exe
+
 # Local secrets (use .env.example as template)
 .env
 .env.*

@@ -5,7 +5,7 @@ All notable changes to X360 Manager will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.6.4] - 2026-05-30
+## [1.6.4] - 2026-07-11
 
 ### Added
 - **Metro console (DashX360-style)** — search, home, games, and settings channels with hub tiles
@@ -17,13 +17,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **DashX360 sounds** — Page Left / Page Right on tab changes
 - **Favorite (X)** — toggle favorites from hub tiles, library, and game options
 - **Profile editor overlay** — blade-style UI with controller support
+- **Custom in-game FPS overlay** — measures Xenia window FPS via desktop capture
+- **Game patch manager** — configure and apply Xenia patch TOML files from game settings
+- **Back button** in Metro game settings panel
 
 ### Fixed
+- Metro dashboard focus highlight not updating (stale render cache)
+- Keyboard and controller input fighting each other in console mode
+- Controller navigation jumping/skipping tiles (D-pad vs stick, repeat tuning)
+- Game patches not applying on launch (`apply_patches` + patch file toggles)
 - Search input — Backspace and Delete work while typing
 - Home hub tile mapping — favorite/most played slots and game list action
+- Window focus restored after emulator exits (keyboard/gamepad input)
 
 ### Changed
 - Console mode entry plays boot video then dashboard (startup sound on transition)
+- Removed debug HTML demos that contained hardcoded API keys from the repository
 
 ## [1.6.3] - 2026-05-24
 

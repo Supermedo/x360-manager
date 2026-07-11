@@ -7,16 +7,19 @@ on:
   pull_request:
     branches: [ main ]
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: windows-latest
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       
     - name: Setup Node.js
-      uses: actions/setup-node@v3
+      uses: actions/setup-node@v4
       with:
         node-version: '18'
         cache: 'npm'
@@ -31,7 +34,7 @@ jobs:
       run: npx electron-packager . "X360 Manager" --platform=win32 --arch=x64 --out=dist --overwrite
       
     - name: Upload build artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: x360-manager-win32-x64
         path: dist/X360 Manager-win32-x64/
@@ -40,13 +43,15 @@ jobs:
     needs: build
     runs-on: windows-latest
     if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       
     - name: Setup Node.js
-      uses: actions/setup-node@v3
+      uses: actions/setup-node@v4
       with:
         node-version: '18'
         cache: 'npm'
@@ -66,10 +71,10 @@ jobs:
         Compress-Archive -Path "X360 Manager-win32-x64" -DestinationPath "X360-Manager-${{ github.ref_name }}-win32-x64.zip"
         
     - name: Create Release
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v2
       with:
         files: dist/X360-Manager-${{ github.ref_name }}-win32-x64.zip
-        generate_release_notes: true
+        body_path: .github/RELEASE_BODY_v1.6.4.md
         draft: false
         prerelease: false
       env:
