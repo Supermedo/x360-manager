@@ -5,6 +5,26 @@ All notable changes to X360 Manager will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.5] - 2026-07-11
+
+### Added
+- **Custom in-game FPS overlay** — measures Xenia window FPS via desktop capture
+- **Game patch manager** — configure and apply Xenia patch TOML files from game settings
+- **Back button** in Metro game settings panel
+- **SECURITY.md** and Dependabot for dependency updates
+
+### Fixed
+- Metro dashboard focus highlight not updating on screen (stale render cache)
+- Keyboard and controller input fighting each other in console mode
+- Controller navigation jumping/skipping tiles (D-pad vs stick deconflict, slower repeat)
+- Game patches not applying on launch
+- Window focus restored after emulator exits
+
+### Changed
+- Removed debug HTML files that contained hardcoded API keys
+- Cleaned old release note duplicates from the repository
+- Updated GitHub Actions to v4 with explicit release permissions
+
 ## [1.6.4] - 2026-07-11
 
 ### Added

@@ -74,7 +74,7 @@ jobs:
       uses: softprops/action-gh-release@v2
       with:
         files: dist/X360-Manager-${{ github.ref_name }}-win32-x64.zip
-        body_path: .github/RELEASE_BODY_v1.6.4.md
+        body_path: .github/RELEASE_BODY_${{ github.ref_name }}.md
         draft: false
         prerelease: false
       env:
