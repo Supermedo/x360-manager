@@ -24,18 +24,18 @@
     "web-vitals": "^2.1.4"
   },
   "devDependencies": {
-    "@testing-library/jest-dom": "^5.16.4",
-    "@testing-library/react": "^13.3.0",
-    "@testing-library/user-event": "^13.5.0",
-    "concurrently": "^9.2.1",
+    "@testing-library/jest-dom": "^7.0.0",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
+    "concurrently": "^10.0.4",
     "cross-env": "^10.1.0",
-    "electron": "^22.0.0",
-    "electron-builder": "^23.6.0",
+    "electron": "^43.2.0",
+    "electron-builder": "^26.15.3",
     "electron-packager": "^17.1.2",
-    "png-to-ico": "^2.1.8",
-    "rcedit": "^4.0.1",
-    "sharp": "^0.34.5",
-    "wait-on": "^9.0.10"
+    "png-to-ico": "^3.0.2",
+    "rcedit": "^5.0.2",
+    "sharp": "^0.35.3",
+    "wait-on": "^9.1.0"
   },
   "scripts": {
     "ensure-utf8": "node scripts/ensure-utf8.cjs",
