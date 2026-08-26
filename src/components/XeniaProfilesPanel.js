@@ -20,10 +20,6 @@ const XeniaProfilesPanel = ({ localSettings, onDefaultProfileChange }) => {
     [profiles, selectedId]
   );
 
-  const refreshProfiles = useCallback(() => {
-    setProfiles(loadAllProfiles());
-  }, []);
-
   const persistCustom = useCallback((nextProfiles) => {
     saveCustomProfiles(nextProfiles);
     setProfiles(nextProfiles);

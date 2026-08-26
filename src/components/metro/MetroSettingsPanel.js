@@ -144,7 +144,7 @@ const MetroSettingsPanel = ({
         setTick((n) => n + 1);
       }
     }
-  }), [game, isFullscreen, onTogglePin, settings, updateGame, updateSettings]);
+  }), [game, isFullscreen, setFullscreen, onTogglePin, settings, updateGame, updateSettings]);
 
   const loadCoverCacheStats = useCallback(async () => {
     if (!window.electronAPI?.getCoverCacheStats) {

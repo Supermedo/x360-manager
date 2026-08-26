@@ -5,9 +5,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   selectEmulatorPath: () => ipcRenderer.invoke('select-emulator-path'),
   selectGameFile: () => ipcRenderer.invoke('select-game-file'),
   selectMultipleGameFiles: () => ipcRenderer.invoke('select-multiple-game-files'),
+  selectSaveFiles: () => ipcRenderer.invoke('select-save-files'),
   selectDlcFiles: () => ipcRenderer.invoke('select-dlc-files'),
   selectDirectory: () => ipcRenderer.invoke('select-directory'),
   selectImageFile: () => ipcRenderer.invoke('select-image-file'),
+  localizeCoverUrl: (url) => ipcRenderer.invoke('localize-cover-url', url),
   scanDirectory: (directoryPath) => ipcRenderer.invoke('scan-directory', directoryPath),
 
   // Emulator operations

@@ -1,9 +1,8 @@
-import React, { useState, useContext, useCallback, useMemo, useLayoutEffect, useRef } from 'react';
+import React, { useState, useContext, useCallback, useLayoutEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Plus,
   Search,
-  Filter,
   Grid,
   List,
   Play,
@@ -12,12 +11,8 @@ import {
   FolderOpen,
   Gamepad2,
   Star,
-  Clock,
-  HardDrive,
-  Eye,
   Globe,
   Heart,
-  Archive,
   Download,
   RefreshCw,
   MonitorUp,
@@ -45,6 +40,10 @@ import useTranslation from '../hooks/useTranslation';
 
 const CONTEXT_MENU_WIDTH = 220;
 const CONTEXT_MENU_EST_HEIGHT = 400;
+
+// Libraries run to several hundred games; render them in chunks so the first
+// paint stays cheap and scrolling doesn't drag the whole list around.
+const LIBRARY_PAGE_SIZE = 60;
 
 const gameNeedsCoverFetch = (game) =>
   !game.coverUrl && !game.coverHttpUrl;
@@ -255,8 +254,10 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode, suspendGame
   const contextMenuAnchor = useRef({ x: 0, y: 0 });
   const contextMenuRef = useRef(null);
   const [padFocusIdx, setPadFocusIdx] = useState(0);
+  const [visibleCount, setVisibleCount] = useState(LIBRARY_PAGE_SIZE);
   const gamesGridRef = React.useRef(null);
   const gameCardRefs = React.useRef([]);
+  const loadMoreRef = React.useRef(null);
   const [newGame, setNewGame] = useState({
     name: '',
     path: '',
@@ -303,8 +304,12 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode, suspendGame
       }
     });
 
+  const visibleGames = filteredGames.slice(0, visibleCount);
+  const hasMoreGames = visibleCount < filteredGames.length;
+
   React.useEffect(() => {
     setPadFocusIdx(0);
+    setVisibleCount(LIBRARY_PAGE_SIZE);
   }, [searchTerm, filterGenre, sortBy, viewMode]);
 
   React.useEffect(() => {
@@ -312,6 +317,30 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode, suspendGame
       setPadFocusIdx(Math.max(0, filteredGames.length - 1));
     }
   }, [filteredGames.length, padFocusIdx]);
+
+  // Controller/keyboard focus can outrun what has been rendered so far.
+  React.useEffect(() => {
+    if (padFocusIdx >= visibleCount - 1) {
+      setVisibleCount((count) => Math.min(filteredGames.length, count + LIBRARY_PAGE_SIZE));
+    }
+  }, [padFocusIdx, visibleCount, filteredGames.length]);
+
+  React.useEffect(() => {
+    const node = loadMoreRef.current;
+    if (!node || !hasMoreGames) return undefined;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setVisibleCount((count) => Math.min(filteredGames.length, count + LIBRARY_PAGE_SIZE));
+        }
+      },
+      { rootMargin: '800px 0px' }
+    );
+
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [hasMoreGames, filteredGames.length]);
 
   React.useEffect(() => {
     const node = gameCardRefs.current[padFocusIdx];
@@ -385,6 +414,7 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode, suspendGame
     return () => {
       cancelled = true;
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- re-run when library size changes, not every game field
   }, [isDbLoaded, gamesHydrated, games.length, xbox360DB, batchUpdateGames]);
 
   const coverFetchQueue = React.useRef([]);
@@ -396,7 +426,7 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode, suspendGame
     isFetchingCovers.current = true;
 
     while (coverFetchQueue.current.length > 0) {
-      const { gameId, gameName, titleId, resolve } = coverFetchQueue.current.shift();
+      const { gameName, titleId, resolve } = coverFetchQueue.current.shift();
       try {
         const gameDetails = await fetchGameDetails(gameName, titleId);
         resolve(gameDetails);
@@ -669,7 +699,7 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode, suspendGame
     const trackList = style.gridTemplateColumns || '';
     if (!trackList || trackList === 'none') return 1;
     return Math.max(1, trackList.split(' ').filter(Boolean).length);
-  }, [viewMode, cardSize]);
+  }, [viewMode]);
 
   const gamepadEnabled =
     !contextMenu.visible &&
@@ -795,7 +825,7 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode, suspendGame
     }
   };
 
-  const handleBulkAddGames = async () => {
+  const handleBulkAddGames = async () => { // eslint-disable-line no-unused-vars
     try {
       console.log('Bulk add button clicked');
       const gamePaths = await window.electronAPI.selectMultipleGameFiles();
@@ -819,7 +849,7 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode, suspendGame
   };
 
   // Bulk Save Management Functions
-  const handleBulkBackupSaves = async () => {
+  const handleBulkBackupSaves = async () => { // eslint-disable-line no-unused-vars
     try {
       const backupPath = await window.electronAPI.selectDirectory();
       if (!backupPath) return;
@@ -885,16 +915,9 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode, suspendGame
     }
   };
 
-  const handleBulkImportSaves = async () => {
+  const handleBulkImportSaves = async () => { // eslint-disable-line no-unused-vars
     try {
-      const savePaths = await window.electronAPI.selectMultipleFiles({
-        title: 'Select Save Files for Bulk Import',
-        filters: [
-          { name: 'Save Files', extensions: ['sav', 'dat', 'bin', 'save'] },
-          { name: 'All Files', extensions: ['*'] }
-        ],
-        properties: ['openFile', 'multiSelections']
-      });
+      const savePaths = await window.electronAPI?.selectSaveFiles?.();
 
       if (!savePaths || savePaths.length === 0) return;
 
@@ -948,7 +971,7 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode, suspendGame
     }
   };
 
-  const handleExportAllSaves = async () => {
+  const handleExportAllSaves = async () => { // eslint-disable-line no-unused-vars
     try {
       const exportPath = await window.electronAPI.selectDirectory();
       if (!exportPath) return;
@@ -1018,7 +1041,7 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode, suspendGame
             genre: gameDetails?.genre || 'Unknown',
             description: gameDetails?.description || '',
             rating: gameDetails?.rating || 0,
-            cover: gameDetails?.coverUrl || ''
+            ...(gameDetails?.coverUrl ? coverFieldsFromDetails(gameDetails) : {})
           });
         }
       } catch (error) {
@@ -1100,8 +1123,11 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode, suspendGame
 
   const handleSaveGame = async () => {
     if (newGame.name && newGame.path) {
+      const { cover, ...gameFields } = newGame;
+      const manualCover = cover.trim();
       const savedGame = addGame({
-        ...newGame,
+        ...gameFields,
+        ...(manualCover ? { coverUrl: manualCover, coverSource: 'manual' } : {}),
         id: Date.now().toString(),
         dateAdded: new Date().toISOString(),
         timesPlayed: 0
@@ -1116,7 +1142,8 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode, suspendGame
           const details = await fetchGameDetails(savedGame.name);
           if (details && details.coverUrl) {
             updateGame(savedGame.id, {
-              ...coverFieldsFromDetails(details),
+              // A cover the user typed in by hand always wins over a scraped one.
+              ...(manualCover ? {} : coverFieldsFromDetails(details)),
               description: details.description || savedGame.description,
               genre: details.genre || savedGame.genre,
               titleId: validation?.info?.titleId || savedGame.titleId
@@ -1335,7 +1362,6 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode, suspendGame
           <button
             className="game-context-menu__item"
             onClick={async () => {
-              const menuGame = contextMenu.game;
               setContextMenu({ visible: false, x: 0, y: 0, game: null });
               if (!settings.emulatorPath) {
                 alert('Please set emulator path in settings first.');
@@ -1592,7 +1618,7 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode, suspendGame
             '--card-min-width': `${Math.max(150, cardSize * 1.5)}px`
           } : {}}
         >
-          {filteredGames.map((game, index) =>
+          {visibleGames.map((game, index) =>
             viewMode === 'grid' ? (
               <GameCard
                 key={game.id}
@@ -1621,7 +1647,19 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode, suspendGame
             )
           )}
         </div>
-      ) : (
+      ) : null}
+
+      {filteredGames.length > 0 && hasMoreGames && (
+        <div
+          ref={loadMoreRef}
+          className="library-load-more"
+          style={{ padding: '24px', textAlign: 'center', color: 'var(--text-tertiary)', fontSize: '13px' }}
+        >
+          {t('loadingMoreGames')} ({visibleGames.length} / {filteredGames.length})
+        </div>
+      )}
+
+      {filteredGames.length === 0 && (
         <div className="card" style={{ textAlign: 'center', padding: '48px 24px' }}>
           <Gamepad2 size={64} style={{ color: 'var(--text-tertiary)', marginBottom: '16px' }} />
           <h3 style={{ color: 'var(--text-secondary)', marginBottom: '8px' }}>

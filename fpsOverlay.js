@@ -72,9 +72,15 @@ const createFpsOverlay = () => {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
+      nodeIntegrationInSubFrames: false,
       preload: path.join(__dirname, 'fpsOverlayPreload.js')
     }
   });
+
+  // This window is click-through and sits above everything, so it must never
+  // be able to load anything other than its own local page.
+  overlayWindow.webContents.on('will-navigate', (event) => event.preventDefault());
+  overlayWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
 
   overlayWindow.setIgnoreMouseEvents(true, { forward: true });
   overlayWindow.setAlwaysOnTop(true, 'screen-saver');

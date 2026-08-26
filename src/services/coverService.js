@@ -106,6 +106,11 @@ export const scoreNameMatch = (query, candidate) => {
 const isXboxDownloadHost = (hostname) =>
   hostname === 'download.xbox.com' || hostname.endsWith('.download.xbox.com');
 
+/**
+ * download.xbox.com serves an Akamai certificate that does not cover its own
+ * hostname, so HTTPS fails there. The URL is only ever handed to the main
+ * process, which downloads it and re-serves the bytes over cover-cache://.
+ */
 export const toXboxCdnHttpUrl = (url) => {
   if (!url || typeof url !== 'string') return url;
   let normalized = url.trim();
@@ -159,28 +164,45 @@ export const isXboxCdnUrl = (url) => {
   }
 };
 
-/** Legacy cover-cache:// URLs → file:// (img tags cannot load custom schemes in dev/browser). */
-export const coverCacheUrlToFileUrl = (url) => {
-  if (!url || typeof url !== 'string') return url;
-  if (url.startsWith('file:')) return url;
-  if (!url.startsWith('cover-cache://')) return url;
+/**
+ * Local covers are served over the confined cover-cache:// scheme. A legacy
+ * file:// URL that already points into the cache is rewritten in place; anything
+ * else has to be copied into the cache by the main process first.
+ */
+export const fileUrlToCoverCacheUrl = (url) => {
+  if (!url || typeof url !== 'string') return null;
+  if (url.startsWith('cover-cache://')) return url;
+  if (!url.startsWith('file:')) return null;
   try {
-    const raw = url.replace(/^cover-cache:\/\/local\//i, '');
-    const filePath = decodeURIComponent(raw);
-    const posix = filePath.replace(/\\/g, '/');
-    if (/^[a-zA-Z]:\//.test(posix)) {
-      return `file:///${posix}`;
-    }
-    return `file://${posix.startsWith('/') ? '' : '/'}${posix}`;
+    const withoutScheme = decodeURIComponent(url.replace(/^file:\/+/i, ''));
+    const posix = withoutScheme.replace(/\\/g, '/');
+    if (!/\/cover-cache\//i.test(posix)) return null;
+    const fileName = posix.split('/').pop();
+    return fileName ? `cover-cache://local/${encodeURIComponent(fileName)}` : null;
   } catch {
-    return url;
+    return null;
   }
 };
 
+/** Synchronous best-effort mapping; returns null when the main process is needed. */
 export const normalizeLocalCoverUrl = (url) => {
   if (!url || typeof url !== 'string') return url;
-  if (url.startsWith('cover-cache://')) return coverCacheUrlToFileUrl(url);
+  if (url.startsWith('cover-cache://')) return url;
+  if (url.startsWith('file:')) return fileUrlToCoverCacheUrl(url);
   return url;
+};
+
+/** Asks the main process to copy an out-of-cache local image into the cache. */
+export const localizeCoverUrl = async (url) => {
+  const direct = fileUrlToCoverCacheUrl(url);
+  if (direct) return direct;
+  if (!url?.startsWith?.('file:')) return null;
+  if (!window.electronAPI?.localizeCoverUrl) return null;
+  try {
+    return await window.electronAPI.localizeCoverUrl(url);
+  } catch {
+    return null;
+  }
 };
 
 export const isEphemeralCoverUrl = (url) =>
@@ -230,24 +252,21 @@ export const coverFieldsFromDetails = (details) => {
 export const resolveCoverUrlForDisplay = async (url) => {
   const normalized = normalizeCoverUrl(url);
   if (!normalized) return null;
-  if (normalized.startsWith('cover-cache://') || normalized.startsWith('file:')) {
-    return normalizeLocalCoverUrl(normalized);
-  }
+  if (normalized.startsWith('cover-cache://')) return normalized;
+  if (normalized.startsWith('file:')) return localizeCoverUrl(normalized);
   if (normalized.startsWith('data:')) return normalized;
 
-  if (isXboxCdnUrl(normalized)) {
-    const httpUrl = toXboxCdnHttpUrl(normalized);
-    if (window.electronAPI?.cacheCoverImage) {
-      try {
-        const cached = await window.electronAPI.cacheCoverImage(httpUrl);
-        if (cached?.startsWith('file:')) return cached;
-        if (cached?.startsWith('cover-cache://')) return coverCacheUrlToFileUrl(cached);
-        if (cached?.startsWith('http')) return cached;
-      } catch (e) {
-        console.warn('Cover cache failed, using HTTP:', e);
-      }
+  // Remote covers are downloaded by the main process and served from the local
+  // cache, so the renderer itself never reaches out cross-origin.
+  if (window.electronAPI?.cacheCoverImage && /^https?:/i.test(normalized)) {
+    try {
+      const cached = await window.electronAPI.cacheCoverImage(toXboxCdnHttpUrl(normalized));
+      if (cached?.startsWith('cover-cache://')) return cached;
+      if (cached?.startsWith('file:')) return localizeCoverUrl(cached);
+    } catch (e) {
+      console.warn('Cover cache failed:', e);
     }
-    return httpUrl;
+    return null;
   }
 
   return normalized;
@@ -483,7 +502,12 @@ const isCoverUrlReachable = async (url, { lenient = false } = {}) => {
     return true;
   }
   if (normalized.startsWith('cover-cache://')) {
-    return normalizeLocalCoverUrl(normalized).startsWith('file:');
+    if (!window.electronAPI?.coverCacheExists) return true;
+    try {
+      return await window.electronAPI.coverCacheExists(normalized);
+    } catch {
+      return false;
+    }
   }
   if (lenient && isTrustedCoverHost(normalized)) return true;
   if (!window.electronAPI?.validateCoverUrl) return true;

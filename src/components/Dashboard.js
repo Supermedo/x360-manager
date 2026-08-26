@@ -7,9 +7,7 @@ import {
   Zap,
   HardDrive,
   Gamepad2,
-  TrendingUp,
   Clock,
-  Star,
   Heart,
   X
 } from 'lucide-react';

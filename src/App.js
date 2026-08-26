@@ -1,4 +1,4 @@
-import React, { useState, useContext, useCallback, useEffect } from 'react';
+import React, { useState, useContext, useCallback, useEffect, useRef } from 'react';
 
 import './App.css';
 import './components/BootScreens.css';
@@ -38,11 +38,12 @@ const AppContent = () => {
   const [consoleBooting, setConsoleBooting] = useState(false);
   const [bootPhase, setBootPhase] = useState('loading');
   const [profileOverlay, setProfileOverlay] = useState(false);
+  const configBackRef = useRef(null);
 
   const { settings, updateSettings, hydrated } = useContext(SettingsContext);
   const { updateGame } = useContext(GameContext);
   const { emulatorRunning } = useGameplay();
-  const { toggleFullscreen, setFullscreen, isFullscreen } = useAppFullscreen();
+  const { toggleFullscreen, isFullscreen } = useAppFullscreen();
   const { t } = useTranslation();
 
   useEffect(() => {
@@ -54,6 +55,7 @@ const AppContent = () => {
 
   useEffect(() => {
     if (!hydrated) return undefined;
+    if (bootPhase !== 'loading' && bootPhase !== 'onboarding') return undefined;
 
     let cancelled = false;
 
@@ -99,9 +101,11 @@ const AppContent = () => {
     };
   }, [
     hydrated,
+    bootPhase,
     settings.onboardingCompleted,
     settings.emulatorPath,
-    settings.askProfileOnLaunch
+    settings.askProfileOnLaunch,
+    updateSettings
   ]);
 
   const cycleView = useCallback((direction) => {
@@ -128,7 +132,11 @@ const AppContent = () => {
     {
       back: () => {
         if (activeView === 'config') {
-          setActiveView('library');
+          if (configBackRef.current) {
+            configBackRef.current();
+          } else {
+            setActiveView('library');
+          }
           return;
         }
         if (activeView !== 'library') {
@@ -201,6 +209,10 @@ const AppContent = () => {
     setProfileOverlay(true);
   }, []);
 
+  const registerConfigBack = useCallback((fn) => {
+    configBackRef.current = fn;
+  }, []);
+
   const renderView = () => {
     switch (activeView) {
       case 'dashboard':
@@ -217,7 +229,7 @@ const AppContent = () => {
       case 'setup':
         return <EmulatorSetup onNavigate={setActiveView} />;
       case 'config':
-        return <GameConfig game={selectedGame} onNavigate={setActiveView} />;
+        return <GameConfig game={selectedGame} onNavigate={setActiveView} onRegisterBack={registerConfigBack} />;
       case 'settings':
         return <Settings onSwitchProfile={handleSwitchProfile} />;
       case 'help':

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, shell, protocol, nativeImage } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, protocol, nativeImage, session, net } = require('electron');
 const path = require('path');
 const crypto = require('crypto');
 const { pathToFileURL, fileURLToPath } = require('url');
@@ -51,7 +51,7 @@ const getScreenScraperAuthQuery = () => {
 };
 const http = require('http');
 const https = require('https');
-const { exec } = require('child_process');
+const { execFile, execFileSync } = require('child_process');
 const {
   applyXeniaUiSettings,
   applyXeniaProfile,
@@ -103,16 +103,37 @@ const {
 } = require('./patchHelpers');
 const { showFpsOverlay, hideFpsOverlay } = require('./fpsOverlay');
 
+/** Suffix match — `hostname.includes('xbox.com')` also accepts `xbox.com.evil.tld`. */
+const isCoverHost = (hostname, domain) =>
+  hostname === domain || hostname.endsWith(`.${domain}`);
+
+const TRUSTED_COVER_DOMAINS = ['xbox.com', 'screenscraper.fr', 'steamstatic.com', 'akamaihd.net'];
+
+const isTrustedCoverHostname = (hostname) =>
+  typeof hostname === 'string'
+  && TRUSTED_COVER_DOMAINS.some((domain) => isCoverHost(hostname, domain));
+
+/**
+ * download.xbox.com is Akamai-fronted and presents a certificate for
+ * *.akamaihd.net, so HTTPS fails TLS verification and this one host has to stay
+ * on plaintext. It is only ever fetched here in the main process, and the bytes
+ * are written to the cover cache and served back over cover-cache://, so a
+ * network attacker can substitute artwork but never reaches the renderer origin.
+ */
 const toXboxCdnHttpUrl = (url) => {
   if (!url || typeof url !== 'string') return url;
   let normalized = url.trim();
   if (normalized.startsWith('//download.xbox.com')) {
     normalized = `http:${normalized}`;
+  } else if (normalized.startsWith('//')) {
+    normalized = `https:${normalized}`;
   } else if (/^https:\/\/download\.xbox\.com/i.test(normalized)) {
     normalized = normalized.replace(/^https:\/\/download\.xbox\.com/i, 'http://download.xbox.com');
   }
   return normalized.replace(/^http:\/\/download\.xbox\.com:80\//i, 'http://download.xbox.com/');
 };
+
+const MAX_COVER_BYTES = 15 * 1024 * 1024;
 
 const downloadCoverToFile = (sourceUrl, destPath) =>
   new Promise((resolve, reject) => {
@@ -146,7 +167,23 @@ const downloadCoverToFile = (sourceUrl, destPath) =>
             reject(new Error(`HTTP ${res.statusCode}`));
             return;
           }
+          const contentType = (res.headers['content-type'] || '').toLowerCase();
+          if (contentType && !contentType.startsWith('image/')) {
+            res.resume();
+            reject(new Error(`Not an image: ${contentType}`));
+            return;
+          }
           const file = fs.createWriteStream(destPath);
+          let received = 0;
+          res.on('data', (chunk) => {
+            received += chunk.length;
+            if (received > MAX_COVER_BYTES) {
+              res.destroy();
+              file.destroy();
+              fs.unlink(destPath, () => {});
+              reject(new Error('Cover exceeded size limit'));
+            }
+          });
           res.on('error', (err) => {
             file.close();
             fs.unlink(destPath, () => {});
@@ -175,39 +212,137 @@ protocol.registerSchemesAsPrivileged([
   {
     scheme: 'cover-cache',
     privileges: {
+      // Covers are only ever used as <img> sources. Granting fetch/CORS would let
+      // renderer script read the bytes back out of the scheme.
       secure: true,
+      standard: true
+    }
+  },
+  {
+    // The packaged UI is served from here instead of file://. A file:// document
+    // can fetch() other file:// URLs, which makes the whole disk readable from
+    // the renderer; a real origin does not.
+    scheme: 'app',
+    privileges: {
       standard: true,
+      secure: true,
       supportFetchAPI: true,
-      corsEnabled: true
+      corsEnabled: true,
+      stream: true
     }
   }
 ]);
+
+const APP_SCHEME_ORIGIN = 'app://bundle';
+
+const getCoverCacheDir = () => path.join(app.getPath('userData'), 'cover-cache');
+
+/**
+ * cover-cache:// URLs address a single file inside the cover cache. The path is
+ * reduced to a basename so a crafted URL cannot walk out of that directory.
+ */
+const resolveCoverCachePath = (url) => {
+  try {
+    const parsed = new URL(url);
+    const raw = decodeURIComponent(`${parsed.hostname || ''}/${parsed.pathname || ''}`);
+    const name = path.basename(raw.replace(/\\/g, '/'));
+    if (!name || name === '.' || name === '..') return null;
+    if (!hasImageExtension(name)) return null;
+
+    const cacheDir = getCoverCacheDir();
+    const resolved = path.resolve(cacheDir, name);
+    return isPathInside(resolved, cacheDir) ? resolved : null;
+  } catch {
+    return null;
+  }
+};
+
+const toCoverCacheUrl = (fileName) => `cover-cache://local/${encodeURIComponent(fileName)}`;
+
+/**
+ * Copies an arbitrary local image into the cover cache so it can be served over
+ * the confined cover-cache:// scheme instead of a raw file:// URL.
+ */
+const cacheLocalImageFile = (sourcePath) => {
+  if (!sourcePath || !fs.existsSync(sourcePath)) return null;
+
+  const cacheDir = getCoverCacheDir();
+  fs.mkdirSync(cacheDir, { recursive: true });
+
+  const resolvedSource = path.resolve(sourcePath);
+  if (isPathInside(resolvedSource, cacheDir)) {
+    return toCoverCacheUrl(path.basename(resolvedSource));
+  }
+
+  const ext = hasImageExtension(resolvedSource) ? path.extname(resolvedSource).toLowerCase() : '.png';
+  const hash = crypto.createHash('md5').update(resolvedSource).digest('hex');
+  const fileName = `${hash}${ext}`;
+  const destination = path.join(cacheDir, fileName);
+
+  if (!fs.existsSync(destination)) {
+    fs.copyFileSync(resolvedSource, destination);
+  }
+  return toCoverCacheUrl(fileName);
+};
 
 const resolveLocalImagePath = (url) => {
   if (!url || typeof url !== 'string') return null;
   if (url.startsWith('file:')) {
     try {
-      return fileURLToPath(url);
+      const filePath = fileURLToPath(url);
+      // Existence checks are renderer-reachable, so only answer for image files.
+      return hasImageExtension(filePath) ? filePath : null;
     } catch {
       return null;
     }
   }
   if (url.startsWith('cover-cache://')) {
-    try {
-      const parsed = new URL(url);
-      let filePath = decodeURIComponent(parsed.pathname.replace(/^\//, ''));
-      if (process.platform === 'win32') {
-        filePath = filePath.replace(/\//g, '\\');
-      }
-      return path.normalize(filePath);
-    } catch {
-      return null;
-    }
+    return resolveCoverCachePath(url);
   }
   return null;
 };
 
 const toLocalFileUrl = (absolutePath) => pathToFileURL(absolutePath).href;
+
+/**
+ * Renderer-supplied paths reach the main process over IPC, so anything that is
+ * spawned, deleted, written or served has to be checked here rather than in the UI.
+ */
+const isValidExecutablePath = (candidate) => {
+  if (!candidate || typeof candidate !== 'string') return false;
+  if (path.extname(candidate).toLowerCase() !== '.exe') return false;
+  try {
+    return fs.existsSync(candidate) && fs.statSync(candidate).isFile();
+  } catch {
+    return false;
+  }
+};
+
+/** True when `candidate` resolves to something inside `rootDir`. */
+const isPathInside = (candidate, rootDir) => {
+  if (!candidate || typeof candidate !== 'string') return false;
+  try {
+    const resolved = path.resolve(candidate);
+    const root = path.resolve(rootDir);
+    if (resolved === root) return true;
+    return resolved.startsWith(root.endsWith(path.sep) ? root : root + path.sep);
+  } catch {
+    return false;
+  }
+};
+
+const IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp']);
+
+const hasImageExtension = (candidate) => {
+  if (!candidate || typeof candidate !== 'string') return false;
+  return IMAGE_EXTENSIONS.has(path.extname(candidate).toLowerCase());
+};
+
+/** Directories the user explicitly picked through a native dialog this session. */
+const userChosenDirectories = new Set();
+
+/** Profile files the user explicitly picked through a native dialog this session. */
+const userSelectedProfileFiles = new Set();
 
 let mainWindow;
 
@@ -338,8 +473,8 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      enableRemoteModule: false,
-      webSecurity: false,
+      sandbox: true,
+      webSecurity: true,
       preload: path.join(__dirname, 'preload.js'),
       partition: 'persist:x360-manager'
     },
@@ -356,11 +491,7 @@ function createWindow() {
 
   mainWindow.setMenuBarVisibility(false);
 
-  mainWindow.loadURL(
-    useDevServer
-      ? 'http://localhost:3000'
-      : `file://${path.join(__dirname, './build/index.html')}`
-  );
+  mainWindow.loadURL(useDevServer ? 'http://localhost:3000' : `${APP_SCHEME_ORIGIN}/index.html`);
 
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
@@ -431,8 +562,55 @@ const setAppFullscreen = (enabled) => {
   return isFs;
 };
 
+/**
+ * The preload exposes launchGame/openExternal/storage APIs to whatever page is
+ * loaded in the window, so the window must never be able to navigate off the app.
+ */
+const applyWebContentsHardening = () => {
+  const isAppUrl = (candidate) => {
+    if (typeof candidate !== 'string') return false;
+    if (useDevServer && candidate.startsWith('http://localhost:3000')) return true;
+    return candidate.startsWith(`${APP_SCHEME_ORIGIN}/`) || candidate.startsWith('cover-cache://');
+  };
+
+  app.on('web-contents-created', (_event, contents) => {
+    contents.on('will-navigate', (event, navigationUrl) => {
+      if (isAppUrl(navigationUrl)) return;
+      event.preventDefault();
+      safeOpenExternal(navigationUrl);
+    });
+
+    contents.setWindowOpenHandler(({ url }) => {
+      safeOpenExternal(url);
+      return { action: 'deny' };
+    });
+
+    contents.on('will-attach-webview', (event) => {
+      event.preventDefault();
+    });
+  });
+
+  // Electron grants most permission requests by default. The app window runs in
+  // the 'persist:x360-manager' partition and needs no permissions at all. The
+  // FPS overlay is the only consumer of the default session and needs `media`
+  // to sample frames from the emulator window.
+  session.fromPartition('persist:x360-manager').setPermissionRequestHandler(
+    (_wc, permission, callback) => {
+      console.log('[permissions] denied for app window:', permission);
+      callback(false);
+    }
+  );
+
+  session.defaultSession.setPermissionRequestHandler((_wc, permission, callback) => {
+    if (permission === 'media') return callback(true);
+    console.log('[permissions] denied for overlay session:', permission);
+    return callback(false);
+  });
+};
+
 app.whenReady().then(() => {
   console.log('[app] Settings and library data folder:', app.getPath('userData'));
+  applyWebContentsHardening();
   try {
     const settings = readAppStorage(app.getPath('userData'), 'settings', null);
     if (settings?.emulatorPath && fs.existsSync(settings.emulatorPath)) {
@@ -444,28 +622,49 @@ app.whenReady().then(() => {
   } catch (err) {
     console.warn('[app] Xenia config repair skipped:', err.message);
   }
-  const coverCacheUrlToPath = (url) => {
-    const parsed = new URL(url);
-    let filePath = decodeURIComponent(parsed.pathname.replace(/^\//, ''));
-    if (process.platform === 'win32') {
-      filePath = filePath.replace(/\//g, '\\');
-    }
-    return path.normalize(filePath);
-  };
-
-  protocol.registerFileProtocol('cover-cache', (request, callback) => {
+  const handleCoverCache = async (request) => {
     try {
-      const filePath = coverCacheUrlToPath(request.url);
-      if (!fs.existsSync(filePath)) {
-        callback({ error: -6 });
-        return;
-      }
-      callback({ path: filePath });
+      const resolved = resolveCoverCachePath(request.url);
+      if (!resolved) return new Response('Forbidden', { status: 403 });
+      if (!fs.existsSync(resolved)) return new Response('Not found', { status: 404 });
+      return net.fetch(pathToFileURL(resolved).href);
     } catch (err) {
       console.error('[cover-cache] protocol error:', err);
-      callback({ error: -2 });
+      return new Response('Internal error', { status: 500 });
     }
-  });
+  };
+
+  const buildRoot = path.resolve(__dirname, 'build');
+  const handleAppScheme = async (request) => {
+    try {
+      const { host, pathname } = new URL(request.url);
+      if (host !== 'bundle') return new Response('Forbidden', { status: 403 });
+
+      const relative = decodeURIComponent(pathname).replace(/^\/+/, '') || 'index.html';
+      const resolved = path.resolve(buildRoot, relative);
+      if (!isPathInside(resolved, buildRoot)) return new Response('Forbidden', { status: 403 });
+
+      // Client-side routes have no file on disk; serve the shell instead.
+      const target =
+        fs.existsSync(resolved) && fs.statSync(resolved).isFile()
+          ? resolved
+          : path.join(buildRoot, 'index.html');
+
+      return net.fetch(pathToFileURL(target).href);
+    } catch (err) {
+      console.error('[app] protocol error:', err);
+      return new Response('Internal error', { status: 500 });
+    }
+  };
+
+  // Protocol handlers are per-session, and the app window runs in its own
+  // partition — registering only on the default session leaves the scheme
+  // unknown to the renderer.
+  protocol.handle('cover-cache', handleCoverCache);
+  protocol.handle('app', handleAppScheme);
+  const appPartition = session.fromPartition('persist:x360-manager');
+  appPartition.protocol.handle('cover-cache', handleCoverCache);
+  appPartition.protocol.handle('app', handleAppScheme);
 
   if (process.platform === 'win32') {
     app.setAppUserModelId('com.x360manager.app');
@@ -528,6 +727,19 @@ ipcMain.handle('select-multiple-game-files', async () => {
   return result.canceled ? null : result.filePaths;
 });
 
+ipcMain.handle('select-save-files', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: 'Select Save Files',
+    filters: [
+      { name: 'Save Files', extensions: ['sav', 'dat', 'bin', 'save'] },
+      { name: 'All Files', extensions: ['*'] }
+    ],
+    properties: ['openFile', 'multiSelections']
+  });
+
+  return result.canceled ? null : result.filePaths;
+});
+
 ipcMain.handle('select-dlc-files', async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
     title: 'Select DLC Files',
@@ -547,6 +759,7 @@ ipcMain.handle('select-directory', async () => {
   });
 
   if (!result.canceled && result.filePaths.length > 0) {
+    userChosenDirectories.add(path.resolve(result.filePaths[0]));
     return result.filePaths[0];
   }
 
@@ -564,13 +777,49 @@ ipcMain.handle('select-image-file', async () => {
   });
 
   if (result.canceled || result.filePaths.length === 0) return null;
-  return require('url').pathToFileURL(result.filePaths[0]).href;
+  // Copy into the cover cache so the renderer never needs a file:// URL.
+  try {
+    return cacheLocalImageFile(result.filePaths[0]);
+  } catch (err) {
+    console.warn('[select-image-file] Could not cache selected image:', err.message);
+    return null;
+  }
+});
+
+// Turns a legacy file:// cover URL into a cover-cache:// URL the renderer can load.
+ipcMain.handle('localize-cover-url', async (event, url) => {
+  const localPath = resolveLocalImagePath(url);
+  if (!localPath) return null;
+  try {
+    return cacheLocalImageFile(localPath);
+  } catch (err) {
+    console.warn('[localize-cover-url] failed:', err.message);
+    return null;
+  }
 });
 
 // Download emulator — downloads ZIP, extracts to user-chosen location, returns path to xenia.exe
 ipcMain.handle('download-emulator', async (event, url, userDir) => {
-  const http = require('https');
   const { createWriteStream, mkdirSync, readdirSync, unlinkSync } = require('fs');
+
+  // Only the official Xenia release hosts — this handler writes an executable to disk.
+  const isAllowedEmulatorUrl = (candidate) => {
+    try {
+      const parsed = new URL(candidate);
+      if (parsed.protocol !== 'https:') return false;
+      const host = parsed.hostname.toLowerCase();
+      return host === 'github.com'
+        || host === 'objects.githubusercontent.com'
+        || host.endsWith('.github.com')
+        || host.endsWith('.githubusercontent.com');
+    } catch {
+      return false;
+    }
+  };
+
+  if (!isAllowedEmulatorUrl(url)) {
+    throw new Error('Refused to download from an untrusted host.');
+  }
 
   // Use user-provided directory, or fall back to portable folder
   let emulatorDir;
@@ -584,16 +833,26 @@ ipcMain.handle('download-emulator', async (event, url, userDir) => {
 
   const zipPath = path.join(emulatorDir, 'xenia_download.zip');
 
+  const MAX_EMULATOR_BYTES = 500 * 1024 * 1024;
+
   // Download with redirect following
   const download = (downloadUrl) => {
     return new Promise((resolve, reject) => {
-      const doRequest = (reqUrl) => {
-        const protocol = reqUrl.startsWith('https') ? require('https') : require('http');
-        protocol.get(reqUrl, { headers: { 'User-Agent': 'X360Manager' } }, (response) => {
+      const doRequest = (reqUrl, redirectsLeft = 5) => {
+        if (!isAllowedEmulatorUrl(reqUrl)) {
+          reject(new Error('Refused to follow a redirect to an untrusted host.'));
+          return;
+        }
+        require('https').get(reqUrl, { headers: { 'User-Agent': 'X360Manager' } }, (response) => {
           // Follow redirects
           if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+            if (redirectsLeft <= 0) {
+              response.resume();
+              reject(new Error('Too many redirects while downloading the emulator.'));
+              return;
+            }
             console.log('Redirecting to:', response.headers.location);
-            doRequest(response.headers.location);
+            doRequest(new URL(response.headers.location, reqUrl).href, redirectsLeft - 1);
             return;
           }
 
@@ -606,8 +865,20 @@ ipcMain.handle('download-emulator', async (event, url, userDir) => {
           let downloaded = 0;
           const fileStream = createWriteStream(zipPath);
 
+          if (totalSize > MAX_EMULATOR_BYTES) {
+            response.resume();
+            reject(new Error('Emulator download is unexpectedly large; aborting.'));
+            return;
+          }
+
           response.on('data', (chunk) => {
             downloaded += chunk.length;
+            if (downloaded > MAX_EMULATOR_BYTES) {
+              response.destroy();
+              fileStream.destroy();
+              reject(new Error('Emulator download exceeded the size limit; aborting.'));
+              return;
+            }
             if (totalSize > 0) {
               const progress = (downloaded / totalSize) * 70; // 70% for download
               mainWindow?.webContents.send('download-progress', progress);
@@ -634,19 +905,26 @@ ipcMain.handle('download-emulator', async (event, url, userDir) => {
 
     mainWindow?.webContents.send('download-progress', 75);
 
-    // Extract ZIP using PowerShell (built-in on Windows)
-    await new Promise((resolve, reject) => {
-      const cmd = `powershell -Command "Expand-Archive -Path '${zipPath}' -DestinationPath '${emulatorDir}' -Force"`;
-      exec(cmd, { timeout: 60000 }, (error, stdout, stderr) => {
-        if (error) {
-          console.error('Extraction error:', error);
-          reject(new Error(`Extraction failed: ${error.message}`));
-        } else {
-          console.log('Extraction complete');
-          resolve();
-        }
-      });
-    });
+    // Extract in-process. Shelling out to Expand-Archive meant the destination
+    // path was interpolated into a PowerShell command line.
+    const AdmZip = require('adm-zip');
+    const zip = new AdmZip(zipPath);
+    const extractRoot = path.resolve(emulatorDir);
+
+    for (const entry of zip.getEntries()) {
+      const target = path.resolve(extractRoot, entry.entryName);
+      if (!isPathInside(target, extractRoot)) {
+        console.warn('[download-emulator] Skipping entry outside target dir:', entry.entryName);
+        continue;
+      }
+      if (entry.isDirectory) {
+        fs.mkdirSync(target, { recursive: true });
+        continue;
+      }
+      fs.mkdirSync(path.dirname(target), { recursive: true });
+      fs.writeFileSync(target, entry.getData());
+    }
+    console.log('Extraction complete');
 
     mainWindow?.webContents.send('download-progress', 95);
 
@@ -685,22 +963,57 @@ ipcMain.handle('download-emulator', async (event, url, userDir) => {
   }
 });
 
+/**
+ * Scanning walks a directory tree and reads file headers, so it is only allowed
+ * for folders the user picked this session or already saved in settings.
+ */
+const isScannableDirectory = (directoryPath) => {
+  if (!directoryPath || typeof directoryPath !== 'string') return false;
+
+  for (const allowed of userChosenDirectories) {
+    if (isPathInside(directoryPath, allowed)) return true;
+  }
+
+  try {
+    const settings = readAppStorage(app.getPath('userData'), 'settings', null);
+    const roots = [settings?.gamesDirectory, settings?.dlcDirectory, settings?.updatesDirectory]
+      .filter((value) => typeof value === 'string' && value.trim());
+    if (settings?.emulatorPath) roots.push(path.dirname(settings.emulatorPath));
+    return roots.some((root) => isPathInside(directoryPath, root));
+  } catch {
+    return false;
+  }
+};
+
+const MAX_SCAN_DEPTH = 8;
+const MAX_SCAN_RESULTS = 5000;
+
 // Handle scanning directories for games
 ipcMain.handle('scan-directory', async (event, directoryPath) => {
   try {
+    if (!isScannableDirectory(directoryPath)) {
+      throw new Error('This folder has not been selected for scanning.');
+    }
+
     const files = [];
     const supportedFormats = ['.iso', '.cue', '.nrg', '.mdf', '.ccd', '.xex', '.xbe', '.xcp', '.zip', '.7z', '.rom'];
 
-    const scanRecursively = (dir) => {
+    const scanRecursively = (dir, depth = 0) => {
+      if (depth > MAX_SCAN_DEPTH || files.length >= MAX_SCAN_RESULTS) return;
       const items = fs.readdirSync(dir);
 
       for (const item of items) {
+        if (files.length >= MAX_SCAN_RESULTS) return;
         const fullPath = path.join(dir, item);
-        const stat = fs.statSync(fullPath);
+        const stat = fs.lstatSync(fullPath);
+
+        if (stat.isSymbolicLink()) {
+          continue; // junction/symlink loops would hang the scan
+        }
 
         if (stat.isDirectory()) {
           // Recursively scan subdirectories
-          scanRecursively(fullPath);
+          scanRecursively(fullPath, depth + 1);
         } else if (stat.isFile()) {
           const ext = path.extname(fullPath).toLowerCase();
 
@@ -962,12 +1275,45 @@ ipcMain.handle('get-emulator-session', () => ({
   count: activeEmulatorPids.size
 }));
 
-ipcMain.handle('open-external', async (event, url) => {
-  shell.openExternal(url);
-});
+// shell.openExternal hands the URL to the OS, so file:, UNC paths and custom
+// protocol handlers would all be launchable from the renderer without this check.
+const safeOpenExternal = async (url) => {
+  if (!url || typeof url !== 'string') return { ok: false, error: 'Invalid URL' };
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return { ok: false, error: 'Invalid URL' };
+  }
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'mailto:') {
+    console.warn('[open-external] Blocked non-https URL:', parsed.protocol);
+    return { ok: false, error: 'Only https links can be opened' };
+  }
+  await shell.openExternal(parsed.toString());
+  return { ok: true };
+};
+
+ipcMain.handle('open-external', async (event, url) => safeOpenExternal(url));
+
+const MESSAGE_BOX_TYPES = new Set(['none', 'info', 'error', 'question', 'warning']);
 
 ipcMain.handle('show-message-box', async (event, options) => {
-  const result = await dialog.showMessageBox(mainWindow, options);
+  const source = options && typeof options === 'object' ? options : {};
+  const buttons = Array.isArray(source.buttons)
+    ? source.buttons.slice(0, 4).map((b) => String(b).slice(0, 64))
+    : ['OK'];
+
+  const safeOptions = {
+    type: MESSAGE_BOX_TYPES.has(source.type) ? source.type : 'info',
+    title: String(source.title ?? 'X360 Manager').slice(0, 120),
+    message: String(source.message ?? '').slice(0, 2000),
+    detail: source.detail === undefined ? undefined : String(source.detail).slice(0, 2000),
+    buttons: buttons.length ? buttons : ['OK'],
+    defaultId: Number.isInteger(source.defaultId) ? source.defaultId : 0,
+    cancelId: Number.isInteger(source.cancelId) ? source.cancelId : undefined
+  };
+
+  const result = await dialog.showMessageBox(mainWindow, safeOptions);
   return result;
 });
 
@@ -1015,8 +1361,6 @@ ipcMain.handle('cover-cache-exists', async (event, url) => {
     return false;
   }
 });
-
-const getCoverCacheDir = () => path.join(app.getPath('userData'), 'cover-cache');
 
 ipcMain.handle('get-cover-cache-stats', async () => {
   try {
@@ -1089,7 +1433,14 @@ ipcMain.handle('toggle-fullscreen', async () => {
 ipcMain.handle('get-app-icon-url', () => {
   const iconPath = resolveAppIconPath();
   if (!iconPath) return null;
-  return pathToFileURL(iconPath).href;
+  // A data URL rather than file://, which the renderer is no longer allowed to load.
+  try {
+    const image = nativeImage.createFromPath(iconPath);
+    if (!image.isEmpty()) return image.toDataURL();
+  } catch (err) {
+    console.warn('[get-app-icon-url] Could not encode icon:', err.message);
+  }
+  return null;
 });
 
 ipcMain.handle('apply-xenia-ui-settings', async (event, emulatorPath, config) => {
@@ -1198,6 +1549,11 @@ ipcMain.handle('import-xbox-live-profile', async (event, emulatorPath, sourcePat
   if (!sourcePath || !fs.existsSync(sourcePath)) {
     return { ok: false, error: 'Profile file not found' };
   }
+  // Only files the user actually picked in the import dialog — otherwise the
+  // renderer could copy any file on disk into the emulator's content tree.
+  if (!userSelectedProfileFiles.has(path.resolve(sourcePath))) {
+    return { ok: false, error: 'Select a profile file using the import dialog.' };
+  }
   try {
     return importProfileFile(emulatorPath, app.getPath('documents'), app.getPath('userData'), sourcePath);
   } catch (err) {
@@ -1216,9 +1572,21 @@ ipcMain.handle('delete-xbox-live-profile', async (event, emulatorPath, profileKe
   }
 });
 
+// Xenia profile blobs are named E0<hex> or live under a FFFE07D1 content folder.
+const isXboxProfileFilePath = (candidate) => {
+  if (!candidate || typeof candidate !== 'string') return false;
+  const resolved = path.resolve(candidate);
+  const name = path.basename(resolved);
+  if (/^E0[0-9A-Fa-f]{14,18}$/.test(name)) return true;
+  return name === 'Account' && resolved.toUpperCase().includes('FFFE07D1');
+};
+
 ipcMain.handle('export-xbox-live-profile', async (event, sourcePath) => {
   if (!sourcePath || !fs.existsSync(sourcePath)) {
     return { ok: false, error: 'Profile file not found' };
+  }
+  if (!isXboxProfileFilePath(sourcePath)) {
+    return { ok: false, error: 'Only Xbox Live profile files can be exported.' };
   }
   try {
     const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
@@ -1255,6 +1623,7 @@ ipcMain.handle('select-xbox-live-profile-file', async () => {
     properties: ['openFile']
   });
   if (result.canceled || result.filePaths.length === 0) return null;
+  userSelectedProfileFiles.add(path.resolve(result.filePaths[0]));
   return result.filePaths[0];
 });
 
@@ -1263,19 +1632,16 @@ ipcMain.handle('validate-cover-url', async (event, url, options = {}) => {
   if (!url || typeof url !== 'string') return false;
   if (url.startsWith('data:')) return true;
   if (url.startsWith('file:')) {
-    try {
-      const localPath = url.replace(/^file:\/+/i, '');
-      return fs.existsSync(localPath);
-    } catch {
-      return false;
-    }
+    // Only answer for image files, so this can't be used to probe for arbitrary paths.
+    const localPath = resolveLocalImagePath(url);
+    return Boolean(localPath) && fs.existsSync(localPath);
   }
 
   let normalized = url.startsWith('//') ? `https:${url}` : url;
   let hostname = '';
   try {
     hostname = new URL(normalized).hostname.toLowerCase();
-    if (hostname.includes('download.xbox.com')) {
+    if (isCoverHost(hostname, 'download.xbox.com')) {
       normalized = toXboxCdnHttpUrl(normalized);
       hostname = 'download.xbox.com';
     } else if (normalized.startsWith('http://')) {
@@ -1286,13 +1652,13 @@ ipcMain.handle('validate-cover-url', async (event, url, options = {}) => {
     return false;
   }
 
-  const trustedHost =
-    hostname.includes('download.xbox.com') ||
-    hostname.includes('xbox.com') ||
-    hostname.includes('screenscraper.fr') ||
-    hostname.includes('steamstatic.com');
+  const trustedHost = isTrustedCoverHostname(hostname);
 
-  if (lenient && trustedHost) return true;
+  // Without this the handler is an SSRF probe: it would happily request
+  // localhost, link-local metadata endpoints and RFC1918 addresses.
+  if (!trustedHost) return false;
+
+  if (lenient) return true;
 
   const checkUrl = (targetUrl, method = 'HEAD') =>
     new Promise((resolve) => {
@@ -1345,19 +1711,26 @@ ipcMain.handle('validate-cover-url', async (event, url, options = {}) => {
 ipcMain.handle('cache-cover-image', async (event, url) => {
   if (!url || typeof url !== 'string') return null;
 
+  // Every remote cover is proxied through here so the renderer never issues a
+  // cross-origin image request of its own.
   let fetchUrl = url;
   try {
-    const host = new URL(url).hostname.toLowerCase();
-    if (!host.includes('download.xbox.com')) {
+    fetchUrl = toXboxCdnHttpUrl(url);
+    const parsed = new URL(fetchUrl);
+    const host = parsed.hostname.toLowerCase();
+    if (!isTrustedCoverHostname(host)) {
       return null;
     }
-    fetchUrl = toXboxCdnHttpUrl(url);
+    // Plaintext is tolerated only for the Xbox CDN, which has no usable HTTPS.
+    if (parsed.protocol !== 'https:' && !isCoverHost(host, 'download.xbox.com')) {
+      return null;
+    }
   } catch {
     return null;
   }
 
   try {
-    const cacheDir = path.join(app.getPath('userData'), 'cover-cache');
+    const cacheDir = getCoverCacheDir();
     if (!fs.existsSync(cacheDir)) {
       fs.mkdirSync(cacheDir, { recursive: true });
     }
@@ -1365,16 +1738,18 @@ ipcMain.handle('cache-cover-image', async (event, url) => {
     const hash = crypto.createHash('md5').update(fetchUrl).digest('hex');
     let ext = '.jpg';
     try {
-      ext = path.extname(new URL(fetchUrl).pathname) || '.jpg';
+      const parsedExt = path.extname(new URL(fetchUrl).pathname).toLowerCase();
+      ext = IMAGE_EXTENSIONS.has(parsedExt) ? parsedExt : '.jpg';
     } catch {
       ext = '.jpg';
     }
-    const cachePath = path.join(cacheDir, `${hash}${ext}`);
+    const fileName = `${hash}${ext}`;
+    const cachePath = path.join(cacheDir, fileName);
 
     if (fs.existsSync(cachePath)) {
       const stat = fs.statSync(cachePath);
       if (stat.size > 1024) {
-        return toLocalFileUrl(cachePath);
+        return toCoverCacheUrl(fileName);
       }
       fs.unlinkSync(cachePath);
     }
@@ -1382,13 +1757,13 @@ ipcMain.handle('cache-cover-image', async (event, url) => {
     await downloadCoverToFile(fetchUrl, cachePath);
     if (!fs.existsSync(cachePath) || fs.statSync(cachePath).size < 512) {
       if (fs.existsSync(cachePath)) fs.unlinkSync(cachePath);
-      return toXboxCdnHttpUrl(fetchUrl);
+      return null;
     }
 
-    return toLocalFileUrl(cachePath);
+    return toCoverCacheUrl(fileName);
   } catch (err) {
     console.warn('[CoverCache] Failed to cache cover:', fetchUrl, err.message);
-    return toXboxCdnHttpUrl(fetchUrl);
+    return null;
   }
 });
 
@@ -1462,36 +1837,60 @@ ipcMain.handle('screenscraper-search', async (event, { gameName, limit = 8 }) =>
 
 // Create a desktop shortcut for a game
 ipcMain.handle('create-desktop-shortcut', async (event, gameName, emulatorPath, gamePath) => {
+  let ps1Path = null;
   try {
-    const { execSync } = require('child_process');
-    const path = require('path');
     const os = require('os');
 
-    // Create shortcut on User's Desktop
+    if (!isValidExecutablePath(emulatorPath)) {
+      return { success: false, error: 'Invalid emulator path' };
+    }
+    if (!gamePath || typeof gamePath !== 'string' || !fs.existsSync(gamePath)) {
+      return { success: false, error: 'Invalid game path' };
+    }
+
+    // Allowlist rather than blocklist: PowerShell interpolates $ and ` inside
+    // double-quoted strings, so a game name is not safe to embed in a script.
+    const safeName = String(gameName || '')
+      .replace(/[^\w \-().[\]']/g, '')
+      .trim()
+      .slice(0, 100) || 'Xbox 360 Game';
+
     const desktopPath = path.join(os.homedir(), 'Desktop');
-    // Sanitize game name to make a safe filename
-    const safeName = gameName.replace(/[<>:"/\\|?*]+/g, '').trim();
     const shortcutPath = path.join(desktopPath, `${safeName}.lnk`);
 
-    // Use a temporary ps1 file to avoid complex nested quoting issues with cmd.exe
-    const fs = require('fs');
-    const ps1Path = path.join(os.tmpdir(), `create_shortcut_${Date.now()}.ps1`);
+    // Values are passed as bound parameters, never concatenated into the script body.
     const psScript = `
+param([string]$LinkPath, [string]$Target, [string]$Arguments, [string]$WorkDir)
 $WshShell = New-Object -comObject WScript.Shell
-$Shortcut = $WshShell.CreateShortcut("${shortcutPath}")
-$Shortcut.TargetPath = "${emulatorPath}"
-$Shortcut.Arguments = """${gamePath}"""
-$Shortcut.WorkingDirectory = "${path.dirname(emulatorPath)}"
+$Shortcut = $WshShell.CreateShortcut($LinkPath)
+$Shortcut.TargetPath = $Target
+$Shortcut.Arguments = $Arguments
+$Shortcut.WorkingDirectory = $WorkDir
 $Shortcut.Save()
-    `;
+`;
+
+    ps1Path = path.join(os.tmpdir(), `create_shortcut_${Date.now()}.ps1`);
     fs.writeFileSync(ps1Path, psScript);
-    execSync(`powershell.exe -NoProfile -ExecutionPolicy Bypass -File "${ps1Path}"`);
-    fs.unlinkSync(ps1Path);
+
+    execFileSync('powershell.exe', [
+      '-NoProfile',
+      '-NonInteractive',
+      '-ExecutionPolicy', 'Bypass',
+      '-File', ps1Path,
+      '-LinkPath', shortcutPath,
+      '-Target', emulatorPath,
+      '-Arguments', `"${gamePath}"`,
+      '-WorkDir', path.dirname(emulatorPath)
+    ], { timeout: 20000 });
 
     return { success: true, path: shortcutPath };
   } catch (error) {
     console.error('Failed to create shortcut:', error);
     return { success: false, error: error.message };
+  } finally {
+    if (ps1Path) {
+      try { fs.unlinkSync(ps1Path); } catch { /* temp file already gone */ }
+    }
   }
 });
 
@@ -1518,36 +1917,61 @@ ipcMain.handle('download-patches', async (event, emulatorPath) => {
     const zipPath = path.join(emuDir, 'patches.zip');
     const downloadUrl = 'https://github.com/xenia-canary/game-patches/archive/refs/heads/main.zip';
 
+    const MAX_PATCHES_BYTES = 100 * 1024 * 1024;
+    const MAX_PATCH_ENTRIES = 20000;
+
     // Download the zip
     await new Promise((resolve, reject) => {
-      https.get(downloadUrl, (res) => {
-        if (res.statusCode === 301 || res.statusCode === 302) {
-          // Handle redirect
-          https.get(res.headers.location, (redirectRes) => {
-            const file = fs.createWriteStream(zipPath);
-            redirectRes.pipe(file);
-            file.on('finish', () => { file.close(); resolve(); });
-            file.on('error', reject);
-          }).on('error', reject);
-        } else {
+      const request = (url, redirectsLeft = 5) => {
+        if (!/^https:\/\/([\w-]+\.)*(github\.com|githubusercontent\.com)\//i.test(url)) {
+          reject(new Error('Refused to download patches from an untrusted host.'));
+          return;
+        }
+        https.get(url, (res) => {
+          if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+            res.resume();
+            if (redirectsLeft <= 0) {
+              reject(new Error('Too many redirects while downloading patches.'));
+              return;
+            }
+            request(new URL(res.headers.location, url).href, redirectsLeft - 1);
+            return;
+          }
+          if (res.statusCode !== 200) {
+            res.resume();
+            reject(new Error(`Patch download failed: HTTP ${res.statusCode}`));
+            return;
+          }
+
+          let received = 0;
           const file = fs.createWriteStream(zipPath);
+          res.on('data', (chunk) => {
+            received += chunk.length;
+            if (received > MAX_PATCHES_BYTES) {
+              res.destroy();
+              file.destroy();
+              reject(new Error('Patch archive exceeded the size limit.'));
+            }
+          });
           res.pipe(file);
           file.on('finish', () => { file.close(); resolve(); });
           file.on('error', reject);
-        }
-      }).on('error', reject);
+        }).on('error', reject);
+      };
+      request(downloadUrl);
     });
 
     // Extract the zip
     const zip = new AdmZip(zipPath);
-    const zipEntries = zip.getEntries();
+    const zipEntries = zip.getEntries().slice(0, MAX_PATCH_ENTRIES);
 
     // The zip contains a folder like 'game-patches-main/patches/', we only want its contents.
     let extractedCount = 0;
     zipEntries.forEach(entry => {
       if (entry.entryName.startsWith('game-patches-main/patches/') && !entry.isDirectory) {
-        const content = zip.readFile(entry);
         const fileName = path.basename(entry.entryName);
+        if (!/\.(toml|patch)$/i.test(fileName)) return;
+        const content = zip.readFile(entry);
         fs.writeFileSync(path.join(patchesDir, fileName), content);
         extractedCount += 1;
       }
@@ -1704,9 +2128,22 @@ ipcMain.handle('get-all-patch-files', async (event, emulatorPath) => {
 });
 
 // Delete a patch file
+/**
+ * Patch handlers write to and delete files chosen by the renderer, so the target
+ * has to be an actual patch file living under a Xenia "patches" directory.
+ */
+const isPatchFilePath = (candidate) => {
+  if (!candidate || typeof candidate !== 'string') return false;
+  if (!/\.(toml|patch)$/i.test(candidate)) return false;
+  const parent = path.basename(path.dirname(path.resolve(candidate)));
+  return parent.toLowerCase() === 'patches';
+};
+
 ipcMain.handle('delete-patch-file', async (event, patchFilePath) => {
   try {
-    const fs = require('fs');
+    if (!isPatchFilePath(patchFilePath)) {
+      return { success: false, error: 'Invalid patch file path' };
+    }
     if (fs.existsSync(patchFilePath)) {
       fs.unlinkSync(patchFilePath);
       return { success: true };
@@ -1722,6 +2159,9 @@ ipcMain.handle('delete-patch-file', async (event, patchFilePath) => {
 ipcMain.handle('toggle-game-patch', async (event, { patchFile, enabledLineIndex, newValue, patchId }) => {
   try {
     if (!patchFile) return { success: false, error: 'Patch file not found' };
+    if (!isPatchFilePath(patchFile)) {
+      return { success: false, error: 'Invalid patch file path' };
+    }
 
     if (patchId !== undefined && patchId !== null) {
       return togglePatchEnabled(patchFile, patchId, Boolean(newValue));
@@ -1876,21 +2316,17 @@ ipcMain.handle('validate-game-file', async (event, gamePath) => {
 });
 
 ipcMain.handle('test-emulator-launch', async (event, emulatorPath) => {
-  return new Promise((resolve) => {
-    // Test launch emulator without game to see if it starts
-    const testCommand = `"${emulatorPath}" --help`;
+  if (!isValidExecutablePath(emulatorPath)) {
+    return { canLaunch: false, error: 'Invalid emulator path', output: '' };
+  }
 
-    exec(testCommand, {
-      timeout: 10000,
-      cwd: path.dirname(emulatorPath)
-    }, (error, stdout, stderr) => {
+  // execFile (no shell) so the path can never be parsed as a command line.
+  return new Promise((resolve) => {
+    const options = { timeout: 10000, cwd: path.dirname(emulatorPath) };
+
+    execFile(emulatorPath, ['--help'], options, (error, stdout, stderr) => {
       if (error) {
-        // Try launching without --help flag
-        const basicCommand = `"${emulatorPath}"`;
-        exec(basicCommand, {
-          timeout: 5000,
-          cwd: path.dirname(emulatorPath)
-        }, (error2, stdout2, stderr2) => {
+        execFile(emulatorPath, [], { ...options, timeout: 5000 }, (error2, stdout2, stderr2) => {
           resolve({
             canLaunch: !error2,
             error: error2 ? error2.message : null,
@@ -1901,7 +2337,7 @@ ipcMain.handle('test-emulator-launch', async (event, emulatorPath) => {
         resolve({
           canLaunch: true,
           error: null,
-          output: stdout || 'Emulator responded to --help'
+          output: stdout || stderr || 'Emulator responded to --help'
         });
       }
     });
@@ -1929,7 +2365,15 @@ ipcMain.handle('add-to-steam', async (event, gameParams) => {
       // Ignore if tasklist fails on some weird systems
     }
 
-    const { gameName, emulatorPath, gamePath, coverUrl } = gameParams;
+    const { gameName, emulatorPath, gamePath, coverUrl } = gameParams || {};
+
+    // These end up in shortcuts.vdf, which Steam later executes.
+    if (!isValidExecutablePath(emulatorPath)) {
+      return { success: false, error: 'Invalid emulator path' };
+    }
+    if (!gamePath || typeof gamePath !== 'string' || !fs.existsSync(gamePath)) {
+      return { success: false, error: 'Invalid game path' };
+    }
 
     // Default Steam locations
     const steamPaths = [
@@ -2063,17 +2507,35 @@ ipcMain.handle('add-to-steam', async (event, gameParams) => {
 
       // Handle Cover Art
       if (coverUrl) {
+        const MAX_GRID_BYTES = 20 * 1024 * 1024;
+
         const downloadImage = (url, dest) => {
           return new Promise((resolve, reject) => {
             const https = require('https');
-            const fs = require('fs');
 
             https.get(url, (res) => {
               if (res.statusCode !== 200) {
+                res.resume();
                 reject(new Error(`Failed to download image: ${res.statusCode}`));
                 return;
               }
+              const contentType = (res.headers['content-type'] || '').toLowerCase();
+              if (contentType && !contentType.startsWith('image/')) {
+                res.resume();
+                reject(new Error(`Refusing non-image response: ${contentType}`));
+                return;
+              }
+
+              let received = 0;
               const file = fs.createWriteStream(dest);
+              res.on('data', (chunk) => {
+                received += chunk.length;
+                if (received > MAX_GRID_BYTES) {
+                  res.destroy();
+                  file.destroy();
+                  reject(new Error('Artwork exceeded the size limit'));
+                }
+              });
               res.pipe(file);
               file.on('finish', () => {
                 file.close();
@@ -2086,20 +2548,31 @@ ipcMain.handle('add-to-steam', async (event, gameParams) => {
         };
 
         try {
-          // If url starts with http/https
-          if (coverUrl.startsWith('http')) {
-            console.log(`Downloading artwork for Steam: ${coverUrl}`);
-            await downloadImage(coverUrl, coverPath);
-            await downloadImage(coverUrl, heroPath);
-            await downloadImage(coverUrl, logoPath);
-            await downloadImage(coverUrl, iconPath);
-          } else if (fs.existsSync(coverUrl.replace('file:///', ''))) {
-            // Handle local file protocol path
-            const realPath = coverUrl.replace('file:///', '');
-            fs.copyFileSync(realPath, coverPath);
-            fs.copyFileSync(realPath, heroPath);
-            fs.copyFileSync(realPath, logoPath);
-            fs.copyFileSync(realPath, iconPath);
+          // Remote artwork is restricted to the same hosts the cover cache trusts.
+          let remoteUrl = null;
+          try {
+            const parsed = new URL(coverUrl);
+            if (parsed.protocol === 'https:' && isTrustedCoverHostname(parsed.hostname.toLowerCase())) {
+              remoteUrl = parsed.toString();
+            }
+          } catch { /* not an absolute URL — treated as a local path below */ }
+
+          if (remoteUrl) {
+            console.log(`Downloading artwork for Steam: ${remoteUrl}`);
+            await downloadImage(remoteUrl, coverPath);
+            await downloadImage(remoteUrl, heroPath);
+            await downloadImage(remoteUrl, logoPath);
+            await downloadImage(remoteUrl, iconPath);
+          } else if (coverUrl.startsWith('file:') || coverUrl.startsWith('cover-cache://')) {
+            const realPath = resolveLocalImagePath(coverUrl);
+            if (realPath && fs.existsSync(realPath)) {
+              fs.copyFileSync(realPath, coverPath);
+              fs.copyFileSync(realPath, heroPath);
+              fs.copyFileSync(realPath, logoPath);
+              fs.copyFileSync(realPath, iconPath);
+            }
+          } else if (coverUrl.startsWith('http')) {
+            console.warn('[add-to-steam] Skipping artwork from untrusted host');
           }
         } catch (imgErr) {
           console.error('Failed to download custom grid for Steam:', imgErr);

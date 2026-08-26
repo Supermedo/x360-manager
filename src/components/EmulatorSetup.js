@@ -8,8 +8,7 @@ import {
   Settings,
   Zap,
   HardDrive,
-  Monitor,
-  Volume2
+  Monitor
 } from 'lucide-react';
 import { SettingsContext } from '../context/SettingsContext';
 import { GameContext } from '../context/GameContext';

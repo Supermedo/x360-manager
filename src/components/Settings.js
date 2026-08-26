@@ -3,8 +3,8 @@ import useAppFullscreen from '../hooks/useAppFullscreen';
 import { SettingsContext } from '../context/SettingsContext';
 import { GameContext } from '../context/GameContext';
 import {
-  FolderOpen, Settings as SettingsIcon, Monitor,
-  Cpu, Music, Terminal, Save, Trash2, ShieldAlert,
+  FolderOpen, Monitor,
+  Cpu, Music, Terminal, Save, ShieldAlert,
   Search, RefreshCw, Download, Sliders, User, Eraser, Globe
 } from 'lucide-react';
 import { localCoverResetPatch } from '../services/coverService';

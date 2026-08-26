@@ -19,7 +19,7 @@ Open Developer Tools (F12) and check the Console tab for error messages when cov
 - **Problem**: No covers loading from RAWG or IGDB
 - **Solution**: 
   1. Go to Settings
-  2. Add your RAWG API key: `e0dbb76130754c98a1e7648bbe45103d` (default provided)
+  2. Add your own RAWG API key (get a free one at https://rawg.io/apidocs)
   3. Optionally add IGDB credentials for better results
 
 ### 3. Testing Cover Sources
@@ -36,7 +36,7 @@ The app tries multiple sources in this order:
 #### Test RAWG API directly:
 ```javascript
 // Open browser console and run:
-fetch('https://api.rawg.io/api/games?key=e0dbb76130754c98a1e7648bbe45103d&search=halo&page_size=1')
+fetch('https://api.rawg.io/api/games?key=YOUR_RAWG_API_KEY&search=halo&page_size=1')
   .then(r => r.json())
   .then(d => console.log(d.results[0].background_image))
 ```

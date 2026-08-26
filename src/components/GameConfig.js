@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useRef } from 'react';
 import {
   Settings,
   Monitor,
@@ -14,11 +14,9 @@ import {
   Package,
   FolderOpen,
   Trash2,
-  Plus,
   HardDrive,
   Download,
   Upload,
-  Copy,
   Archive,
   Zap
 } from 'lucide-react';
@@ -40,10 +38,11 @@ import { KEYBOARD_MODE_OPTIONS, XENIA_KEYBOARD_DEFAULT_BINDINGS } from '../const
 import { buildGameLaunchConfig } from '../services/launchConfig';
 import useTranslation from '../hooks/useTranslation';
 import GamePatchesModal from './GamePatchesModal';
+import CoverImage from './CoverImage';
 
 const CUSTOM_PROFILE_ID = 'custom';
 
-const GameConfig = ({ game, onNavigate }) => {
+const GameConfig = ({ game, onNavigate, onRegisterBack }) => {
   const { updateGame, xbox360DB } = useContext(GameContext);
   const { settings } = useContext(SettingsContext);
   const { t } = useTranslation();
@@ -96,7 +95,7 @@ const GameConfig = ({ game, onNavigate }) => {
   const [profileId, setProfileId] = useState('');
   const [supportedLanguages, setSupportedLanguages] = useState([]);
   const [supportedLangSource, setSupportedLangSource] = useState('');
-  const [supportedLangConfidence, setSupportedLangConfidence] = useState('low');
+  const [, setSupportedLangConfidence] = useState('low');
   const [languagesLoading, setLanguagesLoading] = useState(false);
   const [patchesOpen, setPatchesOpen] = useState(false);
   const profiles = React.useMemo(() => loadAllProfiles(), []);
@@ -189,6 +188,7 @@ const GameConfig = ({ game, onNavigate }) => {
       setProfileId(CUSTOM_PROFILE_ID);
     }
     setHasUnsavedChanges(false);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- re-init config only when switching games
   }, [game?.id]);
 
   const handleProfileSelect = (id) => {
@@ -400,14 +400,7 @@ const GameConfig = ({ game, onNavigate }) => {
 
   const handleImportSave = async () => {
     try {
-      const savePaths = await window.electronAPI.selectMultipleFiles({
-        title: 'Select Save Files',
-        filters: [
-          { name: 'Save Files', extensions: ['sav', 'dat', 'bin', 'save'] },
-          { name: 'All Files', extensions: ['*'] }
-        ],
-        properties: ['openFile', 'multiSelections']
-      });
+      const savePaths = await window.electronAPI?.selectSaveFiles?.();
 
       if (savePaths && savePaths.length > 0) {
         const newSaveFiles = savePaths.map(savePath => ({
@@ -453,6 +446,57 @@ const GameConfig = ({ game, onNavigate }) => {
       xeniaProfileId: profileId === CUSTOM_PROFILE_ID ? null : profileId
     };
   };
+
+  const handleBack = async () => {
+    if (!hasUnsavedChanges || !game) {
+      onNavigate('library');
+      return;
+    }
+
+    if (!window.electronAPI?.showMessageBox) {
+      onNavigate('library');
+      return;
+    }
+
+    const result = await window.electronAPI.showMessageBox({
+      type: 'warning',
+      title: 'Unsaved Changes',
+      message: `You have unsaved configuration changes for ${game.name}.`,
+      buttons: ['Save and go back', 'Discard changes', 'Cancel'],
+      defaultId: 0,
+      cancelId: 2
+    });
+
+    const choice = result?.response ?? 2;
+    if (choice === 2) return;
+
+    if (choice === 0) {
+      try {
+        updateGame(game.id, { config: getConfigToSave() });
+        setHasUnsavedChanges(false);
+      } catch (error) {
+        await window.electronAPI.showMessageBox({
+          type: 'error',
+          title: 'Save Failed',
+          message: `Failed to save configuration: ${error.message}`,
+          buttons: ['OK']
+        });
+        return;
+      }
+    }
+
+    onNavigate('library');
+  };
+
+  // Let the app-level gamepad "back" run the same unsaved-changes prompt.
+  const handleBackRef = useRef(null);
+  handleBackRef.current = handleBack;
+
+  useEffect(() => {
+    if (!onRegisterBack) return undefined;
+    onRegisterBack(() => handleBackRef.current?.());
+    return () => onRegisterBack(null);
+  }, [onRegisterBack]);
 
   const handleSaveConfig = () => {
     console.log('Save config button clicked');
@@ -773,7 +817,7 @@ const GameConfig = ({ game, onNavigate }) => {
       <div style={{ marginBottom: '24px' }}>
         <button
           className="btn btn-outline"
-          onClick={() => onNavigate('library')}
+          onClick={handleBack}
           style={{ minWidth: '120px', padding: '10px 16px', fontSize: '14px' }}
         >
           <ArrowLeft size={18} />
@@ -857,20 +901,17 @@ const GameConfig = ({ game, onNavigate }) => {
           {(game.coverUrl || game.cover) && (
             <div style={{ marginBottom: '16px', textAlign: 'center' }}>
               <div style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '8px' }}>Cover Image</div>
-              <img
-                src={game.coverUrl || game.cover}
-                alt={`${game.name} cover`}
-                style={{
-                  maxWidth: '200px',
-                  maxHeight: '280px',
-                  borderRadius: '8px',
-                  border: '2px solid rgba(16, 124, 16, 0.3)',
-                  objectFit: 'cover'
-                }}
-                onError={(e) => {
-                  e.target.style.display = 'none';
-                }}
-              />
+              <div style={{ width: '200px', height: '280px', margin: '0 auto' }}>
+                <CoverImage
+                  gameName={game.name}
+                  coverUrl={game.coverUrl || game.cover}
+                  alt={`${game.name} cover`}
+                  style={{
+                    borderRadius: '8px',
+                    border: '2px solid rgba(16, 124, 16, 0.3)'
+                  }}
+                />
+              </div>
             </div>
           )}
 

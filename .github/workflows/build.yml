@@ -13,68 +13,70 @@ permissions:
 jobs:
   build:
     runs-on: windows-latest
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      
+
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
         node-version: '18'
         cache: 'npm'
-        
+
     - name: Install dependencies
       run: npm ci
-      
-    - name: Build application
-      run: npm run build
-      
-    - name: Package application
-      run: npx electron-packager . "X360 Manager" --platform=win32 --arch=x64 --out=dist --overwrite
-      
+
+    - name: Build installer
+      run: npm run dist
+      env:
+        CI: "false"
+
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: x360-manager-win32-x64
-        path: dist/X360 Manager-win32-x64/
-        
+        name: x360-manager-windows
+        path: |
+          dist-setup/X360-Manager-Setup-*.exe
+          dist-setup/X360-Manager-Setup-*.exe.blockmap
+          dist-setup/latest.yml
+          dist-setup/BUILD_INFO.txt
+
   release:
     needs: build
     runs-on: windows-latest
     if: startsWith(github.ref, 'refs/tags/v')
     permissions:
       contents: write
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      
+
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
         node-version: '18'
         cache: 'npm'
-        
+
     - name: Install dependencies
       run: npm ci
-      
-    - name: Build application
-      run: npm run build
-      
-    - name: Package application
-      run: npx electron-packager . "X360 Manager" --platform=win32 --arch=x64 --out=dist --overwrite
-      
-    - name: Create ZIP archive
-      run: |
-        cd dist
-        Compress-Archive -Path "X360 Manager-win32-x64" -DestinationPath "X360-Manager-${{ github.ref_name }}-win32-x64.zip"
-        
+
+    - name: Build installer
+      run: npm run dist
+      env:
+        CI: "false"
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
     - name: Create Release
       uses: softprops/action-gh-release@v2
       with:
-        files: dist/X360-Manager-${{ github.ref_name }}-win32-x64.zip
+        files: |
+          dist-setup/X360-Manager-Setup-*.exe
+          dist-setup/X360-Manager-Setup-*.exe.blockmap
+          dist-setup/latest.yml
         body_path: .github/RELEASE_BODY_${{ github.ref_name }}.md
+        generate_release_notes: true
         draft: false
         prerelease: false
       env:

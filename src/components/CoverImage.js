@@ -2,9 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Gamepad2 } from 'lucide-react';
 import {
   generatePlaceholderCover,
-  isXboxCdnUrl,
   normalizeCoverUrl,
-  normalizeLocalCoverUrl,
   resolveCoverUrlForDisplay
 } from '../services/coverService';
 
@@ -37,19 +35,19 @@ const CoverImage = ({
         return;
       }
 
-      if (normalized.startsWith('file:') || normalized.startsWith('data:')) {
-        if (!cancelled) setDisplayUrl(normalizeLocalCoverUrl(normalized));
-        return;
-      }
-
-      if (normalized.startsWith('http') && !isXboxCdnUrl(normalized)) {
+      if (normalized.startsWith('data:')) {
         if (!cancelled) setDisplayUrl(normalized);
         return;
       }
 
-      const resolved = await resolveCoverUrlForDisplay(coverUrl);
-      if (!cancelled && resolved) {
-        setDisplayUrl(normalizeLocalCoverUrl(resolved));
+      // Everything else (remote and legacy file:// URLs alike) is routed through
+      // the main process so the rendered src is always cover-cache://.
+      const resolved = await resolveCoverUrlForDisplay(normalized);
+      if (cancelled) return;
+      if (resolved) {
+        setDisplayUrl(resolved);
+      } else {
+        setDisplayUrl(generatePlaceholderCover(gameName || alt || 'Game'));
       }
     };
 
@@ -57,7 +55,7 @@ const CoverImage = ({
     return () => {
       cancelled = true;
     };
-  }, [coverUrl]);
+  }, [coverUrl, gameName, alt]);
 
   const handleError = async () => {
     if (hasFailed) return;
@@ -68,10 +66,10 @@ const CoverImage = ({
       if (replacement) {
         const resolved = await resolveCoverUrlForDisplay(replacement);
         if (resolved) {
-          setDisplayUrl(normalizeLocalCoverUrl(resolved));
+          setDisplayUrl(resolved);
           setHasFailed(false);
+          return;
         }
-        return;
       }
     }
 

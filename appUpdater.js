@@ -29,8 +29,11 @@ const initAppUpdater = (win) => {
     return;
   }
 
+  // Installers are currently unsigned, so electron-updater cannot verify who
+  // built them. Until a code-signing certificate is in place, an update is only
+  // ever fetched and installed after the user explicitly asks for it.
   autoUpdater.autoDownload = false;
-  autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.autoInstallOnAppQuit = false;
   autoUpdater.allowDowngrade = false;
   autoUpdater.logger = console;
 

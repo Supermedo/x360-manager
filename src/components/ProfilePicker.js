@@ -93,7 +93,7 @@ const ProfilePicker = ({ onSelect, onCancel, allowAdd = false }) => {
       return;
     }
     activateProfile(profile);
-  }, [focusIndex, pickerItems, picking]);
+  }, [activateProfile, focusIndex, pickerItems, picking]);
 
   const handleCreate = async (options) => {
     const result = await window.electronAPI?.createXboxLiveProfile?.(settings.emulatorPath, options);

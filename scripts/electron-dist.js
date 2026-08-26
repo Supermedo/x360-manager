@@ -1,6 +1,6 @@
 /**
- * Build Windows installer to a temp folder, then copy into dist-setup/.
- * Avoids "app.asar in use" when dist-setup/win-unpacked is locked by a running app.
+ * Build Windows installer to a unique temp folder, then copy into dist-setup/.
+ * Avoids "app.asar in use" when a previous unpacked build is locked.
  */
 const fs = require('fs');
 const path = require('path');
@@ -8,15 +8,19 @@ const { execSync } = require('child_process');
 
 const root = path.join(__dirname, '..');
 const version = require(path.join(root, 'package.json')).version;
-const tempOut = path.join(root, 'dist-build-temp');
+const tempName = `dist-build-temp-${process.pid}`;
+const tempOut = path.join(root, tempName);
 const finalOut = path.join(root, 'dist-setup');
 const exeName = `X360-Manager-Setup-${version}.exe`;
 
-execSync('npx electron-builder --win nsis --publish never --config.directories.output=dist-build-temp', {
-  cwd: root,
-  stdio: 'inherit',
-  env: { ...process.env }
-});
+execSync(
+  `npx electron-builder --win nsis --publish never --config.directories.output=${tempName}`,
+  {
+    cwd: root,
+    stdio: 'inherit',
+    env: { ...process.env }
+  }
+);
 
 if (!fs.existsSync(finalOut)) {
   fs.mkdirSync(finalOut, { recursive: true });

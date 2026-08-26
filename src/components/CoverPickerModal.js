@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Search, X, FolderOpen, Loader2, CheckCircle2 } from 'lucide-react';
 import { GameContext } from '../context/GameContext';
-import { searchAllSources, cleanGameName } from '../services/coverService';
+import { searchAllSources, cleanGameName, resolveCoverUrlForDisplay } from '../services/coverService';
 
 const SOURCE_LABELS = {
   xbox360db: 'Xbox 360 DB',
@@ -191,6 +191,22 @@ const CoverPickerModal = ({ game, onClose, onSelect }) => {
 
 const CoverChoice = ({ entry, isCurrent, onSelect }) => {
   const [failed, setFailed] = useState(false);
+  // Candidates come from remote sources; the main process caches them so the
+  // preview can be loaded over cover-cache:// instead of cross-origin.
+  const [previewUrl, setPreviewUrl] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    resolveCoverUrlForDisplay(entry.coverUrl).then((resolved) => {
+      if (cancelled) return;
+      if (resolved) setPreviewUrl(resolved);
+      else setFailed(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [entry.coverUrl]);
+
   if (failed) return null;
   const sourceColor = SOURCE_COLORS[entry.source] || '#7bbf32';
   const sourceLabel = SOURCE_LABELS[entry.source] || entry.source;
@@ -223,12 +239,14 @@ const CoverChoice = ({ entry, isCurrent, onSelect }) => {
       }}
     >
       <div style={{ aspectRatio: '2 / 3', overflow: 'hidden', borderRadius: '10px', background: 'rgba(255,255,255,0.05)', position: 'relative' }}>
-        <img
-          src={entry.coverUrl}
-          alt={entry.title}
-          onError={() => setFailed(true)}
-          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-        />
+        {previewUrl && (
+          <img
+            src={previewUrl}
+            alt={entry.title}
+            onError={() => setFailed(true)}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+          />
+        )}
         {isCurrent && (
           <div style={{ position: 'absolute', top: 8, right: 8, background: '#10b981', borderRadius: '999px', padding: '2px 8px', fontSize: '10px', fontWeight: 700, color: '#03150a', display: 'flex', alignItems: 'center', gap: '4px' }}>
             <CheckCircle2 size={12} /> CURRENT

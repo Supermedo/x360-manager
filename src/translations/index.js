@@ -12,6 +12,7 @@ const EN = {
   addGame: 'Add Game',
   searchGames: 'Search games…',
   gameLibrary: 'Game Library',
+  loadingMoreGames: 'Loading more games…',
   noGames: 'No games in your library yet.',
   favorites: 'Favorites',
   allGames: 'All Games',

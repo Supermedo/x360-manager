@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useRef } from 'react';
+import React, { createContext, useState, useEffect, useRef, useCallback } from 'react';
 import { loadPersisted, savePersisted } from '../utils/persistentStorage';
 import { createDebouncedPersist } from '../utils/debouncePersist';
 import { normalizeDefaultLanguage } from '../constants/xeniaLanguages';
@@ -102,26 +102,26 @@ export const SettingsProvider = ({ children }) => {
     return () => window.removeEventListener('beforeunload', flush);
   }, []);
 
-  const updateSettings = (newSettings) => {
+  const updateSettings = useCallback((newSettings) => {
     canPersist.current = true;
     setSettings((prevSettings) => ({
       ...prevSettings,
       ...newSettings
     }));
-  };
+  }, []);
 
-  const updateSetting = (key, value) => {
+  const updateSetting = useCallback((key, value) => {
     canPersist.current = true;
     setSettings((prevSettings) => ({
       ...prevSettings,
       [key]: value
     }));
-  };
+  }, []);
 
-  const resetSettings = () => {
+  const resetSettings = useCallback(() => {
     setSettings(defaultSettings);
     savePersisted('settings', defaultSettings);
-  };
+  }, []);
 
   const getSetting = (key, fallback = null) => {
     return settings[key] !== undefined ? settings[key] : fallback;

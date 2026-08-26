@@ -778,7 +778,7 @@ const MetroDashboard = ({ onExit, onLaunch, onConfigure, onSwitchProfile }) => {
     else if (key === 'right') moveHubFocus('right');
     else if (key === 'up') moveHubFocus('up');
     else if (key === 'down') moveHubFocus('down');
-  }, [focusZone, isHubLayout, isSearchLayout, isSettingsLayout, libraryOpen, moveHubFocus, moveSettingsFocus, searchFocus, searchResults.length, shelfTiles.length]);
+  }, [focusZone, isHubLayout, isSearchLayout, isSettingsLayout, libraryOpen, moveHubFocus, moveSettingsFocus, searchFocus, searchResultIndex, searchResults.length, shelfTiles.length]);
 
   useEffect(() => {
     if (isOverlayOpen) {
@@ -892,7 +892,7 @@ const MetroDashboard = ({ onExit, onLaunch, onConfigure, onSwitchProfile }) => {
     };
     window.addEventListener('keydown', onKeyDown, true);
     return () => window.removeEventListener('keydown', onKeyDown, true);
-  }, [activateHubTile, activateSearchResult, activateSettingsTile, cycleLibraryFilter, cycleLibrarySort, filterFocus, focusZone, focusedHubTile, focusedSettingsTile, handleBack, handleNav, hubFocus, isHubLayout, isSearchLayout, isSettingsLayout, isOverlayOpen, libraryOpen, moveChannel, runShelfAction, searchFocus, searchResultIndex, settingsFocus]);
+  }, [activateHubTile, activateSearchResult, activateSettingsTile, cycleLibraryFilter, cycleLibrarySort, filterFocus, focusZone, focusedHubTile, focusedSettingsTile, handleBack, handleNav, hubFocus, isHubLayout, isSearchLayout, isSettingsLayout, isOverlayOpen, libraryOpen, moveChannel, runShelfAction, searchFocus, searchResultIndex, searchResults.length, settingsFocus]);
 
   useGamepad({
     left: () => { if (!isOverlayOpen) handleNav('left', { fromGamepad: true }); },

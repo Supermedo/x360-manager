@@ -5,6 +5,30 @@ All notable changes to X360 Manager will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.7] - 2026-08-26
+
+### Security
+- Upgraded Electron 22 → 43 and electron-builder 23 → 26
+- Enabled `webSecurity` and renderer sandbox; serve the packaged UI from `app://` instead of `file://`
+- Confined `cover-cache://` to the cover cache directory and proxy remote covers through the main process
+- Blocked command injection in emulator test, shortcut creation, and emulator download
+- Restricted IPC file access (scan, delete, import/export, openExternal) to user-chosen or expected paths
+- Hashed profile PINs with scrypt + salt, with lockout after failed attempts
+- Disabled unsigned auto-download; updates now require an explicit user action until code signing is in place
+
+### Fixed
+- In-app updates now start downloading after a check, with Download / Restart & install in Settings
+- GitHub Actions builds the NSIS installer (same path as local `npm run dist`) so packaged files stay complete
+- Duplicate `electron-updater` dependency
+- Installer temp-folder lock during `npm run dist`
+- ESLint unused-import / unused-variable warnings that failed CI
+- Cover images failing to load after `webSecurity` was enabled
+- Unsaved Game Configuration changes discarded without a prompt
+- Add Game cover URL field silently discarded on save
+
+### Changed
+- electron-builder now packs all root `.js` / `.html` files so modules cannot be omitted from the installer
+
 ## [1.6.6] - 2026-07-11
 
 ### Fixed

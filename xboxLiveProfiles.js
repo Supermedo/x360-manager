@@ -16,8 +16,47 @@ const PROFILE_FILE_RE = /^E0[0-9A-Fa-f]{14,18}$/i;
 const PROFILE_CONTENT_TYPE = '00010000';
 const MANIFEST_NAME = 'x360-xbox-live-profiles.json';
 
-const hashProfilePin = (pin, profileKey) =>
+const SCRYPT_KEYLEN = 32;
+
+/** Pre-v2 format: a single unsalted SHA-256 pass. Kept only so existing PINs still verify. */
+const hashProfilePinLegacy = (pin, profileKey) =>
   crypto.createHash('sha256').update(`${normalizeProfileKey(profileKey)}:${String(pin)}`).digest('hex');
+
+/** Current format: scrypt with a random per-profile salt. */
+const hashProfilePin = (pin, profileKey) => {
+  const salt = crypto.randomBytes(16);
+  const derived = crypto.scryptSync(`${normalizeProfileKey(profileKey)}:${String(pin)}`, salt, SCRYPT_KEYLEN);
+  return { v: 2, salt: salt.toString('hex'), hash: derived.toString('hex') };
+};
+
+const timingSafeEqualHex = (a, b) => {
+  if (typeof a !== 'string' || typeof b !== 'string' || a.length !== b.length) return false;
+  try {
+    return crypto.timingSafeEqual(Buffer.from(a, 'hex'), Buffer.from(b, 'hex'));
+  } catch {
+    return false;
+  }
+};
+
+const verifyPinAgainstRecord = (record, pin, profileKey) => {
+  if (!record) return true;
+  if (typeof record === 'string') {
+    return timingSafeEqualHex(record, hashProfilePinLegacy(pin || '', profileKey));
+  }
+  if (record.v === 2 && typeof record.salt === 'string' && typeof record.hash === 'string') {
+    try {
+      const derived = crypto.scryptSync(
+        `${normalizeProfileKey(profileKey)}:${String(pin ?? '')}`,
+        Buffer.from(record.salt, 'hex'),
+        SCRYPT_KEYLEN
+      );
+      return timingSafeEqualHex(record.hash, derived.toString('hex'));
+    } catch {
+      return false;
+    }
+  }
+  return false;
+};
 
 const sanitizeProfileForClient = (profile) => {
   const { pinHash, ...rest } = profile;
@@ -50,7 +89,7 @@ const applyPinFields = (manifest, profileKey, pinFields = {}) => {
   const hasPin = Boolean(entry.pinHash);
 
   if (clearPin) {
-    if (hasPin && entry.pinHash !== hashProfilePin(currentPin || '', profileKey)) {
+    if (hasPin && !verifyPinAgainstRecord(entry.pinHash, currentPin, profileKey)) {
       return { ok: false, error: 'Wrong PIN.' };
     }
     delete entry.pinHash;
@@ -58,7 +97,7 @@ const applyPinFields = (manifest, profileKey, pinFields = {}) => {
   }
 
   if (newPin !== undefined && newPin !== null && String(newPin).length > 0) {
-    if (hasPin && entry.pinHash !== hashProfilePin(currentPin || '', profileKey)) {
+    if (hasPin && !verifyPinAgainstRecord(entry.pinHash, currentPin, profileKey)) {
       return { ok: false, error: 'Wrong PIN.' };
     }
     if (String(newPin).length < 4) {
@@ -71,12 +110,41 @@ const applyPinFields = (manifest, profileKey, pinFields = {}) => {
   return { ok: true };
 };
 
+const PIN_ATTEMPT_LIMIT = 5;
+const PIN_LOCKOUT_MS = 30 * 1000;
+const pinAttempts = new Map();
+
 const verifyProfilePin = (userDataPath, profileKey, pin) => {
   const manifest = loadManifest(userDataPath);
   const entry = getManifestProfile(manifest, profileKey);
   if (!entry?.pinHash) return { ok: true };
-  const match = entry.pinHash === hashProfilePin(pin || '', profileKey);
-  return match ? { ok: true } : { ok: false, error: 'Wrong PIN.' };
+
+  const key = normalizeProfileKey(profileKey);
+  const state = pinAttempts.get(key);
+  if (state && state.count >= PIN_ATTEMPT_LIMIT && Date.now() < state.until) {
+    const seconds = Math.ceil((state.until - Date.now()) / 1000);
+    return { ok: false, error: `Too many attempts. Try again in ${seconds}s.` };
+  }
+
+  if (!verifyPinAgainstRecord(entry.pinHash, pin, profileKey)) {
+    const count = (state?.count ?? 0) + 1;
+    pinAttempts.set(key, { count, until: Date.now() + PIN_LOCKOUT_MS });
+    return { ok: false, error: 'Wrong PIN.' };
+  }
+
+  pinAttempts.delete(key);
+
+  // Transparently migrate legacy unsalted hashes on the next successful unlock.
+  if (typeof entry.pinHash === 'string') {
+    entry.pinHash = hashProfilePin(pin || '', profileKey);
+    try {
+      saveManifest(userDataPath, manifest);
+    } catch {
+      /* migration is best-effort; the legacy hash still verifies */
+    }
+  }
+
+  return { ok: true };
 };
 
 const getManifestPath = (userDataPath) => path.join(userDataPath, MANIFEST_NAME);
@@ -672,8 +740,11 @@ const saveXboxLiveProfile = (emulatorPath, documentsPath, userDataPath, profile,
   const key = normalizeProfileKey(profile.profileKey || profile.id);
   const existingIdx = manifest.profiles.findIndex((p) => p.profileKey === key || p.id === profile.id);
   const incomingAvatar = profile.avatar !== undefined ? sanitizeAvatar(profile.avatar) : undefined;
+  // pinHash must only ever be produced by applyPinFields, which checks the current
+  // PIN first. Accepting it from the caller would let the renderer set it directly.
+  const { pinHash: _ignoredPinHash, ...incomingProfile } = profile;
   const stored = {
-    ...profile,
+    ...incomingProfile,
     id: key.toLowerCase(),
     profileKey: key,
     pathXuid: normalizePathXuid(key) || key

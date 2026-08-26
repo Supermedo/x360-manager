@@ -56,7 +56,7 @@ const UpdateNotifier = ({ checkOnMount = true }) => {
       }
       if (payload.status === 'downloaded') {
         setStatus('downloaded');
-        setAvailableVersion(payload.version || availableVersion);
+        setAvailableVersion(payload.version || '');
         return;
       }
       if (payload.status === 'error') {
@@ -66,7 +66,7 @@ const UpdateNotifier = ({ checkOnMount = true }) => {
     });
 
     return unsubscribe;
-  }, [availableVersion]);
+  }, []);
 
   useEffect(() => {
     if (!checkOnMount || !window.electronAPI?.checkForUpdates) return undefined;
@@ -75,28 +75,6 @@ const UpdateNotifier = ({ checkOnMount = true }) => {
     }, 2000);
     return () => clearTimeout(timer);
   }, [checkOnMount]);
-
-  const handleCheck = useCallback(async () => {
-    if (!window.electronAPI?.checkForUpdates) return;
-    setBusy(true);
-    setError('');
-    try {
-      const result = await window.electronAPI.checkForUpdates();
-      if (result?.disabled) {
-        setStatus('disabled');
-        return;
-      }
-      if (result?.ok && !result.updateInfo) {
-        window.electronAPI.showMessageBox?.({
-          type: 'info',
-          title: 'Up to date',
-          message: `You are on the latest version (v${currentVersion || result.currentVersion || '?' }).`
-        });
-      }
-    } finally {
-      setBusy(false);
-    }
-  }, [currentVersion]);
 
   const handleDownload = useCallback(async () => {
     if (!window.electronAPI?.downloadAppUpdate) {
@@ -197,22 +175,43 @@ export default UpdateNotifier;
 export const AppVersionSettings = () => {
   const { t } = useTranslation();
   const [currentVersion, setCurrentVersion] = useState('.');
+  const [status, setStatus] = useState('idle');
+  const [availableVersion, setAvailableVersion] = useState('');
+  const [downloadPercent, setDownloadPercent] = useState(0);
   const [updateStatus, setUpdateStatus] = useState('');
   const [checking, setChecking] = useState(false);
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     window.electronAPI?.getAppVersion?.().then((v) => setCurrentVersion(v || '?'));
     if (!window.electronAPI?.onUpdateStatus) return undefined;
     return window.electronAPI.onUpdateStatus((payload) => {
-      if (payload?.currentVersion) setCurrentVersion(payload.currentVersion);
-      if (payload?.status === 'available') {
-        setUpdateStatus(`v${payload.version} is available`);
-      } else if (payload?.status === 'downloaded') {
-        setUpdateStatus(`v${payload.version} ready to install`);
-      } else if (payload?.status === 'not-available') {
+      if (!payload) return;
+      if (payload.currentVersion) setCurrentVersion(payload.currentVersion);
+      if (payload.status === 'checking') {
+        setStatus('checking');
+        setUpdateStatus(t('checking'));
+      } else if (payload.status === 'available') {
+        setStatus('available');
+        setAvailableVersion(payload.version || '');
+        setUpdateStatus(`v${payload.version} ${t('updateAvailable').toLowerCase()}`);
+      } else if (payload.status === 'downloading') {
+        setStatus('downloading');
+        setDownloadPercent(payload.percent || 0);
+        setUpdateStatus(`${t('downloading')} ${payload.percent || 0}%`);
+      } else if (payload.status === 'downloaded') {
+        setStatus('downloaded');
+        setAvailableVersion(payload.version || '');
+        setUpdateStatus(`v${payload.version} ${t('updateReadyHint')}`);
+      } else if (payload.status === 'not-available') {
+        setStatus('idle');
         setUpdateStatus(t('onLatestRelease'));
-      } else if (payload?.status === 'error') {
+      } else if (payload.status === 'error') {
+        setStatus('error');
         setUpdateStatus(payload.error || 'Could not check for updates');
+      } else if (payload.status === 'disabled') {
+        setStatus('idle');
+        setUpdateStatus('Updates are disabled while running from source.');
       }
     });
   }, [t]);
@@ -224,10 +223,36 @@ export const AppVersionSettings = () => {
     }
     setChecking(true);
     try {
-      await window.electronAPI.checkForUpdates();
+      const result = await window.electronAPI.checkForUpdates();
+      if (result?.disabled) {
+        setUpdateStatus('Updates are disabled while running from source.');
+      } else if (result?.ok === false && result?.error) {
+        setUpdateStatus(result.error);
+      }
     } finally {
       setChecking(false);
     }
+  };
+
+  const handleDownload = async () => {
+    if (!window.electronAPI?.downloadAppUpdate) {
+      window.electronAPI?.openExternal?.(RELEASES_URL);
+      return;
+    }
+    setBusy(true);
+    try {
+      const result = await window.electronAPI.downloadAppUpdate();
+      if (!result?.ok) {
+        setUpdateStatus(result?.error || 'Download failed');
+        window.electronAPI?.openExternal?.(RELEASES_URL);
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleInstall = () => {
+    window.electronAPI?.installAppUpdate?.();
   };
 
   return (
@@ -239,11 +264,27 @@ export const AppVersionSettings = () => {
       {updateStatus && (
         <p style={{ color: 'var(--text-tertiary)', fontSize: '13px', marginBottom: '12px' }}>{updateStatus}</p>
       )}
+      {status === 'downloading' && (
+        <div style={{ height: 6, background: 'rgba(255,255,255,0.08)', borderRadius: 4, marginBottom: 12, overflow: 'hidden' }}>
+          <div style={{ width: `${downloadPercent}%`, height: '100%', background: '#7bbf32' }} />
+        </div>
+      )}
       <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-        <button type="button" className="btn btn-secondary" onClick={handleCheck} disabled={checking}>
+        <button type="button" className="btn btn-secondary" onClick={handleCheck} disabled={checking || status === 'downloading'}>
           <RefreshCw size={16} className={checking ? 'spin' : ''} />
           {checking ? t('checking') : t('checkForUpdates')}
         </button>
+        {status === 'available' && (
+          <button type="button" className="btn btn-primary" onClick={handleDownload} disabled={busy}>
+            <Download size={16} />
+            {t('download')} v{availableVersion}
+          </button>
+        )}
+        {status === 'downloaded' && (
+          <button type="button" className="btn btn-primary" onClick={handleInstall}>
+            {t('restartAndInstall')}
+          </button>
+        )}
         <button
           type="button"
           className="btn btn-outline"
