@@ -137,7 +137,6 @@
       },
       "icon": "icon.ico",
       "executableName": "X360 Manager",
-      "publisherName": "X360 Team",
       "requestedExecutionLevel": "asInvoker",
       "artifactName": "X360-Manager-Setup-${version}.${ext}",
       "signExecutable": false,
