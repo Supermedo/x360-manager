@@ -140,10 +140,8 @@
       "publisherName": "X360 Team",
       "requestedExecutionLevel": "asInvoker",
       "artifactName": "X360-Manager-Setup-${version}.${ext}",
-      "sign": null,
-      "verifyUpdateCodeSignature": false,
-      "signAndEditExecutable": false,
-      "signDlls": false
+      "signExecutable": false,
+      "verifyUpdateCodeSignature": false
     },
     "mac": {
       "category": "public.app-category.games",
