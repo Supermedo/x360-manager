@@ -11,16 +11,16 @@
     "url": "https://github.com/Supermedo/x360-manager.git"
   },
   "dependencies": {
-    "adm-zip": "^0.5.16",
+    "adm-zip": "^0.6.0",
     "crc-32": "^1.2.2",
-    "electron-is-dev": "^2.0.0",
-    "electron-updater": "^6.8.3",
-    "lucide-react": "^0.263.1",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
+    "electron-is-dev": "^3.0.1",
+    "electron-updater": "^6.8.9",
+    "lucide-react": "^1.34.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
     "react-scripts": "5.0.1",
     "steam-shortcut-editor": "^3.1.3",
-    "web-vitals": "^2.1.4"
+    "web-vitals": "^6.2.0"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^5.16.4",
