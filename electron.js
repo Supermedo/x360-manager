@@ -869,18 +869,21 @@ ipcMain.handle('download-emulator', async (event, url, userDir) => {
     const looksLikeCanary = lower.includes('xenia-canary') || lower.includes('xenia_canary');
     if (!looksLikeCanary) return requestedUrl;
 
+    // Prefer the active Canary repo (daily builds). The older
+    // xenia-canary-releases mirror can lag by months.
     const repos = [
-      'xenia-canary/xenia-canary-releases',
-      'xenia-canary/xenia-canary'
+      'xenia-canary/xenia-canary',
+      'xenia-canary/xenia-canary-releases'
     ];
 
     const pickAsset = (assets = []) => {
       const windows = assets.filter((asset) =>
         /xenia[_-]canary/i.test(asset.name) && /windows/i.test(asset.name)
       );
+      // Current Canary ships .7z; older mirrors still use oddly named .zip files.
       return (
-        windows.find((asset) => /\.zip$/i.test(asset.name))
-        || windows.find((asset) => /\.7z$/i.test(asset.name))
+        windows.find((asset) => /\.7z$/i.test(asset.name))
+        || windows.find((asset) => /\.zip$/i.test(asset.name))
         || null
       );
     };
