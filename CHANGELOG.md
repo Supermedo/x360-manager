@@ -5,6 +5,13 @@ All notable changes to X360 Manager will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.10] - 2026-09-16
+
+### Fixed
+- Canary download no longer extracts on top of locked RetroBat/Xenia files — installs into a `XeniaCanary` subfolder and prefers `xenia_canary.exe`
+- Clearer error when overwrite fails (Access denied): close Xenia/RetroBat and pick an empty folder
+- Launch validates the emulator `.exe` path before spawn
+
 ## [1.6.9] - 2026-09-16
 
 ### Fixed

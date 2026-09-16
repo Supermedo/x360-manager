@@ -1020,11 +1020,21 @@ ipcMain.handle('download-emulator', async (event, url, userDir) => {
     if (!sevenZa || !fs.existsSync(sevenZa)) {
       throw new Error('7-Zip extractor is missing from this install.');
     }
-    execFileSync(
-      sevenZa,
-      ['x', archivePath, `-o${extractRoot}`, '-y', '-bso0', '-bsp0'],
-      { stdio: ['ignore', 'ignore', 'pipe'], windowsHide: true, timeout: 120000 }
-    );
+    try {
+      execFileSync(
+        sevenZa,
+        ['x', archivePath, `-o${extractRoot}`, '-y', '-aoa', '-bso0', '-bsp0'],
+        { stdio: ['ignore', 'ignore', 'pipe'], windowsHide: true, timeout: 120000 }
+      );
+    } catch (err) {
+      const detail = `${err.stderr || err.message || ''}`.toString();
+      if (/Access is denied/i.test(detail) || /EPERM|EACCES|busy|locked/i.test(detail)) {
+        throw new Error(
+          'Could not overwrite Xenia files (Access denied). Close Xenia, RetroBat, and any running game, then choose an empty folder (not your games/roms folder) and try again.'
+        );
+      }
+      throw new Error(detail.trim() || 'Failed to extract the Canary archive.');
+    }
 
     // Reject any extracted path that escaped the destination (paranoia for crafted archives).
     const walk = (dir) => {
@@ -1039,11 +1049,44 @@ ipcMain.handle('download-emulator', async (event, url, userDir) => {
     walk(extractRoot);
   };
 
+  const findXeniaExe = (dir, { preferCanary = false } = {}) => {
+    const matches = [];
+    const walk = (current) => {
+      const entries = readdirSync(current, { withFileTypes: true });
+      for (const entry of entries) {
+        const fullPath = path.join(current, entry.name);
+        if (entry.isFile() && entry.name.toLowerCase().startsWith('xenia') && entry.name.toLowerCase().endsWith('.exe')) {
+          matches.push(fullPath);
+        } else if (entry.isDirectory()) {
+          walk(fullPath);
+        }
+      }
+    };
+    walk(dir);
+    if (!matches.length) return null;
+    if (preferCanary) {
+      const canary = matches.find((filePath) => /canary/i.test(path.basename(filePath)));
+      if (canary) return canary;
+    }
+    return matches[0];
+  };
+
   try {
     const resolvedUrl = await resolveEmulatorDownloadUrl(url);
     if (!isAllowedEmulatorUrl(resolvedUrl)) {
       throw new Error('Refused to download from an untrusted host.');
     }
+
+    const preferCanary =
+      /xenia-canary|xenia_canary/i.test(resolvedUrl) || /xenia-canary|xenia_canary/i.test(String(url || ''));
+
+    // Never extract on top of a RetroBat roms tree or an already-running install.
+    // Always use a dedicated subfolder so we don't fight locked xenia*.exe files.
+    const installDir = path.join(
+      emulatorDir,
+      preferCanary ? 'XeniaCanary' : 'Xenia'
+    );
+    mkdirSync(installDir, { recursive: true });
 
     const archiveName = (() => {
       try {
@@ -1052,11 +1095,12 @@ ipcMain.handle('download-emulator', async (event, url, userDir) => {
       } catch {
         /* fall through */
       }
-      return 'xenia_download.bin';
+      return preferCanary ? 'xenia_canary_download.bin' : 'xenia_download.bin';
     })();
-    const archivePath = path.join(emulatorDir, archiveName);
+    const archivePath = path.join(installDir, archiveName);
 
     console.log('Downloading emulator from:', resolvedUrl);
+    console.log('[download-emulator] Install folder:', installDir);
     mainWindow?.webContents.send('download-progress', 5);
     await downloadToFile(resolvedUrl, archivePath);
     console.log('Download complete, extracting...');
@@ -1064,9 +1108,19 @@ ipcMain.handle('download-emulator', async (event, url, userDir) => {
     mainWindow?.webContents.send('download-progress', 75);
 
     const kind = detectArchiveKind(archivePath);
-    const extractRoot = path.resolve(emulatorDir);
+    const extractRoot = path.resolve(installDir);
     if (kind === 'zip') {
-      extractZipArchive(archivePath, extractRoot);
+      try {
+        extractZipArchive(archivePath, extractRoot);
+      } catch (err) {
+        const detail = `${err.message || err}`;
+        if (/EPERM|EACCES|Access is denied|busy|locked/i.test(detail)) {
+          throw new Error(
+            'Could not overwrite Xenia files (Access denied). Close Xenia, RetroBat, and any running game, then try again.'
+          );
+        }
+        throw err;
+      }
     } else if (kind === '7z') {
       extract7zArchive(archivePath, extractRoot);
     } else {
@@ -1080,22 +1134,7 @@ ipcMain.handle('download-emulator', async (event, url, userDir) => {
 
     try { unlinkSync(archivePath); } catch (e) { /* ignore */ }
 
-    const findXeniaExe = (dir) => {
-      const entries = readdirSync(dir, { withFileTypes: true });
-      for (const entry of entries) {
-        const fullPath = path.join(dir, entry.name);
-        if (entry.isFile() && entry.name.toLowerCase().startsWith('xenia') && entry.name.toLowerCase().endsWith('.exe')) {
-          return fullPath;
-        }
-        if (entry.isDirectory()) {
-          const found = findXeniaExe(fullPath);
-          if (found) return found;
-        }
-      }
-      return null;
-    };
-
-    const xeniaExePath = findXeniaExe(emulatorDir);
+    const xeniaExePath = findXeniaExe(installDir, { preferCanary });
     mainWindow?.webContents.send('download-progress', 100);
 
     if (xeniaExePath) {
@@ -1205,8 +1244,16 @@ ipcMain.handle('scan-directory', async (event, directoryPath) => {
 ipcMain.handle('launch-game', async (event, emulatorPath, gamePath, config) => {
   return new Promise((resolve, reject) => {
     // Validate emulator path exists
+    if (!emulatorPath || typeof emulatorPath !== 'string') {
+      reject(new Error('No emulator path is set. Open Emulator Setup and choose xenia_canary.exe.'));
+      return;
+    }
     if (!fs.existsSync(emulatorPath)) {
       reject(new Error(`Emulator not found at: ${emulatorPath}`));
+      return;
+    }
+    if (!isValidExecutablePath(emulatorPath)) {
+      reject(new Error(`Emulator path is not a valid .exe: ${emulatorPath}`));
       return;
     }
 

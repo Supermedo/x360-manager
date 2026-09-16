@@ -137,13 +137,17 @@ const EmulatorSetup = ({ onNavigate }) => {
       }
     } catch (error) {
       console.error('Download failed:', error);
-      setDownloadStatus(`Download failed: ${error.message}`);
+      const raw = error?.message || String(error);
+      const friendly = /Access denied|Access is denied|EPERM|EACCES/i.test(raw)
+        ? raw.replace(/^Download failed:\s*/i, '')
+        : `Download failed: ${raw}\n\nIf this keeps happening, close Xenia/RetroBat and pick an empty folder (not your games folder).`;
+      setDownloadStatus(friendly);
       setIsDownloading(false);
 
       window.electronAPI?.showMessageBox({
         type: 'error',
         title: 'Download Failed',
-        message: `Download failed: ${error.message}\n\nPlease check your internet connection and try again.`,
+        message: friendly,
         buttons: ['OK']
       });
     }
