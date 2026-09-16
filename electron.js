@@ -902,8 +902,8 @@ ipcMain.handle('download-emulator', async (event, url, userDir) => {
     }
 
     // Last-chance fallbacks for older bookmarks / broken hardcoded names.
-    if (lower.endsWith('xenia_canary_windows.zip')) {
-      return requestedUrl.replace(/xenia_canary_windows\.zip$/i, 'xenia_canary_windows_.zip');
+    if (/xenia_canary_windows(_)?\.zip$/i.test(lower) || /xenia-canary-releases/i.test(lower)) {
+      return 'https://github.com/xenia-canary/xenia-canary/releases/latest/download/xenia_canary_windows.7z';
     }
     return requestedUrl;
   };
