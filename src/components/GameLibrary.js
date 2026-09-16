@@ -630,6 +630,15 @@ const GameLibrary = ({ onGameSelect, onNavigate, onEnterConsoleMode, suspendGame
       });
     } catch (error) {
       console.error('Launch error:', error);
+      const message = String(error?.message || error || 'Unknown error')
+        .replace(/^Error invoking remote method '[^']+':\s*/i, '')
+        .replace(/^Error:\s*/i, '');
+      window.electronAPI?.showMessageBox({
+        type: 'error',
+        title: 'Launch Failed',
+        message: message || 'Failed to launch the game.',
+        buttons: ['OK']
+      });
     }
   }, [settings, updateGame]);
 

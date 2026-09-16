@@ -16,7 +16,9 @@ const KEY_SECTIONS = {
   vsync: 'Display',
   draw_resolution_scale_x: 'GPU',
   draw_resolution_scale_y: 'GPU',
-  internal_display_resolution: 'Video',
+  // Canary dropped internal_display_resolution; use custom_internal_* instead.
+  custom_internal_display_resolution_x: 'Video',
+  custom_internal_display_resolution_y: 'Video',
   show_profiler: 'UI',
   headless: 'UI',
   mount_cache: 'General',
@@ -206,11 +208,13 @@ const mapLogLevel = (logLevel) => {
   return map[logLevel] ?? 2;
 };
 
+// Canary no longer accepts --internal_display_resolution (instant quit).
+// 1080p uses custom guest framebuffer size; 1440p/4K use draw scale.
 const RESOLUTION_SETTINGS = {
-  '1280x720': { drawScale: 1, internalDisplayResolution: 8 },
-  '1920x1080': { drawScale: 1, internalDisplayResolution: 16 },
-  '2560x1440': { drawScale: 2, internalDisplayResolution: 8 },
-  '3840x2160': { drawScale: 3, internalDisplayResolution: 16 }
+  '1280x720': { drawScale: 1, customWidth: 0, customHeight: 0 },
+  '1920x1080': { drawScale: 1, customWidth: 1920, customHeight: 1080 },
+  '2560x1440': { drawScale: 2, customWidth: 0, customHeight: 0 },
+  '3840x2160': { drawScale: 3, customWidth: 0, customHeight: 0 }
 };
 
 const parseLegacyResolutionScale = (value) => {
@@ -225,7 +229,7 @@ const resolveResolutionSettings = (resolution, resolutionScale) => {
   }
   const legacyScale = parseLegacyResolutionScale(resolutionScale);
   if (legacyScale) {
-    return { drawScale: legacyScale, internalDisplayResolution: null, resolution: null };
+    return { drawScale: legacyScale, customWidth: 0, customHeight: 0, resolution: null };
   }
   return null;
 };
@@ -239,8 +243,9 @@ const getResolutionLaunchArgs = (resolution, resolutionScale) => {
     args.push(`--draw_resolution_scale_x=${resolved.drawScale}`);
     args.push(`--draw_resolution_scale_y=${resolved.drawScale}`);
   }
-  if (resolved.internalDisplayResolution) {
-    args.push(`--internal_display_resolution=${resolved.internalDisplayResolution}`);
+  if (resolved.customWidth > 0 && resolved.customHeight > 0) {
+    args.push(`--custom_internal_display_resolution_x=${resolved.customWidth}`);
+    args.push(`--custom_internal_display_resolution_y=${resolved.customHeight}`);
   }
   return args;
 };
@@ -309,8 +314,13 @@ const buildProfileToml = (settings = {}) => {
       `draw_resolution_scale_x = ${resolution.drawScale}`,
       `draw_resolution_scale_y = ${resolution.drawScale}`
     );
-    if (resolution.internalDisplayResolution) {
-      lines.push('', '[Video]', `internal_display_resolution = ${resolution.internalDisplayResolution}`);
+    if (resolution.customWidth > 0 && resolution.customHeight > 0) {
+      lines.push(
+        '',
+        '[Video]',
+        `custom_internal_display_resolution_x = ${resolution.customWidth}`,
+        `custom_internal_display_resolution_y = ${resolution.customHeight}`
+      );
     }
   }
 
@@ -360,9 +370,15 @@ const applyProfileToConfigFile = (configPath, settings, options = {}) => {
   if (resolution) {
     content = upsertTomlKey(content, 'draw_resolution_scale_x', resolution.drawScale);
     content = upsertTomlKey(content, 'draw_resolution_scale_y', resolution.drawScale);
-    if (resolution.internalDisplayResolution) {
-      content = upsertTomlKey(content, 'internal_display_resolution', resolution.internalDisplayResolution);
+    if (resolution.customWidth > 0 && resolution.customHeight > 0) {
+      content = upsertTomlKey(content, 'custom_internal_display_resolution_x', resolution.customWidth);
+      content = upsertTomlKey(content, 'custom_internal_display_resolution_y', resolution.customHeight);
+    } else {
+      content = upsertTomlKey(content, 'custom_internal_display_resolution_x', 0);
+      content = upsertTomlKey(content, 'custom_internal_display_resolution_y', 0);
     }
+    // Obsolete Canary key — strip so old profiles cannot keep quitting on launch.
+    content = content.replace(/^\s*internal_display_resolution\s*=.*$/gim, '');
   }
 
   content = sanitizeXeniaToml(content);

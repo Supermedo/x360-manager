@@ -5,6 +5,13 @@ All notable changes to X360 Manager will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.11] - 2026-09-16
+
+### Fixed
+- Games closing instantly on Play/Launch — Xenia Canary rejects obsolete `--internal_display_resolution`; 1080p now uses `custom_internal_display_resolution_*`, and higher presets keep draw-scale only
+- Library/console launch failures now show an error dialog instead of failing silently
+- Detect when Xenia exits immediately after spawn and report it to the user
+
 ## [1.6.10] - 2026-09-16
 
 ### Fixed

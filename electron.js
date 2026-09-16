@@ -1413,7 +1413,7 @@ ipcMain.handle('launch-game', async (event, emulatorPath, gamePath, config) => {
 
     const useCustomFpsOverlay = emulatorName.includes('xenia') && wantsFpsOverlay(launchConfig);
 
-    const command = `"${emulatorPath}" ${spawnArgs.join(' ')}`;
+    const command = `"${emulatorPath}" ${spawnArgs.map((a) => (/\s/.test(a) ? `"${a}"` : a)).join(' ')}`;
     console.log('Launching game with command:', command);
     console.log('Spawn args:', spawnArgs);
     if (useCustomFpsOverlay) {
@@ -1423,7 +1423,8 @@ ipcMain.handle('launch-game', async (event, emulatorPath, gamePath, config) => {
     const child = spawn(emulatorPath, spawnArgs, {
       cwd: launchCwd,
       detached: true,
-      stdio: 'ignore'
+      stdio: 'ignore',
+      windowsHide: false
     });
 
     let settled = false;
@@ -1438,30 +1439,59 @@ ipcMain.handle('launch-game', async (event, emulatorPath, gamePath, config) => {
       resolve({ command, pid: child.pid, emulatorRunning: true });
     };
 
+    const failLaunch = (message) => {
+      if (settled) return;
+      settled = true;
+      stopFpsSampler();
+      try {
+        if (child.pid && isPidRunning(child.pid)) {
+          process.kill(child.pid);
+        }
+      } catch {
+        // ignore
+      }
+      reject(new Error(message));
+    };
+
     child.on('error', (error) => {
       console.error('Launch error:', error);
-      stopFpsSampler();
-      if (!settled) {
-        settled = true;
-        reject(new Error(`Failed to launch game: ${error.message}`));
-      }
+      failLaunch(`Failed to launch game: ${error.message}`);
     });
 
-    child.on('exit', () => {
+    child.on('exit', (code, signal) => {
       untrackEmulatorPid(child.pid);
+      // Xenia Canary used to quit instantly on obsolete --internal_display_resolution;
+      // still report any immediate exit so the UI is not silent.
+      if (!settled) {
+        failLaunch(
+          `Xenia closed immediately after start (code ${code ?? 'null'}${signal ? `, signal ${signal}` : ''}). ` +
+            'Try Native 720p preset, or check that the game file path is valid.'
+        );
+      }
     });
 
     child.on('spawn', () => {
-      console.log('Game launched successfully');
-      finishLaunch();
+      console.log('Game process spawned, pid=', child.pid);
+      // Confirm it stays up — obsolete CLI flags used to exit within ~1s with no UI error.
+      setTimeout(() => {
+        if (settled) return;
+        if (!isPidRunning(child.pid)) {
+          failLaunch(
+            'Xenia closed immediately after start. Try Native 720p preset, or check the game file path.'
+          );
+          return;
+        }
+        console.log('Game launched successfully');
+        finishLaunch();
+      }, 1200);
     });
 
     setTimeout(() => {
-      if (!settled && !child.killed && child.exitCode === null) {
-        console.log('Game process started successfully');
+      if (!settled && child.pid && isPidRunning(child.pid)) {
+        console.log('Game process started successfully (timeout confirm)');
         finishLaunch();
       }
-    }, 3000);
+    }, 4000);
   });
 });
 
