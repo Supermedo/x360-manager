@@ -798,9 +798,9 @@ ipcMain.handle('localize-cover-url', async (event, url) => {
   }
 });
 
-// Download emulator — downloads ZIP, extracts to user-chosen location, returns path to xenia.exe
+// Download emulator — downloads archive, extracts to user-chosen location, returns path to xenia.exe
 ipcMain.handle('download-emulator', async (event, url, userDir) => {
-  const { createWriteStream, mkdirSync, readdirSync, unlinkSync } = require('fs');
+  const { createWriteStream, mkdirSync, readdirSync, unlinkSync, openSync, readSync, closeSync } = require('fs');
 
   // Only the official Xenia release hosts — this handler writes an executable to disk.
   const isAllowedEmulatorUrl = (candidate) => {
@@ -809,7 +809,9 @@ ipcMain.handle('download-emulator', async (event, url, userDir) => {
       if (parsed.protocol !== 'https:') return false;
       const host = parsed.hostname.toLowerCase();
       return host === 'github.com'
+        || host === 'api.github.com'
         || host === 'objects.githubusercontent.com'
+        || host === 'release-assets.githubusercontent.com'
         || host.endsWith('.github.com')
         || host.endsWith('.githubusercontent.com');
     } catch {
@@ -817,9 +819,91 @@ ipcMain.handle('download-emulator', async (event, url, userDir) => {
     }
   };
 
-  if (!isAllowedEmulatorUrl(url)) {
-    throw new Error('Refused to download from an untrusted host.');
-  }
+  const fetchGithubJson = (apiUrl) => new Promise((resolve, reject) => {
+    require('https').get(
+      apiUrl,
+      {
+        headers: {
+          'User-Agent': 'X360Manager',
+          Accept: 'application/vnd.github+json'
+        }
+      },
+      (response) => {
+        let body = '';
+        response.on('data', (chunk) => {
+          body += chunk;
+          if (body.length > 2 * 1024 * 1024) {
+            response.destroy();
+            reject(new Error('GitHub API response too large.'));
+          }
+        });
+        response.on('end', () => {
+          if (response.statusCode !== 200) {
+            reject(new Error(`GitHub API failed: HTTP ${response.statusCode}`));
+            return;
+          }
+          try {
+            resolve(JSON.parse(body));
+          } catch (err) {
+            reject(new Error('GitHub API returned invalid JSON.'));
+          }
+        });
+      }
+    ).on('error', reject);
+  });
+
+  /**
+   * Canary asset names keep changing (xenia_canary_windows.zip →
+   * xenia_canary_windows_.zip → xenia_canary_windows.7z). Resolve the real
+   * download URL from the GitHub Releases API instead of a hardcoded filename.
+   */
+  const resolveEmulatorDownloadUrl = async (requestedUrl) => {
+    if (typeof requestedUrl !== 'string' || !requestedUrl.trim()) {
+      throw new Error('Missing emulator download URL.');
+    }
+    if (!isAllowedEmulatorUrl(requestedUrl)) {
+      throw new Error('Refused to download from an untrusted host.');
+    }
+
+    const lower = requestedUrl.toLowerCase();
+    const looksLikeCanary = lower.includes('xenia-canary') || lower.includes('xenia_canary');
+    if (!looksLikeCanary) return requestedUrl;
+
+    const repos = [
+      'xenia-canary/xenia-canary-releases',
+      'xenia-canary/xenia-canary'
+    ];
+
+    const pickAsset = (assets = []) => {
+      const windows = assets.filter((asset) =>
+        /xenia[_-]canary/i.test(asset.name) && /windows/i.test(asset.name)
+      );
+      return (
+        windows.find((asset) => /\.zip$/i.test(asset.name))
+        || windows.find((asset) => /\.7z$/i.test(asset.name))
+        || null
+      );
+    };
+
+    for (const repo of repos) {
+      try {
+        const release = await fetchGithubJson(`https://api.github.com/repos/${repo}/releases/latest`);
+        const asset = pickAsset(release.assets);
+        if (asset?.browser_download_url) {
+          console.log(`[download-emulator] Resolved Canary asset ${asset.name} from ${repo}`);
+          return asset.browser_download_url;
+        }
+      } catch (err) {
+        console.warn(`[download-emulator] Could not query ${repo}:`, err.message);
+      }
+    }
+
+    // Last-chance fallbacks for older bookmarks / broken hardcoded names.
+    if (lower.endsWith('xenia_canary_windows.zip')) {
+      return requestedUrl.replace(/xenia_canary_windows\.zip$/i, 'xenia_canary_windows_.zip');
+    }
+    return requestedUrl;
+  };
 
   // Use user-provided directory, or fall back to portable folder
   let emulatorDir;
@@ -831,20 +915,16 @@ ipcMain.handle('download-emulator', async (event, url, userDir) => {
   }
   mkdirSync(emulatorDir, { recursive: true });
 
-  const zipPath = path.join(emulatorDir, 'xenia_download.zip');
-
   const MAX_EMULATOR_BYTES = 500 * 1024 * 1024;
 
-  // Download with redirect following
-  const download = (downloadUrl) => {
+  const downloadToFile = (downloadUrl, destPath) => {
     return new Promise((resolve, reject) => {
-      const doRequest = (reqUrl, redirectsLeft = 5) => {
+      const doRequest = (reqUrl, redirectsLeft = 8) => {
         if (!isAllowedEmulatorUrl(reqUrl)) {
           reject(new Error('Refused to follow a redirect to an untrusted host.'));
           return;
         }
         require('https').get(reqUrl, { headers: { 'User-Agent': 'X360Manager' } }, (response) => {
-          // Follow redirects
           if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
             if (redirectsLeft <= 0) {
               response.resume();
@@ -857,16 +937,18 @@ ipcMain.handle('download-emulator', async (event, url, userDir) => {
           }
 
           if (response.statusCode !== 200) {
+            response.resume();
             reject(new Error(`Download failed: HTTP ${response.statusCode}`));
             return;
           }
 
           const totalSize = parseInt(response.headers['content-length'], 10) || 0;
           let downloaded = 0;
-          const fileStream = createWriteStream(zipPath);
+          const fileStream = createWriteStream(destPath);
 
           if (totalSize > MAX_EMULATOR_BYTES) {
             response.resume();
+            fileStream.destroy();
             reject(new Error('Emulator download is unexpectedly large; aborting.'));
             return;
           }
@@ -880,7 +962,7 @@ ipcMain.handle('download-emulator', async (event, url, userDir) => {
               return;
             }
             if (totalSize > 0) {
-              const progress = (downloaded / totalSize) * 70; // 70% for download
+              const progress = (downloaded / totalSize) * 70;
               mainWindow?.webContents.send('download-progress', progress);
             }
           });
@@ -888,7 +970,7 @@ ipcMain.handle('download-emulator', async (event, url, userDir) => {
           response.pipe(fileStream);
           fileStream.on('finish', () => {
             fileStream.close();
-            resolve(zipPath);
+            resolve(destPath);
           });
           fileStream.on('error', reject);
         }).on('error', reject);
@@ -897,20 +979,22 @@ ipcMain.handle('download-emulator', async (event, url, userDir) => {
     });
   };
 
-  try {
-    console.log('Downloading emulator from:', url);
-    mainWindow?.webContents.send('download-progress', 5);
-    await download(url);
-    console.log('Download complete, extracting...');
+  const detectArchiveKind = (filePath) => {
+    const header = Buffer.alloc(8);
+    const fd = openSync(filePath, 'r');
+    try {
+      readSync(fd, header, 0, 8, 0);
+    } finally {
+      closeSync(fd);
+    }
+    if (header[0] === 0x50 && header[1] === 0x4b) return 'zip';
+    if (header[0] === 0x37 && header[1] === 0x7a && header[2] === 0xbc && header[3] === 0xaf) return '7z';
+    return null;
+  };
 
-    mainWindow?.webContents.send('download-progress', 75);
-
-    // Extract in-process. Shelling out to Expand-Archive meant the destination
-    // path was interpolated into a PowerShell command line.
+  const extractZipArchive = (archivePath, extractRoot) => {
     const AdmZip = require('adm-zip');
-    const zip = new AdmZip(zipPath);
-    const extractRoot = path.resolve(emulatorDir);
-
+    const zip = new AdmZip(archivePath);
     for (const entry of zip.getEntries()) {
       const target = path.resolve(extractRoot, entry.entryName);
       if (!isPathInside(target, extractRoot)) {
@@ -924,14 +1008,75 @@ ipcMain.handle('download-emulator', async (event, url, userDir) => {
       fs.mkdirSync(path.dirname(target), { recursive: true });
       fs.writeFileSync(target, entry.getData());
     }
+  };
+
+  const extract7zArchive = (archivePath, extractRoot) => {
+    // Use the bundled 7za binary with argv (no shell) so paths cannot inject commands.
+    const sevenBin = require('7zip-bin');
+    const sevenZa = sevenBin.path7za;
+    if (!sevenZa || !fs.existsSync(sevenZa)) {
+      throw new Error('7-Zip extractor is missing from this install.');
+    }
+    execFileSync(
+      sevenZa,
+      ['x', archivePath, `-o${extractRoot}`, '-y', '-bso0', '-bsp0'],
+      { stdio: ['ignore', 'ignore', 'pipe'], windowsHide: true, timeout: 120000 }
+    );
+
+    // Reject any extracted path that escaped the destination (paranoia for crafted archives).
+    const walk = (dir) => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const fullPath = path.join(dir, entry.name);
+        if (!isPathInside(fullPath, extractRoot)) {
+          throw new Error('Archive contained a path outside the install folder.');
+        }
+        if (entry.isDirectory()) walk(fullPath);
+      }
+    };
+    walk(extractRoot);
+  };
+
+  try {
+    const resolvedUrl = await resolveEmulatorDownloadUrl(url);
+    if (!isAllowedEmulatorUrl(resolvedUrl)) {
+      throw new Error('Refused to download from an untrusted host.');
+    }
+
+    const archiveName = (() => {
+      try {
+        const base = path.basename(new URL(resolvedUrl).pathname);
+        if (/\.(zip|7z)$/i.test(base)) return base;
+      } catch {
+        /* fall through */
+      }
+      return 'xenia_download.bin';
+    })();
+    const archivePath = path.join(emulatorDir, archiveName);
+
+    console.log('Downloading emulator from:', resolvedUrl);
+    mainWindow?.webContents.send('download-progress', 5);
+    await downloadToFile(resolvedUrl, archivePath);
+    console.log('Download complete, extracting...');
+
+    mainWindow?.webContents.send('download-progress', 75);
+
+    const kind = detectArchiveKind(archivePath);
+    const extractRoot = path.resolve(emulatorDir);
+    if (kind === 'zip') {
+      extractZipArchive(archivePath, extractRoot);
+    } else if (kind === '7z') {
+      extract7zArchive(archivePath, extractRoot);
+    } else {
+      throw new Error(
+        'Downloaded file is not a valid Xenia archive (expected .zip or .7z). The release URL may have changed.'
+      );
+    }
     console.log('Extraction complete');
 
     mainWindow?.webContents.send('download-progress', 95);
 
-    // Clean up the ZIP file
-    try { unlinkSync(zipPath); } catch (e) { /* ignore */ }
+    try { unlinkSync(archivePath); } catch (e) { /* ignore */ }
 
-    // Find the xenia*.exe in the extracted directory
     const findXeniaExe = (dir) => {
       const entries = readdirSync(dir, { withFileTypes: true });
       for (const entry of entries) {
@@ -953,10 +1098,10 @@ ipcMain.handle('download-emulator', async (event, url, userDir) => {
     if (xeniaExePath) {
       console.log('Found Xenia at:', xeniaExePath);
       return { success: true, path: xeniaExePath };
-    } else {
-      console.error('Could not find xenia.exe in extracted files');
-      return { success: false, error: 'Could not find xenia.exe in the extracted files' };
     }
+
+    console.error('Could not find xenia.exe in extracted files');
+    return { success: false, error: 'Could not find xenia.exe in the extracted files' };
   } catch (error) {
     console.error('Download/extract failed:', error);
     throw error;

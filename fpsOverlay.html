@@ -135,8 +135,9 @@
             mandatory: {
               chromeMediaSource: 'desktop',
               chromeMediaSourceId: sourceId,
-              maxWidth: 320,
-              maxHeight: 180,
+              maxWidth: 640,
+              maxHeight: 360,
+              minFrameRate: 60,
               maxFrameRate: 240
             }
           }
@@ -144,7 +145,20 @@
         video.srcObject = stream;
         await video.play();
 
-        stream.getVideoTracks()[0].addEventListener('ended', showWaiting);
+        const track = stream.getVideoTracks()[0];
+        if (track) {
+          try {
+            track.contentHint = 'motion';
+            await track.applyConstraints({
+              frameRate: { ideal: 120, max: 240 },
+              width: { ideal: 640, max: 1280 },
+              height: { ideal: 360, max: 720 }
+            });
+          } catch {
+            /* Some Chromium builds ignore extra constraints on desktop capture. */
+          }
+          track.addEventListener('ended', showWaiting);
+        }
 
         if (video.requestVideoFrameCallback) {
           rvfcHandle = video.requestVideoFrameCallback(onVideoFrame);

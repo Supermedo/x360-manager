@@ -39,6 +39,7 @@ const EmulatorSetup = ({ onNavigate }) => {
       name: 'Xenia Canary (Development)',
       description: 'Required for gamer profiles / Xbox Live accounts, patches, and newest fixes',
       size: '~55 MB',
+      // Filename is resolved at download time (GitHub renamed zip → zip_ → 7z).
       url: 'https://github.com/xenia-canary/xenia-canary-releases/releases/latest/download/xenia_canary_windows.zip',
       recommended: false,
       configPath: 'Same directory as xenia_canary.exe (portable)',

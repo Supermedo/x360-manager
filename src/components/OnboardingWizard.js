@@ -19,6 +19,7 @@ const EMULATOR_VERSIONS = [
     id: 'canary',
     name: 'Xenia Canary',
     description: 'Profiles, patches, latest fixes (recommended).',
+    // Actual Canary asset name is resolved at download time (zip / zip_ / 7z).
     url: 'https://github.com/xenia-canary/xenia-canary-releases/releases/latest/download/xenia_canary_windows.zip'
   },
   {

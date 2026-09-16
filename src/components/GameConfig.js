@@ -1523,7 +1523,7 @@ const GameConfig = ({ game, onNavigate, onRegisterBack }) => {
               Show FPS Counter (X360 Manager overlay)
             </label>
             <p style={{ color: 'var(--text-secondary)', fontSize: '12px', marginTop: '6px', marginLeft: '28px' }}>
-              Shows a custom FPS overlay built into X360 Manager while the game runs. Enable in Settings or per-game, then launch.
+              Shows X360 Manager&apos;s capture-based FPS overlay while the game runs. Many Xbox 360 titles are native 30 FPS, and Windows window capture often caps near 30 even when Xenia is faster — use Xenia&apos;s F3 profiler for the true render rate.
             </p>
           </div>
 

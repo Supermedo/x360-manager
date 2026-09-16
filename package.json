@@ -1,6 +1,6 @@
 {
   "name": "x360-manager",
-  "version": "1.6.7",
+  "version": "1.6.8",
   "description": "A modern game manager for Xbox 360 emulation with download and configuration features",
   "author": "X360 Team",
   "main": "electron.js",
@@ -11,6 +11,7 @@
     "url": "https://github.com/Supermedo/x360-manager.git"
   },
   "dependencies": {
+    "7zip-bin": "^5.2.0",
     "adm-zip": "^0.5.16",
     "crc-32": "^1.2.2",
     "electron-is-dev": "^2.0.0",
@@ -101,6 +102,9 @@
       "!**/{__pycache__,thumbs.db,.flowconfig,.idea,.vs,.nyc_output}",
       "!**/{appveyor.yml,.travis.yml,circle.yml}",
       "!**/{npm-debug.log,yarn.lock,.yarn-integrity,.yarn-metadata.json}"
+    ],
+    "asarUnpack": [
+      "node_modules/7zip-bin/**"
     ],
     "extraMetadata": {
       "main": "electron.js"
